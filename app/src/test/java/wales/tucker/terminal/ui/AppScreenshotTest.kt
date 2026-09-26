@@ -135,6 +135,14 @@ class AppScreenshotTest {
         captureScreenRoboImage("build/screenshots/$name.png")
     }
 
+    private fun findTerminalView(v: android.view.View): wales.tucker.terminal.ui.terminal.TerminalView? {
+        if (v is wales.tucker.terminal.ui.terminal.TerminalView) return v
+        if (v is android.view.ViewGroup) {
+            for (i in 0 until v.childCount) findTerminalView(v.getChildAt(i))?.let { return it }
+        }
+        return null
+    }
+
     @Test
     fun endToEndTerminalSession() {
         val host = System.getenv("SSH_TEST_HOST")
@@ -175,6 +183,17 @@ class AppScreenshotTest {
 
         val session = container.sessionManager.sessions.value.first()
         pollUntil("connected") { session.state.value == SessionState.Connected }
+
+        // Type through the view's InputConnection, the way a soft keyboard does: text, a typo
+        // corrected with backspace, and Enter.
+        val view = findTerminalView(compose.activity.window.decorView)!!
+        val ic = view.onCreateInputConnection(android.view.inputmethod.EditorInfo())
+        ic.commitText("echo ime-\$((6*7))x", 1)
+        ic.deleteSurroundingText(1, 0)
+        ic.commitText("\n", 1)
+        pollUntil("typed command output") {
+            synchronized(session.emulator) { session.emulator.screenText().lines().any { it.trim() == "ime-42" } }
+        }
 
         val script = listOf(
             "clear",

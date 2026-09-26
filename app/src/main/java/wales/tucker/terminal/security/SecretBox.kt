@@ -13,9 +13,9 @@ import javax.crypto.spec.GCMParameterSpec
  * Encrypts secrets (passwords, private keys) with an AES-256-GCM key that lives in the Android
  * Keystore and never leaves it. Ciphertexts are Base64 strings of IV || ciphertext.
  */
-class SecretBox(private val alias: String = "terminal_master_key") {
+open class SecretBox(private val alias: String = "terminal_master_key") {
 
-    private val keyStore: KeyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+    private val keyStore: KeyStore by lazy { KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) } }
 
     @Synchronized
     private fun key(): SecretKey {
@@ -31,7 +31,7 @@ class SecretBox(private val alias: String = "terminal_master_key") {
         return generator.generateKey()
     }
 
-    fun encrypt(plain: ByteArray): String {
+    open fun encrypt(plain: ByteArray): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val iv = cipher.iv
@@ -39,7 +39,7 @@ class SecretBox(private val alias: String = "terminal_master_key") {
         return Base64.encodeToString(iv + out, Base64.NO_WRAP)
     }
 
-    fun decrypt(encoded: String): ByteArray {
+    open fun decrypt(encoded: String): ByteArray {
         val data = Base64.decode(encoded, Base64.NO_WRAP)
         val iv = data.copyOfRange(0, IV_SIZE)
         val cipher = Cipher.getInstance(TRANSFORMATION)

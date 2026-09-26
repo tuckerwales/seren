@@ -54,7 +54,7 @@ object SshKeys {
         try {
             if (kp.isEncrypted) {
                 if (passphrase.isNullOrEmpty()) throw PassphraseRequiredException()
-                if (!kp.decrypt(passphrase)) throw WrongPassphraseException()
+                if (!kp.decrypt(passphrase.toByteArray(Charsets.UTF_8))) throw WrongPassphraseException()
             }
             return toMaterial(kp, comment.ifBlank { kp.publicKeyComment ?: "" })
         } finally {

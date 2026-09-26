@@ -156,7 +156,7 @@ class SshConnection(
             s.setServerAliveInterval(target.keepAliveSeconds * 1000)
             s.setServerAliveCountMax(4)
         }
-        target.password?.let { s.setPassword(it) }
+        target.password?.let { s.setPassword(it.toByteArray(Charsets.UTF_8)) }
         if (target.privateKey != null) {
             s.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password")
             // Identities are per JSch instance; name them per target to avoid clashes with the jump host.

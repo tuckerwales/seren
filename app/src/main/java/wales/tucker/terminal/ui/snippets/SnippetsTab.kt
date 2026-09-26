@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -26,6 +26,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,7 @@ import wales.tucker.terminal.data.Snippet
 import wales.tucker.terminal.ui.common.Avatar
 import wales.tucker.terminal.ui.common.EmptyState
 import wales.tucker.terminal.ui.common.containerViewModel
+import wales.tucker.terminal.ui.common.groupedShape
 import wales.tucker.terminal.ui.theme.MonoSmall
 
 class SnippetsViewModel(private val container: AppContainer) : ViewModel() {
@@ -91,8 +94,8 @@ fun SnippetsTab() {
                 )
             }
         } else {
-            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
-                items(snippets, key = { it.id }) { s ->
+            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
+                itemsIndexed(snippets, key = { _, s -> s.id }) { index, s ->
                     ListItem(
                         headlineContent = { Text(s.name) },
                         supportingContent = { Text(s.command, style = MonoSmall, maxLines = 3, overflow = TextOverflow.Ellipsis) },
@@ -103,7 +106,11 @@ fun SnippetsTab() {
                                 IconButton(onClick = { vm.delete(s) }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete") }
                             }
                         },
-                        modifier = Modifier.clickable { editing = s },
+                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 1.dp)
+                            .clip(groupedShape(index, snippets.size))
+                            .clickable { editing = s },
                     )
                 }
             }

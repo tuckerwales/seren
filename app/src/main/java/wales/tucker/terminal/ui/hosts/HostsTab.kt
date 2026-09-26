@@ -1,8 +1,9 @@
 package wales.tucker.terminal.ui.hosts
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,6 +35,7 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VpnKey
@@ -45,14 +50,17 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +68,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -85,6 +97,7 @@ import wales.tucker.terminal.ui.common.EmptyState
 import wales.tucker.terminal.ui.common.SectionHeader
 import wales.tucker.terminal.ui.common.StatusDot
 import wales.tucker.terminal.ui.common.containerViewModel
+import wales.tucker.terminal.ui.common.groupedShape
 import wales.tucker.terminal.ui.common.relativeTime
 import wales.tucker.terminal.ui.theme.MonoSmall
 import wales.tucker.terminal.ui.theme.hostColor
@@ -118,6 +131,8 @@ fun HostsTab(
     var searching by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Host?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val listState = rememberLazyListState()
+    val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
 
     val filtered = remember(hosts, query) {
         if (query.isBlank()) hosts else hosts.filter {
@@ -133,13 +148,17 @@ fun HostsTab(
             TopAppBar(
                 title = {
                     if (searching) {
-                        OutlinedTextField(
+                        val focus = remember { FocusRequester() }
+                        LaunchedEffect(Unit) { focus.requestFocus() }
+                        TextField(
                             value = query,
                             onValueChange = { query = it },
                             placeholder = { Text("Search hosts") },
+                            leadingIcon = { Icon(Icons.Rounded.Search, null) },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
-                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier.fillMaxWidth().padding(end = 4.dp).focusRequester(focus),
+                            shape = CircleShape,
+                            colors = pillFieldColors(MaterialTheme.colorScheme.surfaceContainerHigh),
                         )
                     } else {
                         Text("Terminal", fontWeight = FontWeight.SemiBold)
@@ -150,24 +169,28 @@ fun HostsTab(
                         searching = !searching
                         if (!searching) query = ""
                     }) {
-                        Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, contentDescription = "Search")
+                        Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, contentDescription = if (searching) "Close search" else "Search")
                     }
                 },
                 scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(scrolledContainerColor = MaterialTheme.colorScheme.surface),
                 windowInsets = WindowInsets.statusBars,
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            // The empty state has its own add button.
+            if (hosts.isNotEmpty()) ExtendedFloatingActionButton(
                 onClick = { onEditHost(null, false) },
                 icon = { Icon(Icons.Rounded.Add, null) },
                 text = { Text("New host") },
+                expanded = fabExpanded,
             )
         },
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
+            state = listState,
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
             if (!searching) {
@@ -207,10 +230,13 @@ fun HostsTab(
                 }
             }
             grouped.forEach { (group, list) ->
-                item(key = "header-$group") { SectionHeader(group.ifEmpty { if (grouped.size > 1) "Other" else "Hosts" }) }
-                items(list, key = { it.id }) { host ->
+                item(key = "header-$group") {
+                    SectionHeader(group.ifEmpty { if (grouped.size > 1) "Other" else "Hosts" }, trailing = list.size.toString())
+                }
+                itemsIndexed(list, key = { _, host -> host.id }) { index, host ->
                     HostRow(
                         host = host,
+                        shape = groupedShape(index, list.size),
                         activeCount = sessions.count { it.spec.hostId == host.id },
                         onClick = { onConnect(host) },
                         onEdit = { onEditHost(host.id, false) },
@@ -252,38 +278,68 @@ private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit) {
     }
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = RoundedCornerShape(28.dp),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Bolt, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                Spacer(Modifier.width(8.dp))
-                Text("Quick connect", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it; error = false },
-                    placeholder = { Text("user@host:port", style = MonoSmall) },
-                    singleLine = true,
-                    isError = error,
-                    supportingText = if (error) ({ Text("Use the form user@host or user@host:port") }) else null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go, autoCorrectEnabled = false),
-                    keyboardActions = KeyboardActions(onGo = { submit() }),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    textStyle = MaterialTheme.typography.bodyLarge.merge(MonoSmall.copy(fontSize = MaterialTheme.typography.bodyLarge.fontSize)),
-                )
-                Spacer(Modifier.width(8.dp))
-                FilledIconButton(onClick = { submit() }, modifier = Modifier.size(52.dp)) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "Connect")
+                Box(
+                    Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.Bolt, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Quick connect", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Connect once without saving a host",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
+            Spacer(Modifier.height(14.dp))
+            TextField(
+                value = text,
+                onValueChange = { text = it; error = false },
+                placeholder = { Text("user@host:port", style = monoField, color = MaterialTheme.colorScheme.outline) },
+                singleLine = true,
+                isError = error,
+                supportingText = if (error) ({ Text("Use the form user@host or user@host:port") }) else null,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go, autoCorrectEnabled = false),
+                keyboardActions = KeyboardActions(onGo = { submit() }),
+                trailingIcon = {
+                    FilledIconButton(
+                        onClick = { submit() },
+                        enabled = text.isNotBlank(),
+                        modifier = Modifier.padding(end = 6.dp).size(44.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "Connect")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = CircleShape,
+                textStyle = monoField,
+                colors = pillFieldColors(MaterialTheme.colorScheme.surfaceContainerHighest),
+            )
         }
     }
 }
+
+private val monoField @Composable get() = MonoSmall.copy(fontSize = MaterialTheme.typography.bodyLarge.fontSize)
+
+/** Borderless, filled text field colors for pill shaped inputs. */
+@Composable
+private fun pillFieldColors(container: Color) = TextFieldDefaults.colors(
+    focusedContainerColor = container,
+    unfocusedContainerColor = container,
+    errorContainerColor = container,
+    focusedIndicatorColor = Color.Transparent,
+    unfocusedIndicatorColor = Color.Transparent,
+    errorIndicatorColor = Color.Transparent,
+    disabledIndicatorColor = Color.Transparent,
+)
 
 @Composable
 private fun SessionCard(session: TerminalSession, onClick: () -> Unit, onClose: () -> Unit) {
@@ -331,6 +387,7 @@ fun stateLabel(state: SessionState): String = when (state) {
 @Composable
 private fun HostRow(
     host: Host,
+    shape: Shape,
     activeCount: Int,
     onClick: () -> Unit,
     onEdit: () -> Unit,
@@ -340,25 +397,29 @@ private fun HostRow(
     var menu by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 1.dp)
             .fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onClick)
-            .padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Avatar(host.displayName, hostColor(host.color))
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     host.displayName,
                     style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (activeCount > 0) {
                     Spacer(Modifier.width(8.dp))
-                    StatusDot(Color(0xFF2FBF71))
+                    StatusDot(stateColor(SessionState.Connected))
                 }
                 if (host.authType == AuthType.KEY) {
                     Spacer(Modifier.width(6.dp))
@@ -372,16 +433,21 @@ private fun HostRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            AnimatedVisibility(host.lastConnectedAt > 0) {
-                Text(
-                    "Last connected ${relativeTime(host.lastConnectedAt).lowercase()}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                )
+            if (host.lastConnectedAt > 0) {
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.History, null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        relativeTime(host.lastConnectedAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
             }
         }
         IconButton(onClick = { menu = true }) {
-            Icon(Icons.Rounded.MoreVert, contentDescription = "More")
+            Icon(Icons.Rounded.MoreVert, contentDescription = "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text("Edit") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; onEdit() })
                 DropdownMenuItem(text = { Text("Duplicate") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { menu = false; onDuplicate() })

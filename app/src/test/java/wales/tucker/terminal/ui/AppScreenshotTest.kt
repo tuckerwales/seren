@@ -110,6 +110,19 @@ class AppScreenshotTest {
         shot("06_host_editor")
     }
 
+    @Test
+    fun darkTheme() {
+        runBlocking { container.settings.setThemeMode(wales.tucker.terminal.data.ThemeMode.DARK) }
+        try {
+            seed()
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("web-01").fetchSemanticsNodes().isNotEmpty() }
+            shot("02_hosts_dark")
+        } finally {
+            // Settings outlive the test, so put the theme back for the others.
+            runBlocking { container.settings.setThemeMode(wales.tucker.terminal.data.ThemeMode.SYSTEM) }
+        }
+    }
+
     /**
      * Polls [condition] while advancing the Compose clock manually. Used once text fields or
      * spinners are on screen, whose infinite animations never let Compose report idle.

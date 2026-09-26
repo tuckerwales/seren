@@ -48,13 +48,31 @@ inline fun <reified VM : ViewModel> containerViewModel(
 }
 
 @Composable
-fun SectionHeader(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp),
-    )
+fun SectionHeader(text: String, modifier: Modifier = Modifier, trailing: String? = null) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        if (trailing != null) {
+            Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+        }
+    }
+}
+
+/**
+ * Shape for item [index] of a [count] item group drawn as separate tiles: large corners on the
+ * outside of the group, small ones between neighbours.
+ */
+fun groupedShape(index: Int, count: Int, outer: Dp = 20.dp, inner: Dp = 6.dp): RoundedCornerShape {
+    val top = if (index == 0) outer else inner
+    val bottom = if (index == count - 1) outer else inner
+    return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
 }
 
 @Composable

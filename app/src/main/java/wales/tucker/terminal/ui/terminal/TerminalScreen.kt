@@ -424,6 +424,7 @@ private fun TerminalContent(
             ) {
                 DisconnectedBar(
                     reason = (state as? SessionState.Disconnected)?.reason ?: "",
+                    bg = bg,
                     fg = fg,
                     accent = accent,
                     onReconnect = { session.reconnect() },
@@ -578,8 +579,9 @@ private fun ConnectionOverlay(
 }
 
 @Composable
-private fun DisconnectedBar(reason: String, fg: Color, accent: Color, onReconnect: () -> Unit, onClose: () -> Unit) {
-    Surface(color = lerpColor(Color.Black, fg, 0.12f), modifier = Modifier.fillMaxWidth()) {
+private fun DisconnectedBar(reason: String, bg: Color, fg: Color, accent: Color, onReconnect: () -> Unit, onClose: () -> Unit) {
+    // A tint of the terminal's own background, so the bar suits light schemes as well as dark.
+    Surface(color = lerpColor(bg, fg, 0.12f), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.LinkOff, null, tint = fg.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(10.dp))

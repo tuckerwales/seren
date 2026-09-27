@@ -21,6 +21,10 @@ Every app makes the same promises:
   <img src="edit/docs/screenshots/01_files.png" width="200" alt="Seren Edit files">
   <img src="edit/docs/screenshots/03_editor.png" width="200" alt="Seren Edit editor">
 </p>
+<p>
+  <img src="auth/docs/screenshots/01_accounts.png" width="200" alt="Seren Auth accounts">
+  <img src="auth/docs/screenshots/03_editor.png" width="200" alt="Seren Auth account editor">
+</p>
 
 ## Apps
 
@@ -28,6 +32,7 @@ Every app makes the same promises:
 | --- | --- | --- | --- |
 | **[Seren SSH](ssh)** | [`ssh`](ssh) | `wales.tucker.seren.ssh` | Ready for daily use |
 | **[Seren Edit](edit)** | [`edit`](edit) | `wales.tucker.seren.edit` | Early days — edits well; no syntax highlighting or search yet |
+| **[Seren Auth](auth)** | [`auth`](auth) | `wales.tucker.seren.auth` | New: codes, scanning, backup and import all work |
 | **[Seren Core](core)** | [`core`](core) | `wales.tucker.seren.core` | Shared theme, components, fonts and security helpers |
 
 ### Seren SSH
@@ -47,6 +52,15 @@ of encodings and line endings. No storage or network permission — it only reac
 
 → Full features, architecture and tests: [`edit/README.md`](edit/README.md)
 
+### Seren Auth
+
+A modern, fast and easy to use authenticator for two-factor sign in codes. Time and counter based
+codes, QR scanning with the camera or from an image, Google Authenticator transfer codes, encrypted
+backups, and import from Aegis and andOTP. It has no network permission at all, and setup keys are
+encrypted with the Android Keystore.
+
+→ Full features, architecture and tests: [`auth/README.md`](auth/README.md)
+
 ## Repository layout
 
 ```
@@ -54,6 +68,7 @@ seren/
 ├── core/          Seren Core (shared library)
 ├── ssh/           Seren SSH
 ├── edit/          Seren Edit
+├── auth/          Seren Auth
 ├── docs/BRAND.md  Brand and design guide for the suite
 └── README.md      This file
 ```
@@ -70,6 +85,7 @@ Requirements: JDK 17 or newer and the Android SDK (platform 36).
 ./gradlew assembleDebug          # every app
 ./gradlew :ssh:assembleDebug     # Seren SSH only  → ssh/build/outputs/apk/debug/
 ./gradlew :edit:assembleDebug    # Seren Edit only → edit/build/outputs/apk/debug/
+./gradlew :auth:assembleDebug    # Seren Auth only → auth/build/outputs/apk/debug/
 ./gradlew assembleRelease        # minified release APKs (debug-signed until you add signing config)
 ./gradlew testDebugUnitTest      # every module’s tests
 ```

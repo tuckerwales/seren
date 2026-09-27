@@ -60,6 +60,15 @@ jobs:
             edit/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
+      - name: Upload Seren Auth APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: seren-auth
+          path: |
+            auth/build/outputs/apk/debug/*.apk
+            auth/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
       - name: Upload test reports and screenshots
         if: always()
         uses: actions/upload-artifact@v4

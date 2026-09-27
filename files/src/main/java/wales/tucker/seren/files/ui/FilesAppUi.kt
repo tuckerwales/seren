@@ -27,20 +27,27 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.ui.LocalMessenger
 import wales.tucker.seren.core.ui.LockScreen
 import wales.tucker.seren.core.ui.Messenger
+import wales.tucker.seren.files.RevealRequest
 import wales.tucker.seren.files.data.Settings
 import wales.tucker.seren.files.fs.AndroidStorage
+import wales.tucker.seren.files.fs.Reveal
 import wales.tucker.seren.files.ui.folder.FolderScreen
 import wales.tucker.seren.files.ui.home.HomeScreen
 import java.io.File
 
 object Routes {
     const val HOME = "home"
-    const val FOLDER = "folder?path={path}&search={search}"
+    const val FOLDER = "folder?path={path}&search={search}&highlight={highlight}"
 
-    fun folder(path: String, search: Boolean = false) = "folder?path=${android.net.Uri.encode(path)}&search=$search"
+    /** [highlight] names an item to scroll to and pick out, for "Show in Seren Files". */
+    fun folder(path: String, search: Boolean = false, highlight: String? = null) =
+        "folder?path=${android.net.Uri.encode(path)}&search=$search&highlight=${android.net.Uri.encode(highlight.orEmpty())}"
 }
 
 /** Whether Seren Files may use shared storage, and how to ask. Rechecked each time the app resumes. */
@@ -52,7 +59,7 @@ val LocalStorageAccess = staticCompositionLocalOf { StorageAccessState(granted =
 class Navigator(val openFolder: (File) -> Unit, val search: (File) -> Unit, val back: () -> Unit)
 
 @Composable
-fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit) {
+fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveals: Channel<RevealRequest> = Channel()) {
     // The nav controller and the screens' saveable state live above the lock check, so unlocking
     // returns to the screen that was open.
     val navController = rememberNavController()
@@ -95,6 +102,25 @@ fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit) {
         LaunchedEffect(Unit) {
             container.operations.messages.collect { messenger.show(it.text, it.action, it.onAction) }
         }
+        // Another Seren app asked to show a file: open its folder with it picked out.
+        LaunchedEffect(Unit) {
+            for (request in reveals) {
+                val file = withContext(Dispatchers.IO) {
+                    Reveal.locate(context, request.uri, container.storage.volumes(), request.displayName)
+                }
+                val name = request.displayName ?: file?.name ?: "that file"
+                val folder = file?.parentFile
+                if (file == null || folder == null) {
+                    messenger.show("Seren Files couldn't find where $name is")
+                    continue
+                }
+                val there = withContext(Dispatchers.IO) { file.exists() }
+                withContext(Dispatchers.Main) {
+                    navController.navigate(Routes.folder(folder.path, highlight = file.name))
+                    if (!there) messenger.show("$name isn't in ${folder.name} any more")
+                }
+            }
+        }
         stateHolder.SaveableStateProvider("app") {
             AppNavHost(navController, settings)
         }
@@ -126,6 +152,7 @@ private fun AppNavHost(navController: NavHostController, settings: Settings) {
             arguments = listOf(
                 navArgument("path") { type = NavType.StringType },
                 navArgument("search") { type = NavType.BoolType; defaultValue = false },
+                navArgument("highlight") { type = NavType.StringType; defaultValue = "" },
             ),
         ) { entry ->
             val path = entry.arguments?.getString("path").orEmpty()
@@ -134,6 +161,7 @@ private fun AppNavHost(navController: NavHostController, settings: Settings) {
                 startSearching = entry.arguments?.getBoolean("search") ?: false,
                 settings = settings,
                 onClose = { navController.popBackStack() },
+                highlight = entry.arguments?.getString("highlight")?.ifEmpty { null },
             )
         }
     }

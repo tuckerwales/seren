@@ -1,5 +1,7 @@
 package wales.tucker.seren.ssh.ui.settings
 
+import android.net.Uri
+import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,9 +51,11 @@ import wales.tucker.seren.core.ui.AppearanceSection
 import wales.tucker.seren.core.ui.CORE_LICENSES
 import wales.tucker.seren.core.ui.ColorSchemePicker
 import wales.tucker.seren.core.ui.NavRow
+import wales.tucker.seren.core.ui.NewBackupPasswordDialog
 import wales.tucker.seren.core.ui.SectionHeader
 import wales.tucker.seren.core.ui.SwitchRow
 import wales.tucker.seren.core.ui.TextSizeSetting
+import wales.tucker.seren.core.ui.UnlockBackupDialog
 import wales.tucker.seren.ssh.BuildConfig
 import wales.tucker.seren.ssh.MainActivity
 import wales.tucker.seren.ssh.data.Backup
@@ -68,17 +72,50 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showAbout by remember { mutableStateOf(false) }
-    val backup = remember(container) { Backup(container.database) }
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) scope.launch {
-            val message = runCatching {
-                val json = backup.export()
+    val backup = remember(container) { Backup(container.database, container.secretBox) }
+    // The password chosen for "Export everything", held only until the file is written.
+    var exportPassword by remember { mutableStateOf<CharArray?>(null) }
+    var askExportPassword by remember { mutableStateOf(false) }
+    var unlock by remember { mutableStateOf<UnlockState?>(null) }
+
+    fun importMessage(r: Backup.ImportResult) = buildString {
+        append("Imported ${r.hosts} host${if (r.hosts == 1) "" else "s"}")
+        if (r.keys > 0) append(", ${r.keys} key${if (r.keys == 1) "" else "s"}")
+        append(" and ${r.snippets} snippet${if (r.snippets == 1) "" else "s"}")
+        if (r.skipped > 0) append(", skipped ${r.skipped} already here")
+    }
+
+    /** Writes a backup to [uri]: with [password], everything, encrypted; without, hosts and snippets. */
+    fun export(uri: Uri, password: CharArray?) {
+        scope.launch {
+            val message = try {
+                val json = withContext(Dispatchers.Default) { backup.export(password) }
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } ?: error("Cannot write the file")
                 }
-                "Hosts and snippets exported"
-            }.getOrElse { "Export failed: ${it.message}" }
+                if (password != null) "Hosts, keys, passwords and snippets exported" else "Hosts and snippets exported"
+            } catch (e: Exception) {
+                "Export failed: ${e.message}"
+            } finally {
+                password?.fill(' ')
+            }
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) export(uri, password = null)
+    }
+    val exportEverythingLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        val password = exportPassword
+        exportPassword = null
+        when {
+            uri == null -> password?.fill(' ')
+            // The password is never saved, so it's gone if Android restarted the app meanwhile.
+            password == null -> {
+                runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                Toast.makeText(context, "Export stopped. Choose a password again to export everything.", Toast.LENGTH_LONG).show()
+            }
+            else -> export(uri, password)
         }
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -87,13 +124,32 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
                 val json = withContext(Dispatchers.IO) {
                     context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("Cannot read the file")
                 }
-                val r = backup.import(json)
-                buildString {
-                    append("Imported ${r.hosts} host${if (r.hosts == 1) "" else "s"} and ${r.snippets} snippet${if (r.snippets == 1) "" else "s"}")
-                    if (r.skipped > 0) append(", skipped ${r.skipped} already here")
+                if (backup.isEncrypted(json)) {
+                    unlock = UnlockState(json)
+                    return@launch
                 }
+                importMessage(backup.import(json))
             }.getOrElse { "Import failed: ${it.message}" }
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun unlockBackup(password: CharArray) {
+        val state = unlock ?: return
+        unlock = state.copy(working = true, error = null)
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.Default) { backup.import(state.json, password) }
+                unlock = null
+                Toast.makeText(context, importMessage(result), Toast.LENGTH_LONG).show()
+            } catch (e: Backup.WrongPasswordException) {
+                unlock = state.copy(working = false, error = e.message)
+            } catch (e: Exception) {
+                unlock = null
+                Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                password.fill(' ')
+            }
         }
     }
 
@@ -199,13 +255,43 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
             NavRow("Export hosts and snippets", "Passwords and keys are not included") {
                 exportLauncher.launch("seren-ssh-backup.json")
             }
-            NavRow("Import hosts and snippets", "Adds them alongside the ones already here") {
+            NavRow("Export everything", "Hosts, snippets, saved passwords and keys, protected by a password you choose") {
+                // With app lock on, the keys only leave after people prove it's them (as in Seren Auth).
+                val activity = context as? MainActivity
+                if (settings.appLock && activity != null && activity.canAuthenticate()) {
+                    activity.authenticate { ok -> if (ok) askExportPassword = true }
+                } else {
+                    askExportPassword = true
+                }
+            }
+            NavRow("Import a backup", "Adds hosts, keys and snippets alongside the ones already here") {
                 importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
             }
 
             SectionHeader("About")
             NavRow("Seren SSH ${BuildConfig.VERSION_NAME}", "Open source licenses") { showAbout = true }
         }
+    }
+
+    if (askExportPassword) {
+        NewBackupPasswordDialog(
+            message = "The backup holds your private keys and saved passwords. You'll need this password to import it, and if you forget it, the backup can't be opened.",
+            onExport = { password ->
+                askExportPassword = false
+                exportPassword = password
+                exportEverythingLauncher.launch("seren-ssh-backup.json")
+            },
+            onDismiss = { askExportPassword = false },
+        )
+    }
+    unlock?.let { state ->
+        UnlockBackupDialog(
+            message = "This Seren SSH backup is encrypted. Enter the password it was exported with.",
+            onUnlock = ::unlockBackup,
+            onDismiss = { unlock = null },
+            error = state.error,
+            working = state.working,
+        )
     }
 
     if (showAbout) {
@@ -218,6 +304,9 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
         )
     }
 }
+
+/** An encrypted backup waiting for its password. */
+private data class UnlockState(val json: String, val error: String? = null, val working: Boolean = false)
 
 /** Two lines of a shell session in [scheme]'s colors, for its card in the color scheme picker. */
 private fun terminalPreview(scheme: ContentColorScheme): List<AnnotatedString> {

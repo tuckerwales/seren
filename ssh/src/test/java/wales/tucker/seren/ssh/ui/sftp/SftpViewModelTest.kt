@@ -3,6 +3,7 @@ package wales.tucker.seren.ssh.ui.sftp
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -147,5 +148,49 @@ class SftpViewModelTest {
         vm.back()
         pollUntil("back home") { vm.path.value == home && !vm.loading.value }
         assertEquals(false, vm.canGoBack.value)
+    }
+
+    @Test
+    fun severalFilesUploadInTurnAskingOnlyAboutClashes() {
+        runBlocking { remote.writeText(SftpClient.join(dir, "b.txt"), "original") }
+        val vm = viewModel()
+        vm.uploadAll(listOf(localFile("a.txt", "first"), localFile("b.txt", "second"), localFile("c.txt", "third")), app)
+
+        pollUntil("replace prompt for b.txt") { vm.pendingReplace.value?.name == "b.txt" }
+        assertEquals("first", remoteText("a.txt"))
+        // Skipping it carries on with the rest.
+        vm.dismissReplace()
+        pollUntil("c.txt uploaded") { runCatching { remoteText("c.txt") }.getOrNull() == "third" }
+        assertEquals("original", remoteText("b.txt"))
+        pollUntil("idle") { vm.transfer.value == null }
+    }
+
+    @Test
+    fun cancellingATransferDropsTheRestOfTheQueue() {
+        val vm = viewModel()
+        val folder = File(app.cacheDir, "big-${System.nanoTime()}").apply { mkdirs() }
+        val big = Uri.fromFile(File(folder, "big.bin").apply { writeBytes(ByteArray(16 * 1024 * 1024)) })
+        vm.uploadAll(listOf(big, localFile("after.txt", "never")), app)
+        pollUntil("transfer started") { vm.transfer.value != null }
+        vm.cancelTransfer()
+        pollUntil("transfer stopped") { vm.transfer.value == null }
+        Thread.sleep(500)
+        ShadowLooper.idleMainLooper()
+        assertEquals(null, runCatching { remoteText("after.txt") }.getOrNull())
+    }
+
+    @Test
+    fun downloadsSayWhereTheyWent() {
+        runBlocking { remote.writeText(SftpClient.join(dir, "report.txt"), "numbers") }
+        val vm = viewModel()
+        val downloads = mutableListOf<Download>()
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined).launch { vm.downloads.collect { downloads += it } }
+        val file = vm.files.value.single { it.name == "report.txt" }
+        val saved = File(app.cacheDir, "report-${System.nanoTime()}.txt")
+        vm.download(file, Uri.fromFile(saved), app)
+        pollUntil("download") { downloads.isNotEmpty() }
+        job.cancel()
+        assertEquals(Download(Uri.fromFile(saved), "report.txt"), downloads.single())
+        assertEquals("numbers", saved.readText())
     }
 }

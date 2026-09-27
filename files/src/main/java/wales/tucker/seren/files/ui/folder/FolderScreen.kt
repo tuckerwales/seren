@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
@@ -125,6 +126,10 @@ import wales.tucker.seren.files.ui.common.displayPath
 import wales.tucker.seren.files.ui.common.folderTitle
 import wales.tucker.seren.files.ui.containerViewModel
 import java.io.File
+import kotlinx.coroutines.delay
+import wales.tucker.seren.core.suite.SuiteApp
+import wales.tucker.seren.core.suite.rememberInstalled
+import wales.tucker.seren.files.ui.common.SerenFileMenuItems
 
 /** A dialog the folder screen is showing, about [entries] (usually the picked items, or one row's). */
 private sealed interface FolderDialog {
@@ -140,7 +145,7 @@ private sealed interface FolderDialog {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClose: () -> Unit) {
+fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClose: () -> Unit, highlight: String? = null) {
     val container = appContainer()
     val ops = container.operations
     val vm = containerViewModel(key = "folder:${start.path}") { FolderViewModel(it, start) }
@@ -164,6 +169,20 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
     LifecycleResumeEffect(Unit) {
         vm.reload()
         onPauseOrDispose {}
+    }
+
+    // An item another app asked to show: scrolled to and picked out for a moment.
+    var flash by remember { mutableStateOf(highlight?.let { File(start, it).path }) }
+    LaunchedEffect(vm.contents, flash) {
+        val path = flash ?: return@LaunchedEffect
+        val ready = vm.contents as? FolderContents.Ready ?: return@LaunchedEffect
+        if (vm.folder != start) {
+            flash = null
+            return@LaunchedEffect
+        }
+        listPosition(ready.entries, path)?.let { listState.animateScrollToItem(it) }
+        delay(HIGHLIGHT_MS)
+        flash = null
     }
 
     val title = folderTitle(vm.folder, vm.volumes)
@@ -273,6 +292,15 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                         onRename = { entries.singleOrNull()?.let { dialog = FolderDialog.Rename(it) } },
                         onCompress = { dialog = FolderDialog.Compress(entries) },
                         onDetails = { entries.singleOrNull()?.let { dialog = FolderDialog.Details(it) } },
+                        onUpload = {
+                            if (entries.any { it.isDirectory }) {
+                                messenger.show("Folders can't be uploaded. Compress them into a zip first.")
+                            } else if (!Opener.uploadWithSsh(context, entries.map { it.file })) {
+                                messenger.show("Seren SSH couldn't open them")
+                            } else {
+                                vm.clearSelection()
+                            }
+                        },
                     )
                 } else {
                     clipboard?.let { clip ->
@@ -333,6 +361,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                                 entries = contents.entries,
                                 state = listState,
                                 selected = vm.selected,
+                                highlighted = flash,
                                 thumbnails = settings.showThumbnails,
                                 itemsText = itemsText,
                                 onClick = { entry -> if (picking) vm.toggle(entry) else openEntry(entry) },
@@ -458,6 +487,7 @@ private fun FolderList(
     entries: List<FileEntry>,
     state: LazyListState,
     selected: Set<String>,
+    highlighted: String?,
     thumbnails: Boolean,
     itemsText: (Int) -> String,
     onClick: (FileEntry) -> Unit,
@@ -477,7 +507,7 @@ private fun FolderList(
                     shape = groupedShape(i, group.size),
                     thumbnails = thumbnails,
                     itemsText = itemsText,
-                    selected = entry.path in selected,
+                    selected = entry.path in selected || entry.path == highlighted,
                     onClick = { onClick(entry) },
                     onLongClick = { onLongClick(entry) },
                     menu = if (picking) null else { close -> menu(entry, close) },
@@ -485,6 +515,22 @@ private fun FolderList(
             }
         }
     }
+}
+
+/** How long a revealed item stays picked out. */
+private const val HIGHLIGHT_MS = 2_500L
+
+/** Where the item at [path] is in [FolderList]: folders, then files, each under a header. */
+internal fun listPosition(entries: List<FileEntry>, path: String): Int? {
+    var position = 0
+    for (group in listOf(entries.filter { it.isDirectory }, entries.filter { !it.isDirectory })) {
+        if (group.isEmpty()) continue
+        position++ // The group's header.
+        val at = group.indexOfFirst { it.path == path }
+        if (at >= 0) return position + at
+        position += group.size
+    }
+    return null
 }
 
 @Composable
@@ -651,6 +697,7 @@ private fun EntryMenu(
     }
     if (!entry.isDirectory) {
         item("Open with", Icons.AutoMirrored.Rounded.OpenInNew, onOpenWith)
+        SerenFileMenuItems(entry, close)
         item("Share", Icons.Rounded.Share, onShare)
     }
     item("Copy", Icons.Rounded.ContentCopy, onCopy)
@@ -675,7 +722,9 @@ private fun SelectionBar(
     onRename: () -> Unit,
     onCompress: () -> Unit,
     onDetails: () -> Unit,
+    onUpload: () -> Unit,
 ) {
+    val ssh = rememberInstalled(SuiteApp.SSH)
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             BarAction(Icons.Rounded.ContentCopy, "Copy", onCopy)
@@ -704,6 +753,13 @@ private fun SelectionBar(
                         enabled = single,
                         onClick = { more = false; onDetails() },
                     )
+                    if (ssh) {
+                        DropdownMenuItem(
+                            text = { Text("Upload with Seren SSH") },
+                            leadingIcon = { Icon(Icons.Rounded.CloudUpload, null) },
+                            onClick = { more = false; onUpload() },
+                        )
+                    }
                 }
             }
         }

@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -47,11 +48,13 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -61,8 +64,10 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -73,6 +78,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,6 +95,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.ui.EmptyState
@@ -101,8 +108,17 @@ import wales.tucker.seren.ssh.ui.common.appContainer
 import wales.tucker.seren.ssh.ui.common.containerViewModel
 import java.text.DateFormat
 import java.util.Date
+import wales.tucker.seren.core.suite.Suite
+import wales.tucker.seren.core.suite.SuiteApp
+import wales.tucker.seren.core.suite.rememberInstalled
+import wales.tucker.seren.ssh.session.SessionState
+import wales.tucker.seren.ssh.ui.terminal.SessionPromptDialog
+import wales.tucker.seren.ssh.ui.upload.SharedFiles
 
 data class Transfer(val name: String, val upload: Boolean, val done: Long, val total: Long)
+
+/** A finished download: where it was saved, for "Show in Seren Files". */
+data class Download(val uri: Uri, val name: String)
 
 class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     val session: TerminalSession? = container.sessionManager.get(sessionId)
@@ -119,6 +135,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     private val _transfer = MutableStateFlow<Transfer?>(null)
     val transfer = _transfer.asStateFlow()
     val messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val downloads = MutableSharedFlow<Download>(extraBufferCapacity = 4)
     private var home: String = "/"
     private var transferJob: Job? = null
 
@@ -131,7 +148,15 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     init {
         viewModelScope.launch {
             try {
-                val c = session?.sftp() ?: throw IllegalStateException("Session is not connected")
+                val s = session ?: throw IllegalStateException("Session is not connected")
+                // A session opened to upload shared files may still be connecting, or waiting
+                // for a password.
+                when (val state = s.state.first { it != SessionState.Connecting }) {
+                    is SessionState.Failed -> throw IllegalStateException(state.error)
+                    is SessionState.Disconnected -> throw IllegalStateException(state.reason)
+                    SessionState.Connected, SessionState.Connecting -> Unit
+                }
+                val c = s.sftp()
                 client = c
                 home = c.home()
                 navigate(home)
@@ -218,7 +243,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                     } ?: throw IllegalStateException("Cannot write to destination")
                 }
                 complete = true
-                messages.tryEmit("Downloaded ${file.name}")
+                downloads.tryEmit(Download(uri, file.name))
             } catch (e: CancellationException) {
                 messages.tryEmit("Download cancelled")
                 throw e
@@ -255,6 +280,24 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
 
     fun dismissReplace() {
         _pendingReplace.value = null
+        uploadNext()
+    }
+
+    /** Files still to upload after the current one, from a share of several. */
+    private val queue = ArrayDeque<Uri>()
+    private var queueContext: android.content.Context? = null
+
+    /** Uploads [uris] into the current folder one after another, asking before replacing any. */
+    fun uploadAll(uris: List<Uri>, context: android.content.Context) {
+        queue.addAll(uris)
+        queueContext = context.applicationContext
+        if (transferJob?.isActive != true && _pendingReplace.value == null) uploadNext()
+    }
+
+    private fun uploadNext() {
+        val context = queueContext ?: return
+        val uri = queue.removeFirstOrNull() ?: return
+        requestUpload(uri, context)
     }
 
     private fun displayName(context: android.content.Context, uri: Uri): String? =
@@ -310,6 +353,9 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                 refresh()
             }
         }
+        transferJob?.invokeOnCompletion { cause ->
+            viewModelScope.launch { if (cause is CancellationException) queue.clear() else uploadNext() }
+        }
     }
 
     private fun transferBusy(): Boolean {
@@ -319,13 +365,19 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     }
 
     fun cancelTransfer() {
+        queue.clear()
         transferJob?.cancel()
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
+fun SftpScreen(
+    sessionId: Int,
+    onBack: () -> Unit,
+    incoming: SharedFiles? = null,
+    onIncomingHandled: () -> Unit = {},
+) {
     val vm = containerViewModel(key = "sftp-$sessionId") { SftpViewModel(it, sessionId) }
     val sessions by appContainer().sessionManager.sessions.collectAsStateWithLifecycle()
     val closed = sessions.none { it.id == sessionId }
@@ -346,6 +398,22 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
     var pendingDownload by remember { mutableStateOf<RemoteFile?>(null) }
 
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    val filesInstalled by rememberUpdatedState(rememberInstalled(SuiteApp.FILES))
+    LaunchedEffect(Unit) {
+        vm.downloads.collect { d ->
+            if (!filesInstalled) {
+                snackbar.showSnackbar("Downloaded ${d.name}")
+                return@collect
+            }
+            val result = snackbar.showSnackbar("Downloaded ${d.name}", actionLabel = "Show in Seren Files", duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed && !Suite.launch(context, Suite.revealIntent(d.uri, d.name))) {
+                snackbar.showSnackbar("Seren Files couldn't show ${d.name}")
+            }
+        }
+    }
+    // The connection may still be asking for a password when this screen opens it for a share.
+    val prompt = vm.session?.prompt?.collectAsStateWithLifecycle()?.value
+    SessionPromptDialog(prompt)
 
     val downloadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
         val file = pendingDownload
@@ -401,7 +469,7 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
         },
         floatingActionButton = {
             // One transfer at a time: the progress card takes the button's place.
-            if (path != null && transfer == null) {
+            if (path != null && transfer == null && incoming == null) {
                 ExtendedFloatingActionButton(
                     onClick = { uploadLauncher.launch(arrayOf("*/*")) },
                     icon = { Icon(Icons.Rounded.Upload, null) },
@@ -453,6 +521,18 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
             }
             AnimatedVisibility(transfer != null, modifier = Modifier.align(Alignment.BottomCenter)) {
                 transfer?.let { TransferCard(it, onCancel = { vm.cancelTransfer() }) }
+            }
+            if (incoming != null && path != null && transfer == null) {
+                IncomingCard(
+                    files = incoming,
+                    folder = path.orEmpty(),
+                    onCancel = onIncomingHandled,
+                    onUpload = {
+                        vm.uploadAll(incoming.uris, context)
+                        onIncomingHandled()
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
         }
     }
@@ -574,6 +654,31 @@ private fun FileRow(
         },
         modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = { menu = true }),
     )
+}
+
+/** Files shared with Seren SSH, waiting for people to open the folder they belong in. */
+@Composable
+private fun IncomingCard(files: SharedFiles, folder: String, onCancel: () -> Unit, onUpload: () -> Unit, modifier: Modifier = Modifier) {
+    ElevatedCard(modifier.fillMaxWidth().padding(16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(files.title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Open the folder they belong in, then upload them to it.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(folder, style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onCancel) { Text("Cancel") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onUpload) {
+                    Icon(Icons.Rounded.Upload, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Upload here")
+                }
+            }
+        }
+    }
 }
 
 @Composable

@@ -1,5 +1,7 @@
 package wales.tucker.seren.files
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.SystemBarStyle
@@ -12,17 +14,22 @@ import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import wales.tucker.seren.core.security.AppLock
+import wales.tucker.seren.core.suite.Suite
 import wales.tucker.seren.core.ui.theme.SerenTheme
 import wales.tucker.seren.files.ui.FilesAppUi
 
 class MainActivity : FragmentActivity() {
 
     private val container get() = (application as SerenApp).container
+
+    /** Files other Seren apps asked to show, waiting for the UI (and the app lock). */
+    val reveals = Channel<RevealRequest>(Channel.CONFLATED)
 
     @VisibleForTesting
     internal var locked by mutableStateOf(false)
@@ -53,15 +60,29 @@ class MainActivity : FragmentActivity() {
             lifecycleScope.launch { runCatching { container.trash.tidy() } }
         }
 
+        if (savedInstanceState == null) handleIntent(intent)
+
         setContent {
             val settings = container.settings.settings.collectAsStateWithLifecycle(initialValue = null).value
             // Show only the window background until the saved settings and the lock state are
             // known, rather than flashing the default theme or the lock screen on every launch.
             if (settings == null || !lockChecked) return@setContent
             SerenTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
-                FilesAppUi(settings = settings, locked = locked, onUnlock = { authenticate() })
+                FilesAppUi(settings = settings, locked = locked, onUnlock = { authenticate() }, reveals = reveals)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    @VisibleForTesting
+    internal fun handleIntent(intent: Intent?) {
+        if (intent?.action != Suite.ACTION_REVEAL) return
+        val uri = intent.data ?: return
+        reveals.trySend(RevealRequest(uri, intent.getStringExtra(Suite.EXTRA_DISPLAY_NAME)))
     }
 
     override fun onStop() {
@@ -90,3 +111,6 @@ class MainActivity : FragmentActivity() {
         }
     }
 }
+
+/** A link to a file another app asked Seren Files to show, with its name if the link hides it. */
+data class RevealRequest(val uri: Uri, val displayName: String?)

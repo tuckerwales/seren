@@ -467,13 +467,7 @@ private fun TerminalContent(
         }
     }
 
-    // Prompts from the connection.
-    when (val p = prompt) {
-        is SessionPrompt.HostKey -> HostKeyDialog(p)
-        is SessionPrompt.Password -> PasswordDialog(p)
-        is SessionPrompt.KeyboardInteractive -> KeyboardInteractiveDialog(p)
-        null -> Unit
-    }
+    SessionPromptDialog(prompt)
 
     if (snippetsOpen) {
         SnippetSheet(
@@ -612,6 +606,17 @@ private fun DisconnectedBar(reason: String, bg: Color, fg: Color, accent: Color,
             TextButton(onClick = onClose) { Text("Close", color = fg.copy(alpha = 0.8f)) }
             TextButton(onClick = onReconnect) { Text("Reconnect", color = accent, fontWeight = FontWeight.SemiBold) }
         }
+    }
+}
+
+/** The question a connection is waiting on, from whichever screen is showing the session. */
+@Composable
+fun SessionPromptDialog(prompt: SessionPrompt?) {
+    when (prompt) {
+        is SessionPrompt.HostKey -> HostKeyDialog(prompt)
+        is SessionPrompt.Password -> PasswordDialog(prompt)
+        is SessionPrompt.KeyboardInteractive -> KeyboardInteractiveDialog(prompt)
+        null -> Unit
     }
 }
 

@@ -76,6 +76,9 @@ An encrypted backup has `"encrypted": true` and replaces `accounts` with:
 - `data`: the Base64 AES-256-GCM encryption of the `accounts` array (UTF-8 JSON) with the 16 byte
   tag appended, using the 32 byte key scrypt derives from the UTF-8 password
 
+This is the password protection every Seren backup uses (`PasswordSeal` in
+[Seren Core](../core)); Seren SSH's backups with keys and passwords are locked the same way.
+
 ## Building
 
 From the repository root:
@@ -105,12 +108,13 @@ by typing into them.
 | Package | Contents |
 | --- | --- |
 | `otp` | `Otp` (HOTP and TOTP), `Base32`, `OtpAuthUri` (otpauth links), `GoogleMigration` (transfer QR codes) and `CopiedSetup` (spotting them in copied text) |
-| `backup` | `BackupCrypto` (scrypt and AES-GCM), the Seren Auth, Aegis and andOTP formats and `Importer`, which recognises any of them |
+| `backup` | The Seren Auth, Aegis and andOTP formats and `Importer`, which recognises any of them (scrypt and AES-GCM come from `BackupCrypto` in Seren Core) |
 | `qr` | `QrCodes`: reading QR codes from camera frames and images, and making them, with ZXing |
 | `data` | Room database of accounts with encrypted setup keys, `AccountRepository` and DataStore settings |
 | `ui` | The Accounts and Settings tabs, the account editor, the camera scanner and the import dialogs |
 
-The theme, shared components, fonts, `SecretBox` and app lock come from [Seren Core](../core).
+The theme, shared components (including the backup password dialogs), fonts, `SecretBox`, backup
+encryption and app lock come from [Seren Core](../core).
 
 ## Design
 

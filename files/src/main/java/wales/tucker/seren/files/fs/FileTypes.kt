@@ -85,6 +85,36 @@ object FileTypes {
         }
     }
 
+    /** Extensionless and config files that are text too, such as ".bashrc", "Makefile" or "id_rsa.pub". */
+    private val textExtensions = setOf("pub", "pem", "crt", "csr", "ppk", "rules", "service", "desktop", "lock", "gitignore")
+
+    /**
+     * Whether [name] is worth offering to a text editor: text by its name, or with no extension at
+     * all (dotfiles, "Makefile", "config"), which is nearly always text on a phone.
+     */
+    fun looksLikeText(name: String): Boolean {
+        val ext = extension(name)
+        return kind(name, isDirectory = false) == FileKind.TEXT || ext.isEmpty() || ext in textExtensions
+    }
+
+    /** The type to hand [name] to a text editor with, which only accepts text types. */
+    fun textMimeType(name: String): String =
+        mimeType(name).takeIf { it.startsWith("text/") || it in editorTypes } ?: "text/plain"
+
+    private val editorTypes = setOf(
+        "application/json", "application/xml", "application/javascript", "application/x-sh", "application/x-yaml", "application/toml",
+    )
+
+    /** The largest file that could be a private key: keys are a few kilobytes at most. */
+    const val MAX_KEY_SIZE = 64 * 1024L
+
+    /** Whether [name] looks like an SSH private key: "id_ed25519", "server.pem", "work.ppk". */
+    fun looksLikePrivateKey(name: String, size: Long): Boolean {
+        if (size <= 0 || size > MAX_KEY_SIZE) return false
+        val lower = name.lowercase(Locale.ROOT)
+        return (lower.startsWith("id_") && extension(lower).isEmpty()) || extension(lower) in setOf("pem", "ppk")
+    }
+
     /** Whether Seren Files can make a thumbnail for this kind of file. */
     fun hasThumbnail(kind: FileKind): Boolean = kind == FileKind.IMAGE || kind == FileKind.VIDEO
 }

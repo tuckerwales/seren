@@ -89,7 +89,8 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    private fun handleIntent(intent: Intent?) {
+    @VisibleForTesting
+    internal fun handleIntent(intent: Intent?) {
         val uri = intent?.data ?: return
         if (intent.action == Intent.ACTION_VIEW || intent.action == Intent.ACTION_EDIT) openLinks.trySend(uri)
     }

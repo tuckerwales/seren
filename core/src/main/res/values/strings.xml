@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="seren_suite_permission_label">work with other Seren apps</string>
+    <string name="seren_suite_permission_description">Lets Seren apps hand files to each other, such as a key to import or a download to show.</string>
+</resources>

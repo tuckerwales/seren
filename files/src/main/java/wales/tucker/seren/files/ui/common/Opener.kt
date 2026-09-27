@@ -8,6 +8,8 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import wales.tucker.seren.files.fs.FileTypes
 import java.io.File
+import wales.tucker.seren.core.suite.Suite
+import wales.tucker.seren.core.suite.SuiteApp
 
 /** Hands files to other apps through a content link, never a raw path. */
 object Opener {
@@ -31,11 +33,34 @@ object Opener {
         }
     }
 
+    /** Opens [file] in Seren Edit, which may save its changes back. */
+    fun openInEdit(context: Context, file: File): Boolean {
+        val uri = runCatching { uri(context, file) }.getOrElse { return false }
+        return Suite.launch(context, Suite.viewIntent(SuiteApp.EDIT, uri, FileTypes.textMimeType(file.name), writable = true))
+    }
+
+    /** Hands [files] to Seren SSH, which asks which server to upload them to. */
+    fun uploadWithSsh(context: Context, files: List<File>): Boolean {
+        val uris = runCatching { files.map { uri(context, it) } }.getOrElse { return false }
+        return Suite.launch(context, Suite.sendIntent(SuiteApp.SSH, uris, shareType(files)))
+    }
+
+    /** Hands a private key to Seren SSH's Import key, where people check it and import it. */
+    fun importKeyToSsh(context: Context, file: File): Boolean {
+        val uri = runCatching { uri(context, file) }.getOrElse { return false }
+        return Suite.launch(context, Suite.importKeyIntent(uri, file.name))
+    }
+
+    /** One type for all of [files]: theirs if they share one, "image/..." for mixed images, and so on. */
+    private fun shareType(files: List<File>): String {
+        val types = files.map { FileTypes.mimeType(it.name) }.distinct()
+        return types.singleOrNull() ?: types.map { it.substringBefore('/') }.distinct().singleOrNull()?.let { "$it/*" } ?: "*/*"
+    }
+
     /** The share sheet for [files], which must all be files rather than folders. */
     fun share(context: Context, files: List<File>) {
         val uris = files.map { uri(context, it) }
-        val types = files.map { FileTypes.mimeType(it.name) }.distinct()
-        val type = types.singleOrNull() ?: types.map { it.substringBefore('/') }.distinct().singleOrNull()?.let { "$it/*" } ?: "*/*"
+        val type = shareType(files)
         val send = if (uris.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris.single())
         } else {

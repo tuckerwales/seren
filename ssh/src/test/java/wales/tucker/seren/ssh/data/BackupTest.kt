@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import wales.tucker.seren.ssh.FakeSecretBox
 import wales.tucker.seren.ssh.TestApp
 
 @RunWith(AndroidJUnit4::class)
@@ -83,5 +85,95 @@ class BackupTest {
             val error = runCatching { Backup(target).import(bad) }.exceptionOrNull()
             assertTrue(bad, error is IllegalArgumentException)
         }
+    }
+
+    private val box = FakeSecretBox()
+
+    private fun secretKey(db: AppDatabase, name: String, privateKey: String, fingerprint: String) = runBlocking {
+        db.keyDao().insert(
+            SshKey(
+                name = name,
+                type = KeyType.ED25519,
+                bits = 256,
+                encryptedPrivateKey = box.encryptString(privateKey),
+                publicKey = "ssh-ed25519 AAAA $name",
+                fingerprint = fingerprint,
+            ),
+        )
+    }
+
+    @Test
+    fun passwordProtectedBackupsCarryKeysAndPasswords() = runBlocking {
+        val keyId = secretKey(source, "Laptop", "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n", "SHA256:laptop")
+        source.hostDao().insert(Host(nickname = "web", hostname = "web.example.com", username = "deploy", authType = AuthType.KEY, keyId = keyId))
+        source.hostDao().insert(Host(nickname = "db", hostname = "db.example.com", username = "admin", encryptedPassword = box.encryptString("hunter22")))
+
+        val json = Backup(source, box).export("correct horse".toCharArray())
+        val root = JSONObject(json)
+        assertEquals(Backup.FORMAT, root.getString("format"))
+        assertEquals(2, root.getInt("version"))
+        assertTrue(root.getBoolean("encrypted"))
+        for (secret in listOf("hunter22", "OPENSSH", "web.example.com", "Laptop")) {
+            assertFalse("$secret must not appear in the file", json.contains(secret))
+        }
+        assertTrue(Backup(target, box).isEncrypted(json))
+
+        val needsPassword = runCatching { Backup(target, box).import(json) }.exceptionOrNull()
+        assertTrue(needsPassword is Backup.PasswordRequiredException)
+        val wrong = runCatching { Backup(target, box).import(json, "wrong".toCharArray()) }.exceptionOrNull()
+        assertTrue(wrong is Backup.WrongPasswordException)
+        assertTrue(target.hostDao().all().isEmpty())
+
+        val result = Backup(target, box).import(json, "correct horse".toCharArray())
+        assertEquals(Backup.ImportResult(hosts = 2, snippets = 0, skipped = 0, keys = 1), result)
+        val key = target.keyDao().all().single()
+        assertEquals("Laptop", key.name)
+        assertEquals("-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n", box.decryptString(key.encryptedPrivateKey))
+        val hosts = target.hostDao().all().associateBy { it.nickname }
+        assertEquals(AuthType.KEY, hosts.getValue("web").authType)
+        assertEquals(key.id, hosts.getValue("web").keyId)
+        assertEquals("hunter22", box.decryptString(hosts.getValue("db").encryptedPassword!!))
+
+        // Importing again adds nothing: the key is known by its fingerprint.
+        assertEquals(
+            Backup.ImportResult(hosts = 0, snippets = 0, skipped = 3, keys = 0),
+            Backup(target, box).import(json, "correct horse".toCharArray()),
+        )
+    }
+
+    @Test
+    fun importedKeysNeverReplaceADifferentKeyWithTheSameName() = runBlocking {
+        val keyId = secretKey(source, "Laptop", "new key", "SHA256:new")
+        source.hostDao().insert(Host(nickname = "web", hostname = "web.example.com", username = "deploy", authType = AuthType.KEY, keyId = keyId))
+        val mine = secretKey(target, "Laptop", "old key", "SHA256:old")
+
+        Backup(target, box).import(Backup(source, box).export("password".toCharArray()), "password".toCharArray())
+
+        val keys = target.keyDao().all().associateBy { it.name }
+        assertEquals("old key", box.decryptString(keys.getValue("Laptop").encryptedPrivateKey))
+        assertEquals(mine, keys.getValue("Laptop").id)
+        val imported = keys.getValue("Laptop (2)")
+        assertEquals("new key", box.decryptString(imported.encryptedPrivateKey))
+        // The host uses the key it was exported with, not the one that shares its name.
+        assertEquals(imported.id, target.hostDao().all().single().keyId)
+    }
+
+    @Test
+    fun plainBackupsStayReadableByOlderVersions() = runBlocking {
+        secretKey(source, "Laptop", "private", "SHA256:laptop")
+        val json = Backup(source, box).export()
+        val root = JSONObject(json)
+        assertEquals(1, root.getInt("version"))
+        assertFalse(root.has("keys"))
+        assertFalse(json.contains("private"))
+        assertFalse(Backup(target).isEncrypted(json))
+    }
+
+    @Test
+    fun damagedEncryptedBackupsAreRejected() = runBlocking {
+        val root = JSONObject(Backup(source, box).export("password".toCharArray())).put("data", "%%%")
+        val error = runCatching { Backup(target, box).import(root.toString(), "password".toCharArray()) }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
+        assertEquals("This backup is damaged", error?.message)
     }
 }

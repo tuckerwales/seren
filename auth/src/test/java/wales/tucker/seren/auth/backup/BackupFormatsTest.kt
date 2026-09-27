@@ -17,6 +17,7 @@ import wales.tucker.seren.auth.otp.OtpFormatException
 import wales.tucker.seren.auth.otp.OtpToken
 import wales.tucker.seren.auth.otp.OtpType
 import java.util.Base64
+import wales.tucker.seren.core.backup.BackupCrypto
 
 @RunWith(AndroidJUnit4::class)
 @Config(application = TestApp::class, sdk = [35])

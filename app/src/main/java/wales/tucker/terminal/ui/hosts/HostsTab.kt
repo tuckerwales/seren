@@ -77,8 +77,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -139,6 +141,8 @@ class HostsViewModel(private val container: AppContainer) : ViewModel() {
 fun HostsTab(
     onConnect: (Host) -> Unit,
     onQuickConnect: (SshLink) -> Unit,
+    quickConnectPrefill: String?,
+    onPrefillConsumed: () -> Unit,
     onOpenSession: (Int) -> Unit,
     onEditHost: (Long?, Boolean) -> Unit,
 ) {
@@ -151,6 +155,13 @@ fun HostsTab(
     var pendingDelete by remember { mutableStateOf<Host?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberLazyListState()
+    LaunchedEffect(quickConnectPrefill) {
+        if (quickConnectPrefill != null) {
+            searching = false
+            query = ""
+            listState.scrollToItem(0)
+        }
+    }
     val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
 
     val filtered = remember(hosts, query) {
@@ -213,7 +224,7 @@ fun HostsTab(
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
             if (!searching) {
-                item { QuickConnectCard(onQuickConnect) }
+                item { QuickConnectCard(onQuickConnect, quickConnectPrefill, onPrefillConsumed) }
             }
             if (sessions.isNotEmpty() && !searching) {
                 item { SectionHeader("Active sessions") }
@@ -282,16 +293,27 @@ fun HostsTab(
 }
 
 @Composable
-private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit) {
-    var text by rememberSaveable { mutableStateOf("") }
+private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit, prefill: String?, onPrefillConsumed: () -> Unit) {
+    var field by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+    val text = field.text
     var error by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(prefill) {
+        if (prefill != null) {
+            // Put the cursor at the start, where the username goes.
+            field = TextFieldValue(prefill, selection = TextRange(0))
+            error = false
+            onPrefillConsumed()
+            focus.requestFocus()
+        }
+    }
     val submit = {
         val link = SshLink.parse(text)
         if (link == null) {
             error = true
         } else {
             error = false
-            text = ""
+            field = TextFieldValue()
             onQuickConnect(link)
         }
     }
@@ -320,8 +342,8 @@ private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit) {
             }
             Spacer(Modifier.height(14.dp))
             TextField(
-                value = text,
-                onValueChange = { text = it; error = false },
+                value = field,
+                onValueChange = { field = it; error = false },
                 placeholder = { Text("user@host:port", style = monoField, color = MaterialTheme.colorScheme.outline) },
                 singleLine = true,
                 isError = error,
@@ -337,7 +359,7 @@ private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "Connect")
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 shape = CircleShape,
                 textStyle = monoField,
                 colors = pillFieldColors(MaterialTheme.colorScheme.surfaceContainerHighest),

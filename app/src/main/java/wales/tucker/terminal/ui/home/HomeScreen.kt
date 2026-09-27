@@ -22,6 +22,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -48,12 +49,15 @@ fun HomeScreen(
     settings: Settings,
     onConnect: (Host) -> Unit,
     onQuickConnect: (SshLink) -> Unit,
+    quickConnectPrefill: String?,
+    onPrefillConsumed: () -> Unit,
     onOpenSession: (Int) -> Unit,
     onEditHost: (Long?, Boolean) -> Unit,
     onImportKey: () -> Unit,
     onKnownHosts: () -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(HomeTab.HOSTS) }
+    LaunchedEffect(quickConnectPrefill) { if (quickConnectPrefill != null) tab = HomeTab.HOSTS }
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -75,6 +79,8 @@ fun HomeScreen(
                     HomeTab.HOSTS -> HostsTab(
                         onConnect = onConnect,
                         onQuickConnect = onQuickConnect,
+                        quickConnectPrefill = quickConnectPrefill,
+                        onPrefillConsumed = onPrefillConsumed,
                         onOpenSession = onOpenSession,
                         onEditHost = onEditHost,
                     )

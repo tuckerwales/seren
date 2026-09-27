@@ -1,5 +1,6 @@
 package wales.tucker.terminal.ui
 
+import android.net.Uri
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -15,6 +16,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -24,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import wales.tucker.terminal.MainActivity
+import wales.tucker.terminal.SshLink
 import wales.tucker.terminal.TerminalApp
 import wales.tucker.terminal.TestApp
 import wales.tucker.terminal.data.Host
@@ -128,5 +131,18 @@ class AppBehaviourTest {
         // Opened without visiting the terminal, so nothing answers the host key prompt.
         runBlocking { container.sessionManager.openQuick(sshUser, sshHost!!, sshPort) }
         pollUntil("waiting for input") { exists("Waiting for your input") }
+    }
+
+    @Test
+    fun linksWithoutAUserFillInQuickConnect() {
+        val link = SshLink.parse(Uri.parse("ssh://example.com:2222"))!!
+        assertEquals("", link.username)
+        compose.activity.deepLinks.trySend(link)
+        compose.waitUntil(5_000) { exists("@example.com:2222") }
+        assertTrue(container.sessionManager.sessions.value.isEmpty())
+
+        val withUser = SshLink.parse(Uri.parse("ssh://bob@[fe80::1]:2200"))!!
+        assertEquals(SshLink("bob", "fe80::1", 2200), withUser)
+        assertEquals("[fe80::1]:2200", withUser.address)
     }
 }

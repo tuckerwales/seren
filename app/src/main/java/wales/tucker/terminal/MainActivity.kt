@@ -134,12 +134,21 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-/** A parsed ssh://[user@]host[:port] link. */
+/** A parsed ssh://[user@]host[:port] link. [username] is empty when a link names no user. */
 data class SshLink(val username: String, val hostname: String, val port: Int) {
+    val hasUser: Boolean get() = username.isNotBlank()
+
+    /** "host", "host:port" or "[v6:host]:port", as typed into quick connect after "user@". */
+    val address: String
+        get() {
+            val host = if (':' in hostname) "[$hostname]" else hostname
+            return if (port == 22) host else "$host:$port"
+        }
+
     companion object {
         fun parse(uri: Uri): SshLink? {
-            val host = uri.host?.takeIf { it.isNotBlank() } ?: return null
-            val user = uri.userInfo?.substringBefore(';')?.substringBefore(':')?.takeIf { it.isNotBlank() } ?: return null
+            val host = uri.host?.takeIf { it.isNotBlank() }?.removeSurrounding("[", "]") ?: return null
+            val user = uri.userInfo?.substringBefore(';')?.substringBefore(':')?.trim().orEmpty()
             val port = if (uri.port in 1..65535) uri.port else 22
             return SshLink(user, host, port)
         }

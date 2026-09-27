@@ -29,6 +29,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
@@ -100,13 +104,29 @@ fun TerminalAppUi(
         }
     }
 
+    var quickConnectPrefill by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         for (link in deepLinks) {
-            openSession { container.sessionManager.openQuick(link.username, link.hostname, link.port).id }
+            if (link.hasUser) {
+                openSession { container.sessionManager.openQuick(link.username, link.hostname, link.port).id }
+            } else {
+                // Can't connect without a username: fill in quick connect and let the user add one.
+                navController.popBackStackTo(Routes.HOME)
+                quickConnectPrefill = "@${link.address}"
+                Toast.makeText(context, "Enter a username to connect to ${link.hostname}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
-    stateHolder.SaveableStateProvider("app") { AppNavHost(navController, settings, openSession) }
+    stateHolder.SaveableStateProvider("app") {
+        AppNavHost(
+            navController = navController,
+            settings = settings,
+            openSession = openSession,
+            quickConnectPrefill = quickConnectPrefill,
+            onPrefillConsumed = { quickConnectPrefill = null },
+        )
+    }
 }
 
 @Composable
@@ -114,6 +134,8 @@ private fun AppNavHost(
     navController: NavHostController,
     settings: Settings,
     openSession: (suspend () -> Int) -> Unit,
+    quickConnectPrefill: String?,
+    onPrefillConsumed: () -> Unit,
 ) {
     val container = appContainer()
     NavHost(
@@ -129,6 +151,8 @@ private fun AppNavHost(
                 settings = settings,
                 onConnect = { host -> openSession { container.sessionManager.open(host).id } },
                 onQuickConnect = { link -> openSession { container.sessionManager.openQuick(link.username, link.hostname, link.port).id } },
+                quickConnectPrefill = quickConnectPrefill,
+                onPrefillConsumed = onPrefillConsumed,
                 onOpenSession = { id -> navController.navigate(Routes.terminal(id)) { launchSingleTop = true } },
                 onEditHost = { id, duplicate -> navController.navigate(Routes.hostEditor(id, duplicate)) },
                 onImportKey = { navController.navigate(Routes.KEY_IMPORT) },

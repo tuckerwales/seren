@@ -11,7 +11,10 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.core.view.WindowCompat
 import org.junit.After
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -79,5 +82,22 @@ class AppBehaviourTest {
         openFailingSession()
         container.sessionManager.closeAll()
         pollUntil("hosts screen") { exists("Quick connect") }
+    }
+
+    private fun lightStatusBarIcons(): Boolean {
+        val window = compose.activity.window
+        return WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars
+    }
+
+    @Test
+    fun statusBarIconsFollowTheTerminalBackground() {
+        // The app is in its light theme; the default terminal scheme is dark.
+        compose.waitForIdle()
+        assertTrue(lightStatusBarIcons())
+        openFailingSession()
+        assertFalse(lightStatusBarIcons())
+        container.sessionManager.closeAll()
+        // Restored once the terminal's exit animation has finished.
+        pollUntil("light status bar icons") { lightStatusBarIcons() }
     }
 }

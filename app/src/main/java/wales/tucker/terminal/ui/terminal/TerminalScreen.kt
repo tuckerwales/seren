@@ -94,6 +94,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -121,6 +122,7 @@ import wales.tucker.terminal.ui.hosts.stateColor
 import wales.tucker.terminal.ui.hosts.stateLabel
 import wales.tucker.terminal.ui.theme.MonoFamily
 import wales.tucker.terminal.ui.theme.MonoSmall
+import wales.tucker.terminal.ui.theme.SystemBarAppearance
 
 @Composable
 fun TerminalScreen(
@@ -185,6 +187,7 @@ private fun TerminalContent(
     val bg = Color(scheme.background)
     val fg = Color(scheme.foreground)
     val accent = Color(scheme.cursor)
+    SystemBarAppearance(lightBars = bg.luminance() > 0.5f)
     val currentSettings by rememberUpdatedState(settings)
 
     // Session events: bell, clipboard, messages.

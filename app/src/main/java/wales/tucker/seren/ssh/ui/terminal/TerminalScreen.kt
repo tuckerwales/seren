@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -102,6 +103,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -164,6 +166,7 @@ private fun TerminalContent(
 ) {
     val container = appContainer()
     val context = LocalContext.current
+    val rootView = LocalView.current
     val scope = rememberCoroutineScope()
     val state by session.state.collectAsStateWithLifecycle()
     val title by session.title.collectAsStateWithLifecycle()
@@ -252,7 +255,7 @@ private fun TerminalContent(
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack) {
+                IconButton(onClick = { terminalView?.hideKeyboard(); onBack() }) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = fg)
                 }
                 Column(
@@ -499,7 +502,14 @@ private fun TerminalContent(
     }
 
     DisposableEffect(Unit) {
-        onDispose { terminalView?.clearSelection() }
+        onDispose {
+            terminalView?.clearSelection()
+            // The keyboard belongs to the window, not this screen, so it would otherwise stay up
+            // over whatever comes next. The terminal view may already be detached by now, so
+            // hide it through the root view, which outlives this screen.
+            context.getSystemService(InputMethodManager::class.java)
+                .hideSoftInputFromWindow(rootView.windowToken, 0)
+        }
     }
 }
 

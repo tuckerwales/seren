@@ -307,6 +307,15 @@ class TerminalSession(
         }
     }
 
+    /**
+     * Opens a separate SFTP channel for one long running operation, such as a file transfer, so
+     * that it does not hold up browsing on the shared channel. The caller closes it.
+     */
+    suspend fun openSftpChannel(): SftpClient = withContext(Dispatchers.IO) {
+        val conn = connection?.takeIf { it.isConnected } ?: throw IOException("Not connected")
+        SftpClient(conn.openSftp())
+    }
+
     private fun closeSftp() {
         synchronized(sftpLock) {
             sftp?.close()

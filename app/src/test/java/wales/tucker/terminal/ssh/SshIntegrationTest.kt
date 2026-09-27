@@ -1,6 +1,9 @@
 package wales.tucker.terminal.ssh
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -11,9 +14,12 @@ import wales.tucker.terminal.data.KeyType
 import wales.tucker.terminal.data.PortForward
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Runs against a real sshd. Enabled when SSH_TEST_HOST is set, e.g.
@@ -281,6 +287,40 @@ class SshIntegrationTest {
         sftp.delete(sftp.stat(dir))
         assertTrue(sftp.list(home).none { it.path == dir })
         sftp.close()
+        c.disconnect()
+    }
+
+    @Test
+    fun sftpBrowsingIsNotBlockedByATransferOnAnotherChannel() = runBlocking {
+        val c = SshConnection(dao, TestUi())
+        c.connect(target())
+        val browse = SftpClient(c.openSftp())
+        val transfer = SftpClient(c.openSftp())
+        val home = browse.home()
+        val file = SftpClient.join(home, "big-${System.nanoTime()}.bin")
+        val data = ByteArray(2 * 1024 * 1024) { it.toByte() }
+        browse.upload(data.inputStream(), file, data.size.toLong()) { _, _ -> }
+
+        // A destination that stalls, like a slow disk, until the listing below has finished.
+        val release = CountDownLatch(1)
+        val stalled = CountDownLatch(1)
+        val out = object : OutputStream() {
+            override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+            override fun write(b: ByteArray, off: Int, len: Int) {
+                stalled.countDown()
+                release.await()
+            }
+        }
+        val download = async(Dispatchers.IO) { transfer.download(file, out) { _, _ -> } }
+        assertTrue(stalled.await(10, TimeUnit.SECONDS))
+        val listing = withTimeout(5_000) { browse.list(home) }
+        assertTrue(listing.any { it.path == file })
+        release.countDown()
+        download.await()
+
+        browse.delete(browse.stat(file))
+        transfer.close()
+        browse.close()
         c.disconnect()
     }
 }

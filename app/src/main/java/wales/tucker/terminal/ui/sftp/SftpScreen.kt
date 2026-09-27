@@ -179,13 +179,15 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     fun delete(file: RemoteFile) = op("Deleted ${file.name}") { it.delete(file) }
 
     fun download(file: RemoteFile, uri: Uri, context: android.content.Context) {
-        val c = client ?: return
+        val s = session ?: return
         viewModelScope.launch {
             _transfer.value = Transfer(file.name, upload = false, done = 0, total = file.size)
+            var c: SftpClient? = null
             try {
+                val channel = s.openSftpChannel().also { c = it }
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { out ->
-                        c.download(file.path, out) { done, total ->
+                        channel.download(file.path, out) { done, total ->
                             _transfer.value = Transfer(file.name, false, done, if (total > 0) total else file.size)
                         }
                     } ?: throw IllegalStateException("Cannot write to destination")
@@ -194,17 +196,20 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
             } catch (e: Exception) {
                 messages.tryEmit("Download failed: ${e.message}")
             } finally {
+                c?.close()
                 _transfer.value = null
             }
         }
     }
 
     fun upload(uri: Uri, context: android.content.Context) {
-        val c = client ?: return
+        val s = session ?: return
         val dir = _path.value ?: return
         viewModelScope.launch {
             var name = "upload"
+            var c: SftpClient? = null
             try {
+                val channel = s.openSftpChannel().also { c = it }
                 var size = -1L
                 withContext(Dispatchers.IO) {
                     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cur ->
@@ -217,7 +222,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                 _transfer.value = Transfer(name, upload = true, done = 0, total = size)
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openInputStream(uri)?.use { input ->
-                        c.upload(input, SftpClient.join(dir, name), size) { done, _ ->
+                        channel.upload(input, SftpClient.join(dir, name), size) { done, _ ->
                             _transfer.value = Transfer(name, true, done, size)
                         }
                     } ?: throw IllegalStateException("Cannot read file")
@@ -226,6 +231,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
             } catch (e: Exception) {
                 messages.tryEmit("Upload failed: ${e.message}")
             } finally {
+                c?.close()
                 _transfer.value = null
                 refresh()
             }

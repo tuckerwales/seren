@@ -121,6 +121,12 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     private var home: String = "/"
     private var transferJob: Job? = null
 
+    /** An upload waiting for the user to confirm replacing a file of the same name. */
+    data class PendingReplace(val uri: Uri, val name: String)
+
+    private val _pendingReplace = MutableStateFlow<PendingReplace?>(null)
+    val pendingReplace = _pendingReplace.asStateFlow()
+
     init {
         viewModelScope.launch {
             try {
@@ -217,11 +223,37 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
         }
     }
 
-    fun upload(uri: Uri, context: android.content.Context) {
+    /** Uploads [uri] into the current folder, asking first if that would replace a file. */
+    fun requestUpload(uri: Uri, context: android.content.Context) {
+        val c = client ?: return
+        val dir = _path.value ?: return
+        viewModelScope.launch {
+            val name = withContext(Dispatchers.IO) { displayName(context, uri) }
+            val exists = name != null && runCatching { c.stat(SftpClient.join(dir, name)) }.isSuccess
+            if (exists) _pendingReplace.value = PendingReplace(uri, name!!) else upload(uri, context)
+        }
+    }
+
+    fun confirmReplace(context: android.content.Context) {
+        val pending = _pendingReplace.value ?: return
+        _pendingReplace.value = null
+        upload(pending.uri, context)
+    }
+
+    fun dismissReplace() {
+        _pendingReplace.value = null
+    }
+
+    private fun displayName(context: android.content.Context, uri: Uri): String? =
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cur ->
+            if (cur.moveToFirst()) cur.getString(0) else null
+        } ?: uri.lastPathSegment
+
+    private fun upload(uri: Uri, context: android.content.Context) {
         val s = session ?: return
         val dir = _path.value ?: return
         transferJob = viewModelScope.launch {
-            var name = "upload"
+            var name = uri.lastPathSegment ?: "upload"
             var c: SftpClient? = null
             var target: String? = null
             var written = false
@@ -284,6 +316,7 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val transfer by vm.transfer.collectAsStateWithLifecycle()
+    val pendingReplace by vm.pendingReplace.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     var showHidden by remember { mutableStateOf(false) }
@@ -300,7 +333,7 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
         if (uri != null && file != null) vm.download(file, uri, context)
     }
     val uploadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.upload(uri, context)
+        if (uri != null) vm.requestUpload(uri, context)
     }
 
     var confirmLeave by remember { mutableStateOf(false) }
@@ -404,6 +437,15 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
         NameDialog(title = "Rename", initial = f.name, confirm = "Rename", onDismiss = { renaming = null }) { name ->
             vm.rename(f, name); renaming = null
         }
+    }
+    pendingReplace?.let { p ->
+        AlertDialog(
+            onDismissRequest = { vm.dismissReplace() },
+            title = { Text("Replace ${p.name}?") },
+            text = { Text("A file with this name already exists in this folder. Uploading will overwrite it.") },
+            confirmButton = { TextButton(onClick = { vm.confirmReplace(context) }) { Text("Replace") } },
+            dismissButton = { TextButton(onClick = { vm.dismissReplace() }) { Text("Cancel") } },
+        )
     }
     if (confirmLeave) {
         AlertDialog(

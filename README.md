@@ -100,12 +100,24 @@ Requirements: JDK 17 or newer and the Android SDK (platform 36).
 ./gradlew :ssh:assembleDebug     # Seren SSH only  → ssh/build/outputs/apk/debug/
 ./gradlew :edit:assembleDebug    # Seren Edit only → edit/build/outputs/apk/debug/
 ./gradlew :auth:assembleDebug    # Seren Auth only → auth/build/outputs/apk/debug/
-./gradlew assembleRelease        # minified release APKs (debug-signed until you add signing config)
+./gradlew assembleRelease        # minified release APKs
 ./gradlew testDebugUnitTest      # every module’s tests
 ```
 
 CI builds and tests on every push and pull request; debug and release APKs are uploaded as
 artifacts.
+
+### Signing
+
+Every app, debug and release, is signed with the same key. The apps share a signature permission,
+so Android refuses to install one signed with a different key from those already installed ("App
+not installed"), and refuses to update an app signed with a different key from its own.
+
+Builds use the suite's key when `SEREN_KEYSTORE_FILE` (a PKCS12 keystore) and
+`SEREN_KEYSTORE_PASSWORD` are set, with the key alias `seren` (or `SEREN_KEY_ALIAS`), and the
+machine's own debug key otherwise. CI reads the keystore, base64 encoded, from the repository
+secret `SEREN_KEYSTORE_BASE64`, and its password from `SEREN_KEYSTORE_PASSWORD`. Never commit the
+keystore: anyone holding it can publish updates to the apps.
 
 ## Working together
 

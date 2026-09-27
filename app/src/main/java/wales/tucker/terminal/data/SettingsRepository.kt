@@ -29,7 +29,6 @@ data class Settings(
     val volumeKeysAsModifiers: Boolean = false,
     val appLock: Boolean = false,
     val confirmDisconnect: Boolean = true,
-    val onboardingDone: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -50,7 +49,6 @@ class SettingsRepository(private val context: Context) {
         val VOLUME_KEYS = booleanPreferencesKey("volume_keys_modifiers")
         val APP_LOCK = booleanPreferencesKey("app_lock")
         val CONFIRM_DISCONNECT = booleanPreferencesKey("confirm_disconnect")
-        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -69,7 +67,6 @@ class SettingsRepository(private val context: Context) {
             volumeKeysAsModifiers = p[Keys.VOLUME_KEYS] ?: d.volumeKeysAsModifiers,
             appLock = p[Keys.APP_LOCK] ?: d.appLock,
             confirmDisconnect = p[Keys.CONFIRM_DISCONNECT] ?: d.confirmDisconnect,
-            onboardingDone = p[Keys.ONBOARDING_DONE] ?: d.onboardingDone,
         )
     }
 
@@ -86,7 +83,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVolumeKeysAsModifiers(v: Boolean) = context.dataStore.edit { it[Keys.VOLUME_KEYS] = v }
     suspend fun setAppLock(v: Boolean) = context.dataStore.edit { it[Keys.APP_LOCK] = v }
     suspend fun setConfirmDisconnect(v: Boolean) = context.dataStore.edit { it[Keys.CONFIRM_DISCONNECT] = v }
-    suspend fun setOnboardingDone(v: Boolean) = context.dataStore.edit { it[Keys.ONBOARDING_DONE] = v }
 
     companion object {
         const val MIN_FONT = 6f

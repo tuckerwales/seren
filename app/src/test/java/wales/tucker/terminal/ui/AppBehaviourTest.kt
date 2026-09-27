@@ -354,4 +354,14 @@ class AppBehaviourTest {
         }
         runBlocking { container.settings.setCursorBlink(true) }
     }
+
+    @Test
+    fun appLockHidesTheAppFromRecents() {
+        compose.waitForIdle()
+        assertFalse(compose.activity.hiddenFromRecents)
+        runBlocking { container.settings.setAppLock(true) }
+        compose.waitUntil(5_000) { compose.activity.hiddenFromRecents }
+        runBlocking { container.settings.setAppLock(false) }
+        compose.waitUntil(5_000) { !compose.activity.hiddenFromRecents }
+    }
 }

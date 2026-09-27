@@ -180,7 +180,7 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
             SwitchRow("Vibrate on bell", null, settings.vibrateOnBell) { scope.launch { repo.setVibrateOnBell(it) } }
 
             SectionHeader("Security")
-            SwitchRow("App lock", "Require biometrics or your screen lock to open the app", settings.appLock) { enabled ->
+            SwitchRow("App lock", "Require biometrics or your screen lock to open the app, and hide it in recent apps", settings.appLock) { enabled ->
                 val activity = context as? MainActivity
                 if (enabled && activity != null) {
                     if (!activity.canAuthenticate()) {

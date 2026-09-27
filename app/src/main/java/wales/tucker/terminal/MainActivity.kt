@@ -2,8 +2,10 @@ package wales.tucker.terminal
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,7 +20,9 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import wales.tucker.terminal.ui.TerminalAppUi
 import wales.tucker.terminal.ui.theme.TerminalTheme
@@ -52,6 +56,11 @@ class MainActivity : FragmentActivity() {
             if (locked) authenticate()
         }
 
+        // With app lock on, keep server output out of the recents screen as well.
+        lifecycleScope.launch {
+            container.settings.settings.map { it.appLock }.distinctUntilChanged().collect(::hideFromRecents)
+        }
+
         if (savedInstanceState == null) handleIntent(intent)
 
         setContent {
@@ -68,6 +77,22 @@ class MainActivity : FragmentActivity() {
                     sessionLinks = sessionLinks,
                 )
             }
+        }
+    }
+
+    @VisibleForTesting
+    internal var hiddenFromRecents = false
+        private set
+
+    private fun hideFromRecents(hide: Boolean) {
+        hiddenFromRecents = hide
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(!hide)
+        } else if (hide) {
+            // No way to blank just the thumbnail before Android 13; this also blocks screenshots.
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 

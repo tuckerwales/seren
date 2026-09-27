@@ -160,6 +160,8 @@ class SshConnection(
         s.setHostKeyRepository(DatabaseHostKeyRepository(knownHosts, ui))
         s.setConfig("StrictHostKeyChecking", "yes")
         s.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password")
+        s.setConfig("cipher.c2s", CIPHERS)
+        s.setConfig("cipher.s2c", CIPHERS)
         if (target.compression) {
             s.setConfig("compression.s2c", "zlib@openssh.com,zlib,none")
             s.setConfig("compression.c2s", "zlib@openssh.com,zlib,none")
@@ -313,12 +315,22 @@ class SshConnection(
 
         private const val DROPPED = "Caught an exception, leaving main loop due to "
 
+        /**
+         * ChaCha20-Poly1305 first, as OpenSSH prefers. JSch runs it on Bouncy Castle, the same on
+         * every phone, where the AES ciphers go through Android's own crypto: with those, servers
+         * rejected packets sent during uploads ("message authentication code incorrect") and
+         * dropped the connection.
+         */
+        private const val CIPHERS =
+            "chacha20-poly1305@openssh.com,aes128-gcm@openssh.com,aes256-gcm@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr"
+
         private fun shouldShowLog(message: String): Boolean =
             message.startsWith("Connecting to") ||
                 message.startsWith("Connection established") ||
                 message.startsWith("Remote version string") ||
                 message.startsWith("kex: algorithm:") ||
                 message.startsWith("kex: host key algorithm") ||
+                message.startsWith("kex: client->server cipher") ||
                 message.startsWith("Authentication succeeded") ||
                 message.startsWith("Authentications that can continue")
 

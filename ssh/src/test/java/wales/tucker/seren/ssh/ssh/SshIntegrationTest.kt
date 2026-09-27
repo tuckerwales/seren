@@ -79,6 +79,15 @@ class SshIntegrationTest {
         ConnectionTarget("test", host!!, port, user, password = pw, privateKey = key, keyName = "k")
 
     @Test
+    fun prefersChaCha20Poly1305() {
+        val ui = TestUi()
+        val c = SshConnection(dao, ui)
+        c.connect(target())
+        c.disconnect()
+        assertTrue(ui.logs.toString(), ui.logs.any { it.startsWith("kex: client->server cipher: chacha20-poly1305@openssh.com") })
+    }
+
+    @Test
     fun passwordAuthAndHostKeyTrustOnFirstUse() {
         val ui = TestUi()
         val c = SshConnection(dao, ui)

@@ -252,4 +252,24 @@ class AppBehaviourTest {
         compose.onNodeWithText("Disconnect").performClick()
         pollUntil("closed") { container.sessionManager.sessions.value.isEmpty() }
     }
+
+    @Test
+    fun hostEditorGuardsUnsavedChangesAndPointsAtErrors() {
+        compose.onNodeWithText("Add your first host").performClick()
+        compose.waitUntil(5_000) { exists("New host") }
+        compose.onNode(hasSetTextAction() and hasText("Host")).performTextInput("example.com")
+
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitUntil(5_000) { exists("Discard changes?") }
+        compose.onNodeWithText("Keep editing").performClick()
+
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(5_000) { exists("Required") }
+        assertTrue(runBlocking { container.database.hostDao().observeAll().first() }.isEmpty())
+
+        compose.onNode(hasSetTextAction() and hasText("Username")).performTextInput("me")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(5_000) { exists("Quick connect") }
+        assertEquals(listOf("example.com"), runBlocking { container.database.hostDao().observeAll().first() }.map { it.hostname })
+    }
 }

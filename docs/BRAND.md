@@ -1,7 +1,8 @@
-# Brand and design guide
+# Seren brand and design guide
 
-This guide describes how the apps in the suite look, feel and speak. Terminal is the first app and
-the reference implementation: every value here is taken from its code, so when in doubt, open
+**Seren** (Welsh for "star", said *SEH-ren*) is a suite of free, open source Android apps with no
+ads and no tracking. This guide describes how the apps look, feel and speak. Seren SSH (this
+repository) is the first app and the reference implementation: every value here is taken from its code, so when in doubt, open
 `app/src/main/java/wales/tucker/terminal/ui/theme/Theme.kt` and
 `app/src/main/java/wales/tucker/terminal/ui/common/Components.kt`.
 
@@ -54,16 +55,49 @@ Design principles that follow from those promises:
 
 ## 2. Naming
 
-- **App names are plain, capitalised nouns** that say what the app is: `Terminal`, then `Editor`
-  (or `Text`, `Notes`, `Files`...). One word where possible. No prefixes, puns or version numbers.
-- **The suite name** is not decided yet. When it is, use it only in the README, the store
-  developer name and the About dialog, never in the launcher label. Keep launcher labels short so
-  they never truncate under the icon.
-- **Package ids** follow `wales.tucker.<app>` in lower case (`wales.tucker.terminal`,
-  `wales.tucker.editor`). The Compose theme function is `<App>Theme` (`TerminalTheme`).
-- **Repository names** match the package suffix (`tuckerwales/terminal`, `tuckerwales/editor`).
-- In prose the app name is written as a proper noun without "the": "Terminal keeps sessions alive",
-  not "the Terminal app keeps...".
+### The suite
+
+The suite is called **Seren**, Welsh for "star". A star is a small, steady light that anyone can
+use to find their way and nobody owns, which is what these apps try to be. It is also a nod to
+where they are made (`tucker.wales`).
+
+- Always written **Seren**, capital S, never all caps or all lower case in prose.
+- Pronunciation, when it comes up: *SEH-ren*, with a short "e" as in "set".
+- The Play Store developer name is **Seren**.
+- The one-line story, used in READMEs, store listings and About dialogs: *"Seren is Welsh for star.
+  Seren apps are free, open source, and have no ads and no tracking."*
+
+### App names
+
+- **Seren + one word**, where the word is the shortest thing someone would type into a search to
+  find the app: **Seren SSH**, **Seren Edit**, then for example Seren Files, Seren Notes.
+- The word is always capitalised (or an acronym in caps), never a pun, never a version number.
+- The **launcher label is the full name** ("Seren SSH"). Keep it to 12 characters or fewer so it
+  never truncates under the icon.
+- In prose the app name is a proper noun without "the": "Seren SSH keeps sessions alive", not
+  "the Seren SSH app keeps...". Always use the full name, never just the app word ("Seren SSH
+  is locked", not "SSH is locked").
+- Never shorten an app to just "Seren"; that means the suite.
+
+| App | Launcher label | Package id | Repository |
+| --- | --- | --- | --- |
+| Seren SSH | Seren SSH | `wales.tucker.terminal` | `tuckerwales/terminal` |
+| Seren Edit | Seren Edit | `wales.tucker.edit` | `tuckerwales/edit` |
+
+- **Package ids** follow `wales.tucker.<word>` in lower case. Seren SSH keeps
+  `wales.tucker.terminal`: changing an application id turns it into a different app, and
+  existing installs stop getting updates, so it is not worth renaming for cosmetic reasons.
+- **Repositories** match the package suffix.
+- The Compose theme function is `SerenTheme` in new apps (Seren SSH still calls it `TerminalTheme`;
+  rename it when the theme moves into a shared module).
+
+### Wordmark
+
+- **Seren** in Roboto Medium, followed by the app word in Roboto Regular: **Seren** SSH.
+- On the icon gradient: "Seren" in white, the app word in periwinkle `#8FA8FF`.
+- On light surfaces: "Seren" in `onSurface`, the app word in `primary`.
+- Letter spacing default, no logotype tricks, no star glyph replacing a letter. The star lives in
+  the name; the icons carry the light.
 
 ## 3. App icons
 
@@ -73,12 +107,12 @@ Every app uses an **adaptive icon** with three layers, all as vector drawables
 
 ### Anatomy (108 x 108 dp viewport)
 
-| Layer | Terminal | Rule for every app |
+| Layer | Seren SSH | Rule for every app |
 | --- | --- | --- |
-| Background | Diagonal linear gradient, top left to bottom right: `#3A2F8F` at 0, `#1E2A6B` at 0.55, `#0E1434` at 1 | **Identical in every app.** This deep indigo gradient is the suite's signature. |
+| Background | Diagonal linear gradient, top left to bottom right: `#3A2F8F` at 0, `#1E2A6B` at 0.55, `#0E1434` at 1 | **Identical in every app.** This deep indigo gradient, a night sky, is the suite's signature. |
 | Frame | Rounded rectangle from (24,34) to (84,74), 6 dp corners, fill `#1AFFFFFF`, 1.5 dp stroke `#66FFFFFF` | A translucent white "object" that represents the app (a window, a page, a folder). Keep it inside the 66 dp safe zone (x and y from 21 to 87). |
 | Primary glyph | Prompt chevron, 4.5 dp round stroke, `#8FA8FF` | One simple stroked mark in **periwinkle `#8FA8FF`**, 4.5 dp, round caps and joins. |
-| Accent | Cursor bar, 15 x 4.5 dp pill, `#7DF0C8` | One small filled mark in **mint `#7DF0C8`**. The mint cursor is the suite's recurring detail: use it in every icon. |
+| Accent | Cursor bar, 15 x 4.5 dp pill, `#7DF0C8` | One small filled mark in **mint `#7DF0C8`**. The mint cursor is the suite's recurring detail (the star in the night sky): use it in every icon. |
 | Monochrome | Chevron and cursor only, pure white | Glyph and accent only, no frame or background, for themed icons on Android 13+. |
 
 ### Notification icon
@@ -160,7 +194,7 @@ Screens use `background`. Content sits on tonal containers, never on shadows:
 
 ### Accent palette
 
-Eight user-selectable accents for tagging things (hosts in Terminal; documents, folders or tabs in
+Eight user-selectable accents for tagging things (hosts in Seren SSH; documents, folders or tabs in
 later apps). Same colors, same order, in every app (`HostColors` in `Theme.kt`):
 
 | # | Name | Hex |
@@ -231,7 +265,7 @@ list the name is Roboto, the `user@host` line under it is mono.
 
 | Role | Where |
 | --- | --- |
-| Top app bar title, `FontWeight.SemiBold` | Screen titles on tabs ("Terminal", "Settings"). |
+| Top app bar title, `FontWeight.SemiBold` | Screen titles on tabs ("Seren SSH" on the home tab, "Settings"). |
 | `headlineSmall` | Lock screen title. |
 | `titleLarge` | Empty state titles, error overlays. |
 | `titleMedium` | List item headlines, avatar letters (Bold). |
@@ -285,7 +319,7 @@ documents and recent files).
 
 1. Top app bar: tab title in SemiBold on the left, at most two icon actions on the right, the rest
    in an overflow menu.
-2. Optional hero card (quick connect in Terminal; "new file / open" in later apps).
+2. Optional hero card (quick connect in Seren SSH; "new file / open" in later apps).
 3. Grouped sections with section headers.
 4. One extended FAB for the primary create action ("New host", "Upload").
 5. Bottom navigation bar with up to four tabs, the last one always **Settings**.
@@ -395,7 +429,7 @@ These are part of the brand, so every app implements them the same way:
   preferences that hold them.
 - **App lock.** Optional, in Settings, using biometrics or the device screen lock. While it is on,
   the app is hidden in recent apps (`setRecentsScreenshotEnabled(false)` on Android 13+,
-  `FLAG_SECURE` below) and the lock screen says "<App> is locked".
+  `FLAG_SECURE` below) and the lock screen says "Seren SSH is locked" (the full app name).
 - **Export and import.** A plain, documented file format so users can leave or move devices.
 - **Trust on first use.** When the app meets something it cannot verify (a host key, a file from
   outside), it shows the facts in mono and asks, with the safe option as the dismiss button.
@@ -417,8 +451,8 @@ These are part of the brand, so every app implements them the same way:
 
 ### README structure
 
-1. `# <App>` and one sentence: "A modern, fast and easy to use <thing> for Android, built with
-   Kotlin and Jetpack Compose."
+1. `# Seren <Word>` and one sentence: "A modern, fast and easy to use <thing> for Android, built
+   with Kotlin and Jetpack Compose." Then the suite story line from [section 2](#2-naming).
 2. Two rows of four screenshots at `width="200"`, from `docs/screenshots`.
 3. **Features**, grouped under bold subheadings, as short bullet lists.
 4. **Building**, **Tests**, **Architecture** (a package table), **Licenses**.
@@ -432,10 +466,12 @@ neutral demo data (`web-01`, `db-primary`, `Raspberry Pi`), never real hosts or 
 
 ### Store listing
 
-- Title: the app name only.
+- Title: the full app name, optionally followed by what it does, within the store limit
+  ("Seren SSH: terminal and SFTP").
+- Developer name: Seren.
 - Short description: the README's first sentence.
-- Feature graphic: the icon background gradient full bleed, the app glyph on the left and the app
-  name in white Roboto Medium on the right.
+- Feature graphic: the icon background gradient full bleed, the app glyph on the left and the
+  wordmark on the right.
 - The first line of the full description states the promise: "Free and open source. No ads, no
   tracking, no account."
 
@@ -444,7 +480,7 @@ neutral demo data (`web-01`, `db-primary`, `Raspberry Pi`), never real hosts or 
 Checklist for app number two and beyond:
 
 - [ ] Package `wales.tucker.<app>`, `minSdk 26`, latest `targetSdk`, Kotlin and Compose.
-- [ ] Copy `ui/theme/Theme.kt` (rename `TerminalTheme` to `<App>Theme`, keep every color),
+- [ ] Copy `ui/theme/Theme.kt` (name the theme `SerenTheme`, keep every color),
       `ui/common/Components.kt`, `res/values*/colors.xml` and `themes.xml`, and the JetBrains Mono
       fonts with their license in `assets/licenses`.
 - [ ] Draw the icon: shared gradient background, translucent frame, periwinkle glyph, mint accent,
@@ -463,7 +499,7 @@ drift apart. This guide should move with it.
 
 A sketch of how the guide maps onto the second app, to show the system working:
 
-- **Name:** `Editor` (package `wales.tucker.editor`).
+- **Name:** Seren Edit (package `wales.tucker.edit`).
 - **Icon:** the shared gradient; the frame becomes a portrait page (a rounded rectangle about
   40 x 52 dp with a folded corner); the periwinkle glyph is three stroked text lines of different
   lengths; the mint accent is a vertical text cursor at the end of the last line.

@@ -1,5 +1,6 @@
 package wales.tucker.terminal.ui.hosts
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -153,6 +154,10 @@ fun HostsTab(
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Host?>(null) }
+    BackHandler(enabled = searching) {
+        searching = false
+        query = ""
+    }
     var alreadyOpen by remember { mutableStateOf<Pair<Host, TerminalSession>?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberLazyListState()

@@ -217,4 +217,13 @@ class AppBehaviourTest {
         pollUntil("terminal") { exists("Trust and connect") }
         assertEquals(listOf(session), container.sessionManager.sessions.value)
     }
+
+    @Test
+    fun backClosesTheHostSearch() {
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.waitUntil(5_000) { exists("Search hosts") }
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitUntil(5_000) { exists("Quick connect") && !exists("Search hosts") }
+        assertFalse(compose.activity.isFinishing)
+    }
 }

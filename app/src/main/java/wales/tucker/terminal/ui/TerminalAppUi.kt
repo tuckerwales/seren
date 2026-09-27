@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -74,11 +75,14 @@ fun TerminalAppUi(
     onUnlock: () -> Unit,
     deepLinks: Channel<SshLink>,
 ) {
+    // The nav controller and the screens' saveable state live above the lock check, so unlocking
+    // returns to the screen that was open rather than starting again from the hosts list.
+    val navController = rememberNavController()
+    val stateHolder = rememberSaveableStateHolder()
     if (locked) {
         LockScreen(onUnlock)
         return
     }
-    val navController = rememberNavController()
     val container = appContainer()
     val scope = rememberCoroutineScope()
     val requestNotifications = rememberNotificationPermissionRequester()
@@ -102,6 +106,16 @@ fun TerminalAppUi(
         }
     }
 
+    stateHolder.SaveableStateProvider("app") { AppNavHost(navController, settings, openSession) }
+}
+
+@Composable
+private fun AppNavHost(
+    navController: NavHostController,
+    settings: Settings,
+    openSession: (suspend () -> Int) -> Unit,
+) {
+    val container = appContainer()
     NavHost(
         navController = navController,
         startDestination = Routes.HOME,

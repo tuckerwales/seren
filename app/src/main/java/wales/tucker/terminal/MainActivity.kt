@@ -7,6 +7,7 @@ import android.os.SystemClock
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.VisibleForTesting
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.getValue
@@ -30,7 +31,8 @@ class MainActivity : FragmentActivity() {
     /** ssh:// links waiting to be opened by the UI. */
     val deepLinks = Channel<SshLink>(Channel.BUFFERED)
 
-    private var locked by mutableStateOf(false)
+    @VisibleForTesting
+    internal var locked by mutableStateOf(false)
     private var lockChecked by mutableStateOf(false)
     private var stoppedAt = 0L
 

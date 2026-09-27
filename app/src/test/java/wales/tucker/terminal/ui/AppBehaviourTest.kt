@@ -313,4 +313,16 @@ class AppBehaviourTest {
         assertEquals(wales.tucker.terminal.data.AuthType.PASSWORD, form.authType)
         assertEquals(sshPort.toString(), form.port)
     }
+
+    @Test
+    fun deletedSnippetsCanBeRestored() {
+        runBlocking { container.database.snippetDao().upsert(wales.tucker.terminal.data.Snippet(name = "Disk usage", command = "df -h")) }
+        compose.onNodeWithText("Snippets").performClick()
+        compose.waitUntil(5_000) { exists("df -h") }
+        compose.onNodeWithContentDescription("Delete Disk usage").performClick()
+        compose.waitUntil(5_000) { exists("Deleted Disk usage") && !exists("df -h") }
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitUntil(5_000) { exists("df -h") }
+        assertEquals(1, runBlocking { container.database.snippetDao().observeAll().first() }.size)
+    }
 }

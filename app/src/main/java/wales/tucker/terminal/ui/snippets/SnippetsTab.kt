@@ -30,6 +30,10 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -37,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,8 +78,21 @@ fun SnippetsTab() {
     val vm = containerViewModel { SnippetsViewModel(it) }
     val snippets by vm.snippets.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Snippet?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    fun delete(snippet: Snippet) {
+        vm.delete(snippet)
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar("Deleted ${snippet.name}", actionLabel = "Undo", duration = SnackbarDuration.Long)
+            // Upserting with the same id puts it back as it was.
+            if (result == SnackbarResult.ActionPerformed) vm.save(snippet)
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = { TopAppBar(title = { Text("Snippets", fontWeight = FontWeight.SemiBold) }, windowInsets = WindowInsets.statusBars) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -103,7 +121,7 @@ fun SnippetsTab() {
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (s.autoRun) Icon(Icons.AutoMirrored.Rounded.KeyboardReturn, contentDescription = "Runs immediately", tint = MaterialTheme.colorScheme.outline)
-                                IconButton(onClick = { vm.delete(s) }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete") }
+                                IconButton(onClick = { delete(s) }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete ${s.name}") }
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),

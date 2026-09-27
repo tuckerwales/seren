@@ -24,6 +24,8 @@ Every app makes the same promises:
 <p>
   <img src="auth/docs/screenshots/01_accounts.png" width="200" alt="Seren Auth accounts">
   <img src="auth/docs/screenshots/03_editor.png" width="200" alt="Seren Auth account editor">
+  <img src="files/docs/screenshots/02_folder.png" width="200" alt="Seren Files folder">
+  <img src="files/docs/screenshots/01_browse.png" width="200" alt="Seren Files browse">
 </p>
 
 ## Apps
@@ -33,6 +35,7 @@ Every app makes the same promises:
 | **[Seren SSH](ssh)** | [`ssh`](ssh) | `wales.tucker.seren.ssh` | Ready for daily use |
 | **[Seren Edit](edit)** | [`edit`](edit) | `wales.tucker.seren.edit` | Early days — edits well; no syntax highlighting or search yet |
 | **[Seren Auth](auth)** | [`auth`](auth) | `wales.tucker.seren.auth` | New: codes, scanning, backup and import all work |
+| **[Seren Files](files)** | [`files`](files) | `wales.tucker.seren.files` | New: browsing, copy and move, trash, zip and search all work |
 | **[Seren Core](core)** | [`core`](core) | `wales.tucker.seren.core` | Shared theme, components, fonts and security helpers |
 
 ### Seren SSH
@@ -61,6 +64,15 @@ encrypted with the Android Keystore.
 
 → Full features, architecture and tests: [`auth/README.md`](auth/README.md)
 
+### Seren Files
+
+A modern, fast and easy to use file manager for Android. Internal storage, SD cards and bookmarks,
+copy and move with clear choices when names clash, a 30 day trash with Undo, zip, search, recent files
+and photo thumbnails. It has no network permission at all; its one permission is all files access,
+asked for with a plain explanation.
+
+→ Full features, architecture and tests: [`files/README.md`](files/README.md)
+
 ## Repository layout
 
 ```
@@ -69,12 +81,13 @@ seren/
 ├── ssh/           Seren SSH
 ├── edit/          Seren Edit
 ├── auth/          Seren Auth
+├── files/         Seren Files
 ├── docs/BRAND.md  Brand and design guide for the suite
 └── README.md      This file
 ```
 
 Each app module has its own README, screenshots under `<module>/docs/screenshots`, and builds to
-its own APK. Shared UI, fonts, `SecretBox` and app lock live in `core` — a change there reaches
+its own APK. Shared UI, fonts, `SecretBox`, the snackbar `Messenger` and app lock live in `core` — a change there reaches
 every app.
 
 ## Building

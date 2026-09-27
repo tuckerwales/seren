@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files on internal storage, and on SD cards and USB drives (which live outside it). -->
+<paths>
+    <external-path name="storage" path="." />
+    <root-path name="volumes" path="storage" />
+</paths>

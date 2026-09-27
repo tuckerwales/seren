@@ -8,6 +8,7 @@
 /ssh/build/
 /edit/build/
 /auth/build/
+/files/build/
 /captures/
 .externalNativeBuild/
 .cxx/

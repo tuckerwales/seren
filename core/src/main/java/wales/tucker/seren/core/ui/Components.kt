@@ -1,7 +1,9 @@
 package wales.tucker.seren.core.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -158,8 +160,10 @@ fun Chip(text: String, color: Color = MaterialTheme.colorScheme.secondaryContain
  * A tile in a grouped list of user objects (hosts, files, folders): [leading] (usually an
  * [Avatar]), a [title], an optional mono [subtitle] such as an address or path, an optional
  * [meta] line such as "5 min ago", and an overflow [menu] whose items get a function that closes it.
- * Pass [groupedShape] as [shape].
+ * Pass [groupedShape] as [shape]. Lists that let people pick several items pass [onLongClick] and
+ * draw picked tiles [selected].
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GroupedTile(
     shape: Shape,
@@ -168,6 +172,8 @@ fun GroupedTile(
     leading: @Composable () -> Unit,
     subtitle: String? = null,
     meta: String? = null,
+    onLongClick: (() -> Unit)? = null,
+    selected: Boolean = false,
     menu: (@Composable ColumnScope.(close: () -> Unit) -> Unit)? = null,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -176,8 +182,8 @@ fun GroupedTile(
             .padding(horizontal = 16.dp, vertical = 1.dp)
             .fillMaxWidth()
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClick = onClick)
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = 14.dp, end = if (menu != null) 4.dp else 14.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -188,6 +194,7 @@ fun GroupedTile(
                 title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
+                color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else Color.Unspecified,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -195,14 +202,18 @@ fun GroupedTile(
                 Text(
                     subtitle,
                     style = MonoSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             if (meta != null) {
                 Spacer(Modifier.height(2.dp))
-                Text(meta, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text(
+                    meta,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.outline,
+                )
             }
         }
         if (menu != null) {
@@ -266,4 +277,21 @@ fun relativeTime(timestamp: Long, now: Long = System.currentTimeMillis(), midSen
         diff < 86400 * 7 -> "${diff / 86400} d ago"
         else -> java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(timestamp))
     }
+}
+
+/**
+ * "0 bytes", "812 bytes", "22 KB", "1.4 MB", "3.2 GB". Binary units (1 KB is 1024 bytes), labelled
+ * the way people expect.
+ */
+fun formatSize(bytes: Long): String {
+    if (bytes < 1024) return if (bytes == 1L) "1 byte" else "$bytes bytes"
+    if (bytes < 1024 * 1024) return "${bytes / 1024} KB"
+    val units = listOf("MB", "GB", "TB")
+    var value = bytes / (1024.0 * 1024.0)
+    var unit = 0
+    while (value >= 1024 && unit < units.lastIndex) {
+        value /= 1024
+        unit++
+    }
+    return String.format(java.util.Locale.ROOT, "%.1f %s", value, units[unit])
 }

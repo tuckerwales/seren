@@ -95,7 +95,7 @@ import wales.tucker.seren.auth.otp.OtpType
 import wales.tucker.seren.auth.otp.formatCode
 import wales.tucker.seren.auth.ui.AddActions
 import wales.tucker.seren.auth.ui.appContainer
-import wales.tucker.seren.auth.ui.common.LocalMessenger
+import wales.tucker.seren.core.ui.LocalMessenger
 import wales.tucker.seren.auth.ui.containerViewModel
 import wales.tucker.seren.auth.ui.rememberIdentityCheck
 import wales.tucker.seren.auth.ui.scan.QrCodeImage

@@ -174,6 +174,7 @@ private fun AppNavHost(
 }
 
 private fun NavHostController.popBackStackTo(route: String) {
+    if (currentDestination?.route == route) return
     if (!popBackStack(route, inclusive = false)) navigate(route)
 }
 

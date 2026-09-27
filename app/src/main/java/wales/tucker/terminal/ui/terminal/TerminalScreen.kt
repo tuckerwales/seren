@@ -204,6 +204,12 @@ private fun TerminalContent(
         }
     }
 
+    // Leave once the session is closed, whether from this screen, the notification's
+    // "Disconnect all" or anywhere else. A closed session cannot be reconnected.
+    val closed = sessions.none { it.id == session.id }
+    LaunchedEffect(closed) { if (closed) onClosed() }
+    if (closed) return
+
     LaunchedEffect(state) {
         if (state == SessionState.Connected && !keyboardShownOnce) {
             keyboardShownOnce = true
@@ -329,7 +335,7 @@ private fun TerminalContent(
                                 if (settings.confirmDisconnect && state == SessionState.Connected) {
                                     confirmClose = true
                                 } else {
-                                    container.sessionManager.close(session); onClosed()
+                                    container.sessionManager.close(session)
                                 }
                             },
                         )
@@ -373,7 +379,7 @@ private fun TerminalContent(
                     bg = bg,
                     accent = accent,
                     onRetry = { session.reconnect() },
-                    onClose = { container.sessionManager.close(session); onClosed() },
+                    onClose = { container.sessionManager.close(session) },
                 )
 
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
@@ -389,7 +395,7 @@ private fun TerminalContent(
                     fg = fg,
                     accent = accent,
                     onReconnect = { session.reconnect() },
-                    onClose = { container.sessionManager.close(session); onClosed() },
+                    onClose = { container.sessionManager.close(session) },
                 )
             }
 
@@ -441,7 +447,6 @@ private fun TerminalContent(
                 TextButton(onClick = {
                     confirmClose = false
                     container.sessionManager.close(session)
-                    onClosed()
                 }) { Text("Disconnect") }
             },
             dismissButton = { TextButton(onClick = { confirmClose = false }) { Text("Cancel") } },

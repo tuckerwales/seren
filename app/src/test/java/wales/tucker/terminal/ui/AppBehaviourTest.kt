@@ -66,4 +66,18 @@ class AppBehaviourTest {
         compose.activity.locked = false
         compose.waitUntil(5_000) { exists("No known hosts") }
     }
+
+    /** Quick connects to a closed local port, which fails straight away. */
+    private fun openFailingSession() {
+        compose.onNode(hasSetTextAction() and hasText("user@host:port")).performTextInput("user@127.0.0.1:1")
+        compose.onNodeWithContentDescription("Connect").performClick()
+        pollUntil("connection failure") { exists("Couldn't connect") }
+    }
+
+    @Test
+    fun closingSessionsFromTheNotificationLeavesTheTerminal() {
+        openFailingSession()
+        container.sessionManager.closeAll()
+        pollUntil("hosts screen") { exists("Quick connect") }
+    }
 }

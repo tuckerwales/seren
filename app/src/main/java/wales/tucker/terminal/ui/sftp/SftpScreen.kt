@@ -90,6 +90,7 @@ import wales.tucker.terminal.session.TerminalSession
 import wales.tucker.terminal.ssh.RemoteFile
 import wales.tucker.terminal.ssh.SftpClient
 import wales.tucker.terminal.ui.common.EmptyState
+import wales.tucker.terminal.ui.common.appContainer
 import wales.tucker.terminal.ui.common.containerViewModel
 import wales.tucker.terminal.ui.theme.MonoSmall
 import java.text.DateFormat
@@ -236,6 +237,9 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
 @Composable
 fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
     val vm = containerViewModel(key = "sftp-$sessionId") { SftpViewModel(it, sessionId) }
+    val sessions by appContainer().sessionManager.sessions.collectAsStateWithLifecycle()
+    val closed = sessions.none { it.id == sessionId }
+    LaunchedEffect(closed) { if (closed) onBack() }
     val path by vm.path.collectAsStateWithLifecycle()
     val files by vm.files.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()

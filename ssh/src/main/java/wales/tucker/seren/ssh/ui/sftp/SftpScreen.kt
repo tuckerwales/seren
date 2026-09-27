@@ -232,7 +232,8 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                 _path.value = resolved
                 _error.value = null
             } catch (e: Exception) {
-                messages.tryEmit("Cannot open $target: ${e.message}")
+                // When the connection has gone, the connection lost card says so, and why.
+                if (client?.isConnected != false) messages.tryEmit("Cannot open $target: ${e.message}")
                 if (_path.value == null) _error.value = e.message
             } finally {
                 _loading.value = false

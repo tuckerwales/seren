@@ -101,10 +101,16 @@ class SshConnection(
         setInstanceLogger(object : Logger {
             override fun isEnabled(level: Int) = level >= Logger.INFO
             override fun log(level: Int, message: String) {
+                message.substringAfter(DROPPED, "").lineSequence().first().takeIf { it.isNotBlank() }?.let { lostBecause = it }
                 if (shouldShowLog(message)) ui.log(message)
             }
         })
     }
+
+    /** Why the connection dropped, as JSch saw it, such as the server's disconnect message. */
+    @Volatile
+    var lostBecause: String? = null
+        private set
 
     @Volatile
     private var session: Session? = null
@@ -304,6 +310,8 @@ class SshConnection(
     companion object {
         /** Key used in known hosts, matching how JSch names hosts. */
         fun hostKeyName(host: String, port: Int): String = if (port == 22) host else "[$host]:$port"
+
+        private const val DROPPED = "Caught an exception, leaving main loop due to "
 
         private fun shouldShowLog(message: String): Boolean =
             message.startsWith("Connecting to") ||

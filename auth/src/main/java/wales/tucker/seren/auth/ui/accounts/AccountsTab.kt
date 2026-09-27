@@ -412,7 +412,7 @@ private fun AddAccountSheet(actions: AddActions, onDismiss: () -> Unit) {
         )
         SheetItem(Icons.Rounded.QrCodeScanner, "Scan QR code", "Use the camera on the code the site shows") { pick(actions.scan) }
         SheetItem(Icons.Rounded.Image, "Scan from an image", "A screenshot or photo of a QR code") { pick(actions.pickImage) }
-        SheetItem(Icons.Rounded.Keyboard, "Enter setup key", "Type or paste the key the site gives you") { pick(actions.enterKey) }
+        SheetItem(Icons.Rounded.Keyboard, "Enter setup key", "Type or paste the key or otpauth link the site gives you") { pick(actions.enterKey) }
         SheetItem(Icons.Rounded.FileOpen, "Import from a file", "A backup from Seren Auth, Aegis or andOTP, or a list of otpauth links") {
             pick(actions.importFile)
         }

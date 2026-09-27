@@ -12,6 +12,14 @@ class OtpAuthUriTest {
     }
 
     @Test
+    fun parsesALinkWithTheIssuerOnlyInTheQuery() {
+        val t = OtpAuthUri.parse(
+            "otpauth://totp/alice?issuer=Example&secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&algorithm=SHA1&digits=6&period=30",
+        )
+        assertEquals(OtpToken("Example", "alice", "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"), t)
+    }
+
+    @Test
     fun readsEveryParameter() {
         val t = OtpAuthUri.parse(
             "OTPAUTH://HOTP/ACME%20Co:john.doe%40email.com?secret=hxdmvjecjjwsrb3hwizr4ifugftmxboz" +

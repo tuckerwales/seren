@@ -15,6 +15,7 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
   <img src="docs/screenshots/06_accounts_dark.png" width="200" alt="Accounts in the dark theme">
   <img src="docs/screenshots/05_empty_dark.png" width="200" alt="No accounts yet">
   <img src="docs/screenshots/07_qr_code.png" width="200" alt="An account's QR code">
+  <img src="docs/screenshots/08_copied_link.png" width="200" alt="Offering a copied setup link">
 </p>
 
 ## Features
@@ -32,6 +33,8 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 - Enter or paste a setup key, or paste a whole otpauth link to fill in every field, with a live preview
   of the code to check against the site
 - Open `otpauth://` links from a browser or another app
+- Copied a setup link or key in another app? Come back to Seren Auth and a card offers to add it in
+  one tap. Each copy is looked at once, and this can be turned off in Settings
 - Scan Google Authenticator's "Transfer accounts" QR codes to bring every account over
 - Duplicates are spotted by their setup key and never added twice
 
@@ -101,7 +104,7 @@ by typing into them.
 
 | Package | Contents |
 | --- | --- |
-| `otp` | `Otp` (HOTP and TOTP), `Base32`, `OtpAuthUri` (otpauth links) and `GoogleMigration` (transfer QR codes) |
+| `otp` | `Otp` (HOTP and TOTP), `Base32`, `OtpAuthUri` (otpauth links), `GoogleMigration` (transfer QR codes) and `CopiedSetup` (spotting them in copied text) |
 | `backup` | `BackupCrypto` (scrypt and AES-GCM), the Seren Auth, Aegis and andOTP formats and `Importer`, which recognises any of them |
 | `qr` | `QrCodes`: reading QR codes from camera frames and images, and making them, with ZXing |
 | `data` | Room database of accounts with encrypted setup keys, `AccountRepository` and DataStore settings |

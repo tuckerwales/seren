@@ -73,6 +73,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -90,6 +91,7 @@ import kotlinx.coroutines.launch
 import wales.tucker.seren.auth.AppContainer
 import wales.tucker.seren.auth.data.Account
 import wales.tucker.seren.auth.data.Settings
+import wales.tucker.seren.auth.otp.CopiedSetup
 import wales.tucker.seren.auth.otp.OtpAuthUri
 import wales.tucker.seren.auth.otp.OtpType
 import wales.tucker.seren.auth.otp.formatCode
@@ -123,6 +125,45 @@ class AccountsViewModel(private val container: AppContainer) : ViewModel() {
     fun nextCode(account: Account) {
         viewModelScope.launch { container.accounts.nextCounter(account.id) }
     }
+
+    /** A setup link or key the user copied, offered on a card above their accounts. */
+    var copied by mutableStateOf<CopiedSetup?>(null)
+        private set
+
+    /** When the clip last looked at was copied, so each copy is read and offered only once. */
+    private var copiedAt: Long? = null
+
+    /** A hash of the clip last read, for when Android doesn't say when it was copied. */
+    private var copiedHash: Int? = null
+
+    /**
+     * Offers what [read] finds on a clipboard copied at [timestamp], unless that copy was already
+     * looked at. A timestamp of 0 means Android didn't say, so the clip is read and compared.
+     */
+    fun checkCopied(timestamp: Long, read: () -> String?) {
+        if (timestamp != 0L && timestamp == copiedAt) return
+        copiedAt = timestamp
+        val text = read()
+        if (timestamp == 0L && text.hashCode() == copiedHash) return
+        copiedHash = text.hashCode()
+        val found = text?.let(CopiedSetup::find)
+        if (found == null) {
+            copied = null
+            return
+        }
+        viewModelScope.launch {
+            // Nothing to offer for accounts that are already here.
+            val known = container.accounts.all().mapTo(HashSet()) { it.token.secret }
+            copied = when (found) {
+                is CopiedSetup.Transfer -> found.copy(tokens = found.tokens.filter { it.secret !in known }).takeIf { it.tokens.isNotEmpty() }
+                else -> found.takeIf { found.secrets.none(known::contains) }
+            }
+        }
+    }
+
+    fun dismissCopied() {
+        copied = null
+    }
 }
 
 /** Accounts whose service or account name contains [query]. */
@@ -151,6 +192,14 @@ fun AccountsTab(settings: Settings, actions: AddActions, onEdit: (Long) -> Unit)
     var showQr by remember { mutableStateOf<Account?>(null) }
     val listState = rememberLazyListState()
     val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+    val copied = vm.copied.takeIf { settings.offerCopied }
+
+    // Android only lets the app in front read the clipboard, so look each time the window gets
+    // focus back: coming back from a browser, the notification shade or split screen.
+    val focused = LocalWindowInfo.current.isWindowFocused
+    LaunchedEffect(focused, settings.offerCopied) {
+        if (focused && settings.offerCopied) vm.checkClipboard(context)
+    }
 
     fun copy(account: Account) {
         val code = account.token.code(clock.now())
@@ -192,6 +241,18 @@ fun AccountsTab(settings: Settings, actions: AddActions, onEdit: (Long) -> Unit)
             state = listState,
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
+            if (copied != null) {
+                item(key = "copied") {
+                    CopiedSetupCard(
+                        copied,
+                        onAdd = {
+                            vm.dismissCopied()
+                            actions.addCopied(copied)
+                        },
+                        onDismiss = vm::dismissCopied,
+                    )
+                }
+            }
             when {
                 accounts == null -> Unit
                 accounts.isEmpty() -> item {

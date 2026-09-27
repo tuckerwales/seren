@@ -26,6 +26,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import wales.tucker.seren.auth.data.Settings
+import wales.tucker.seren.auth.otp.CopiedSetup
 import wales.tucker.seren.auth.otp.GoogleMigration
 import wales.tucker.seren.auth.otp.OtpAuthUri
 import wales.tucker.seren.auth.otp.OtpFormatException
@@ -55,6 +56,8 @@ class AddActions(
     val pickImage: () -> Unit,
     val enterKey: () -> Unit,
     val importFile: () -> Unit,
+    /** Adds a setup link, transfer or key the user copied. */
+    val addCopied: (CopiedSetup) -> Unit,
 )
 
 @Composable
@@ -113,6 +116,13 @@ fun AuthAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, openLin
                 }
             },
             importFile = { importFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) },
+            addCopied = { copied ->
+                when (copied) {
+                    is CopiedSetup.Link -> openCode(copied.link)
+                    is CopiedSetup.Transfer -> openCode(copied.link)
+                    is CopiedSetup.Key -> navController.navigate(Routes.newAccount(copied.secret)) { launchSingleTop = true }
+                }
+            },
         )
     }
 

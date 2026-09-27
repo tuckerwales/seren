@@ -1,10 +1,11 @@
 # Seren brand and design guide
 
 **Seren** (Welsh for "star", said *SEH-ren*) is a suite of free, open source Android apps with no
-ads and no tracking. This guide describes how the apps look, feel and speak. Seren SSH (this
-repository) is the first app and the reference implementation: every value here is taken from its code, so when in doubt, open
-`app/src/main/java/wales/tucker/seren/ssh/ui/theme/Theme.kt` and
-`app/src/main/java/wales/tucker/seren/ssh/ui/common/Components.kt`.
+ads and no tracking. This guide describes how the apps look, feel and speak. Seren SSH was the
+first app and Seren Edit the second; what they share lives in **Seren Core** (the `core` module),
+so when in doubt, open
+`core/src/main/java/wales/tucker/seren/core/ui/theme/Theme.kt` and
+`core/src/main/java/wales/tucker/seren/core/ui/Components.kt`.
 
 The goal is that someone who uses one of the apps feels at home in the next one: same colors, same
 shapes, same words for the same things, same respect for their device and their data.
@@ -79,15 +80,17 @@ where they are made (`tucker.wales`).
   is locked", not "SSH is locked").
 - Never shorten an app to just "Seren"; that means the suite.
 
-| App | Launcher label | Package id | Repository |
+| App | Launcher label | Package id | Module |
 | --- | --- | --- | --- |
-| Seren SSH | Seren SSH | `wales.tucker.seren.ssh` | `tuckerwales/seren-ssh` |
-| Seren Edit | Seren Edit | `wales.tucker.seren.edit` | `tuckerwales/seren-edit` |
+| Seren SSH | Seren SSH | `wales.tucker.seren.ssh` | `ssh` |
+| Seren Edit | Seren Edit | `wales.tucker.seren.edit` | `edit` |
+| (shared library) | | `wales.tucker.seren.core` | `core` |
 
 - **Package ids** (application id, namespace and Kotlin package) are `wales.tucker.seren.<word>`
   in lower case. Once an app is published its id never changes: a new id is a different app, and
   existing installs stop getting updates.
-- **Repositories** are `seren-<word>`.
+- All the apps live in one repository, `tuckerwales/seren`, each in a Gradle module named after its
+  word (`ssh`, `edit`), next to the shared `core` module.
 - The Application class is `SerenApp`, the Compose theme function `SerenTheme` and the XML theme
   `Theme.Seren`.
 
@@ -143,7 +146,7 @@ Every app uses an **adaptive icon** with three layers, all as vector drawables
 ### Material color schemes
 
 Every app ships the same two fallback schemes, used when dynamic color is off or unavailable
-(below Android 12). Copy them verbatim from `Theme.kt`.
+(below Android 12). They are defined once, in `SerenTheme` in Seren Core.
 
 | Role | Light | Dark |
 | --- | --- | --- |
@@ -195,7 +198,7 @@ Screens use `background`. Content sits on tonal containers, never on shadows:
 ### Accent palette
 
 Eight user-selectable accents for tagging things (hosts in Seren SSH; documents, folders or tabs in
-later apps). Same colors, same order, in every app (`HostColors` in `Theme.kt`):
+later apps). Same colors, same order, in every app (`AccentColors` in Seren Core's `Theme.kt`):
 
 | # | Name | Hex |
 | --- | --- | --- |
@@ -244,7 +247,7 @@ editor), it offers named color schemes independent of the app theme. The default
 | White / bright white | `#C0CAF5` / `#FFFFFF` |
 
 The full set (Midnight, Dracula, Catppuccin Mocha, Nord, Gruvbox Dark, One Dark, Solarized Dark,
-Monokai, Classic Black, Solarized Light, Paper) lives in `emulator/ColorSchemes.kt`. Later apps
+Monokai, Classic Black, Solarized Light, Paper) lives in `ContentColorSchemes` in Seren Core. Every app
 reuse the same ids and names so a user's favorite scheme means the same thing everywhere. When the
 canvas is on screen, the system bars follow the canvas (`SystemBarAppearance(lightBars = !scheme.isDark)`),
 not the app theme.
@@ -256,7 +259,7 @@ Two families, each with a clear job.
 | Family | Source | Used for |
 | --- | --- | --- |
 | **Roboto** (system default) | Material 3 default `Typography()` | All interface text: titles, labels, body, buttons. |
-| **JetBrains Mono** | Bundled in `res/font` (regular, bold, italic, bold italic), `MonoFamily` in `Theme.kt` | Anything the user would type or copy: hostnames, `user@host:port`, paths, commands, snippets, key fingerprints, file contents, the terminal itself, extra key labels. |
+| **JetBrains Mono** | Bundled in `res/font` (regular, bold, italic, bold italic), in Seren Core, `MonoFamily` in `Theme.kt` | Anything the user would type or copy: hostnames, `user@host:port`, paths, commands, snippets, key fingerprints, file contents, the terminal itself, extra key labels. |
 
 Rule of thumb: **if it is data, it is mono; if it is the app talking, it is Roboto.** In the hosts
 list the name is Roboto, the `user@host` line under it is mono.
@@ -330,8 +333,8 @@ subtitle such as `user@host:port`) and a text **Save** action on the right.
 ## 8. Components
 
 Use Material 3 components with the settings below. Shared composables live in
-`ui/common/Components.kt`; copy that file into each new app (or a shared module, see
-[section 15](#15-starting-a-new-app)).
+Seren Core (`core/.../ui/Components.kt` and its neighbours); use them rather than restyling
+Material components in an app.
 
 | Component | Spec |
 | --- | --- |
@@ -416,6 +419,11 @@ The apps sound like a calm, competent friend: plain words, short sentences, no h
 | Forget | Remove, clear (for trusted fingerprints) |
 | Delete | Remove, erase (for user data) |
 | Settings | Preferences, options |
+| File | Document (for something on storage) |
+| Folder | Directory |
+| Discard changes | Revert, lose edits |
+| Forget (a folder) | Remove, revoke access |
+| Remove from recent | Delete (the file stays where it is) |
 
 New apps should add their own nouns to this table rather than reuse ambiguous ones.
 
@@ -424,7 +432,7 @@ New apps should add their own nouns to this table rather than reuse ambiguous on
 These are part of the brand, so every app implements them the same way:
 
 - **Encrypted secrets.** Anything sensitive is encrypted with AES-256-GCM using a key in the
-  Android Keystore (`security/SecretBox.kt`).
+  Android Keystore (`SecretBox` in Seren Core; each app names its own key alias).
 - **No cloud backup of secrets.** `res/xml/data_extraction_rules.xml` excludes the database and
   preferences that hold them.
 - **App lock.** Optional, in Settings, using biometrics or the device screen lock. While it is on,
@@ -453,14 +461,14 @@ These are part of the brand, so every app implements them the same way:
 
 1. `# Seren <Word>` and one sentence: "A modern, fast and easy to use <thing> for Android, built
    with Kotlin and Jetpack Compose." Then the suite story line from [section 2](#2-naming).
-2. Two rows of four screenshots at `width="200"`, from `docs/screenshots`.
+2. Two rows of four screenshots at `width="200"`, from the module's `docs/screenshots`.
 3. **Features**, grouped under bold subheadings, as short bullet lists.
 4. **Building**, **Tests**, **Architecture** (a package table), **Licenses**.
 
 ### Screenshots
 
 Generated, not hand-taken: a Robolectric test (`AppScreenshotTest`) renders the main screens at
-`w400dp-h860dp-xxhdpi` with seeded, realistic demo data and saves them to `app/build/screenshots`.
+`w400dp-h860dp-xxhdpi` with seeded, realistic demo data and saves them to `<module>/build/screenshots`.
 Files are numbered and named by screen (`02_hosts.png`, `05_settings.png`). Use plausible,
 neutral demo data (`web-01`, `db-primary`, `Raspberry Pi`), never real hosts or names.
 
@@ -480,24 +488,25 @@ neutral demo data (`web-01`, `db-primary`, `Raspberry Pi`), never real hosts or 
 Checklist for app number two and beyond:
 
 - [ ] Package `wales.tucker.seren.<word>`, `minSdk 26`, latest `targetSdk`, Kotlin and Compose.
-- [ ] Copy `ui/theme/Theme.kt` (name the theme `SerenTheme`, keep every color),
-      `ui/common/Components.kt`, `res/values*/colors.xml` and `themes.xml`, and the JetBrains Mono
-      fonts with their license in `assets/licenses`.
-- [ ] Draw the icon: shared gradient background, translucent frame, periwinkle glyph, mint accent,
-      monochrome and notification variants.
-- [ ] Bottom navigation ending in Settings; Settings starts with Appearance (Theme, Dynamic color).
-- [ ] App lock, encrypted secrets, backup exclusions, export and import if the app stores data.
-- [ ] About dialog with licenses.
-- [ ] Screenshot test and README in the structure above.
+- [ ] Add a module named after the app word, include it in `settings.gradle.kts`, and depend on
+      Seren Core with `implementation(project(":core"))`. That brings `SerenTheme`, `Theme.Seren`,
+      the window colors, the fonts and their license, the shared components, `SecretBox`,
+      `AppLock` and the backup exclusion rules; don't copy any of them.
+- [ ] Draw the icon: the shared gradient background (`@drawable/ic_launcher_background` from Seren
+      Core), translucent frame, periwinkle glyph, mint accent, monochrome and notification variants.
+- [ ] Bottom navigation ending in Settings; Settings starts with `AppearanceSection`.
+- [ ] App lock (`AppLock`, `LockScreen`), encrypted secrets, export and import if the app stores data.
+- [ ] `AboutDialog` with the app's libraries plus `CORE_LICENSES`.
+- [ ] Screenshot test and README in the structure above, and a line in the root README.
 - [ ] Add the app's nouns to the word list in section 11.
 
-Once there are two apps, move `Theme.kt`, `Components.kt`, the fonts and `SecretBox` into a shared
-library (a Gradle module published from its own repository, or a git submodule) so the apps cannot
-drift apart. This guide should move with it.
+Anything a second app needs that one app already has (a component, a pattern, a helper) moves into
+Seren Core rather than being copied, so the apps cannot drift apart. This guide lives at the root of
+the repository, next to the modules it describes.
 
 ## 16. Applying this to the text editor
 
-A sketch of how the guide maps onto the second app, to show the system working:
+How the guide maps onto the second app, Seren Edit (the `edit` module), to show the system working:
 
 - **Name:** Seren Edit (package `wales.tucker.seren.edit`).
 - **Icon:** the shared gradient; the frame becomes a portrait page (a rounded rectangle about
@@ -512,3 +521,5 @@ A sketch of how the guide maps onto the second app, to show the system working:
 - **Extra keys row** above the keyboard reusing the terminal's styling (Tab, arrows, Home/End,
   brackets, undo, redo).
 - **Words:** File, Folder, Save, Discard changes ("Discard changes to notes.txt?").
+- **Trust:** Seren Edit asks for no storage or network permission. It reaches only the files and
+  folders the user picks, and "Forget" hands a folder's access back.

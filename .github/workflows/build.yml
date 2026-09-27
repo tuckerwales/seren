@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK
+    name: Build APKs
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -42,18 +42,22 @@ jobs:
       - name: Build debug and release APKs
         run: ./gradlew assembleDebug assembleRelease
 
-      - name: Upload debug APK
+      - name: Upload Seren SSH APKs
         uses: actions/upload-artifact@v4
         with:
-          name: seren-ssh-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: seren-ssh
+          path: |
+            ssh/build/outputs/apk/debug/*.apk
+            ssh/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-      - name: Upload release APK
+      - name: Upload Seren Edit APKs
         uses: actions/upload-artifact@v4
         with:
-          name: seren-ssh-release
-          path: app/build/outputs/apk/release/*.apk
+          name: seren-edit
+          path: |
+            edit/build/outputs/apk/debug/*.apk
+            edit/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Upload test reports and screenshots
@@ -62,6 +66,6 @@ jobs:
         with:
           name: test-reports
           path: |
-            app/build/reports/tests/
-            app/build/screenshots/
+            */build/reports/tests/
+            */build/screenshots/
           if-no-files-found: ignore

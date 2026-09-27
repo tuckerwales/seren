@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "wales.tucker.terminal"
+    namespace = "wales.tucker.seren.ssh"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "wales.tucker.terminal"
+        applicationId = "wales.tucker.seren.ssh"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

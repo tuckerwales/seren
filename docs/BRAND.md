@@ -3,8 +3,8 @@
 **Seren** (Welsh for "star", said *SEH-ren*) is a suite of free, open source Android apps with no
 ads and no tracking. This guide describes how the apps look, feel and speak. Seren SSH (this
 repository) is the first app and the reference implementation: every value here is taken from its code, so when in doubt, open
-`app/src/main/java/wales/tucker/terminal/ui/theme/Theme.kt` and
-`app/src/main/java/wales/tucker/terminal/ui/common/Components.kt`.
+`app/src/main/java/wales/tucker/seren/ssh/ui/theme/Theme.kt` and
+`app/src/main/java/wales/tucker/seren/ssh/ui/common/Components.kt`.
 
 The goal is that someone who uses one of the apps feels at home in the next one: same colors, same
 shapes, same words for the same things, same respect for their device and their data.
@@ -81,15 +81,15 @@ where they are made (`tucker.wales`).
 
 | App | Launcher label | Package id | Repository |
 | --- | --- | --- | --- |
-| Seren SSH | Seren SSH | `wales.tucker.terminal` | `tuckerwales/terminal` |
-| Seren Edit | Seren Edit | `wales.tucker.edit` | `tuckerwales/edit` |
+| Seren SSH | Seren SSH | `wales.tucker.seren.ssh` | `tuckerwales/seren-ssh` |
+| Seren Edit | Seren Edit | `wales.tucker.seren.edit` | `tuckerwales/seren-edit` |
 
-- **Package ids** follow `wales.tucker.<word>` in lower case. Seren SSH keeps
-  `wales.tucker.terminal`: changing an application id turns it into a different app, and
-  existing installs stop getting updates, so it is not worth renaming for cosmetic reasons.
-- **Repositories** match the package suffix.
-- The Compose theme function is `SerenTheme` in new apps (Seren SSH still calls it `TerminalTheme`;
-  rename it when the theme moves into a shared module).
+- **Package ids** (application id, namespace and Kotlin package) are `wales.tucker.seren.<word>`
+  in lower case. Once an app is published its id never changes: a new id is a different app, and
+  existing installs stop getting updates.
+- **Repositories** are `seren-<word>`.
+- The Application class is `SerenApp`, the Compose theme function `SerenTheme` and the XML theme
+  `Theme.Seren`.
 
 ### Wordmark
 
@@ -479,7 +479,7 @@ neutral demo data (`web-01`, `db-primary`, `Raspberry Pi`), never real hosts or 
 
 Checklist for app number two and beyond:
 
-- [ ] Package `wales.tucker.<app>`, `minSdk 26`, latest `targetSdk`, Kotlin and Compose.
+- [ ] Package `wales.tucker.seren.<word>`, `minSdk 26`, latest `targetSdk`, Kotlin and Compose.
 - [ ] Copy `ui/theme/Theme.kt` (name the theme `SerenTheme`, keep every color),
       `ui/common/Components.kt`, `res/values*/colors.xml` and `themes.xml`, and the JetBrains Mono
       fonts with their license in `assets/licenses`.
@@ -499,7 +499,7 @@ drift apart. This guide should move with it.
 
 A sketch of how the guide maps onto the second app, to show the system working:
 
-- **Name:** Seren Edit (package `wales.tucker.edit`).
+- **Name:** Seren Edit (package `wales.tucker.seren.edit`).
 - **Icon:** the shared gradient; the frame becomes a portrait page (a rounded rectangle about
   40 x 52 dp with a folded corner); the periwinkle glyph is three stroked text lines of different
   lengths; the mint accent is a vertical text cursor at the end of the last line.

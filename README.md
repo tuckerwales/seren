@@ -1,6 +1,8 @@
-# Terminal
+# Seren SSH
 
 A modern, fast and easy to use SSH client for Android, built with Kotlin and Jetpack Compose.
+
+Seren is Welsh for star. Seren apps are free, open source, and have no ads and no tracking.
 
 <p>
   <img src="docs/screenshots/02_hosts.png" width="200" alt="Hosts">

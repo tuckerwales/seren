@@ -149,7 +149,7 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 Text("Scrollback", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "Lines kept in history for new sessions",
+                    "Lines of history kept for each session",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

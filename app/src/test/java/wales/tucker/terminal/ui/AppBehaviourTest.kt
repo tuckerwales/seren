@@ -3,6 +3,7 @@ package wales.tucker.terminal.ui
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -23,6 +25,7 @@ import org.robolectric.annotation.GraphicsMode
 import wales.tucker.terminal.MainActivity
 import wales.tucker.terminal.TerminalApp
 import wales.tucker.terminal.TestApp
+import wales.tucker.terminal.data.Host
 
 /** Drives the real UI through flows that do not need an SSH server. */
 @RunWith(AndroidJUnit4::class)
@@ -99,5 +102,16 @@ class AppBehaviourTest {
         container.sessionManager.closeAll()
         // Restored once the terminal's exit animation has finished.
         pollUntil("light status bar icons") { lightStatusBarIcons() }
+    }
+
+    @Test
+    fun hostsOnlyShowTheConnectedDotForConnectedSessions() {
+        runBlocking { container.database.hostDao().insert(Host(nickname = "closed-port", hostname = "127.0.0.1", port = 1, username = "user")) }
+        compose.waitUntil(5_000) { exists("closed-port") }
+        compose.onNodeWithText("closed-port").performClick()
+        pollUntil("connection failure") { exists("Couldn't connect") }
+        compose.onNodeWithContentDescription("Back").performClick()
+        pollUntil("hosts screen") { exists("Quick connect") }
+        assertTrue(compose.onAllNodesWithContentDescription("Connected").fetchSemanticsNodes().isEmpty())
     }
 }

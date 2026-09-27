@@ -74,6 +74,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -82,8 +84,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import wales.tucker.terminal.AppContainer
@@ -108,6 +115,17 @@ class HostsViewModel(private val container: AppContainer) : ViewModel() {
 
     val sessions = container.sessionManager.sessions
 
+    /** Saved hosts with at least one connected session. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val connectedHostIds: StateFlow<Set<Long>> = sessions
+        .flatMapLatest { list ->
+            if (list.isEmpty()) flowOf(emptySet())
+            else combine(list.map { s -> s.state.map { st -> s.spec.hostId.takeIf { st == SessionState.Connected } } }) { ids ->
+                ids.filterNotNull().toSet()
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     fun delete(host: Host) = viewModelScope.launch {
         container.database.hostDao().clearJumpHost(host.id)
         container.database.hostDao().delete(host)
@@ -127,6 +145,7 @@ fun HostsTab(
     val vm = containerViewModel { HostsViewModel(it) }
     val hosts by vm.hosts.collectAsStateWithLifecycle()
     val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val connectedHostIds by vm.connectedHostIds.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Host?>(null) }
@@ -237,7 +256,7 @@ fun HostsTab(
                     HostRow(
                         host = host,
                         shape = groupedShape(index, list.size),
-                        activeCount = sessions.count { it.spec.hostId == host.id },
+                        connected = host.id in connectedHostIds,
                         onClick = { onConnect(host) },
                         onEdit = { onEditHost(host.id, false) },
                         onDuplicate = { onEditHost(host.id, true) },
@@ -388,7 +407,7 @@ fun stateLabel(state: SessionState): String = when (state) {
 private fun HostRow(
     host: Host,
     shape: Shape,
-    activeCount: Int,
+    connected: Boolean,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
@@ -417,9 +436,9 @@ private fun HostRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                if (activeCount > 0) {
+                if (connected) {
                     Spacer(Modifier.width(8.dp))
-                    StatusDot(stateColor(SessionState.Connected))
+                    StatusDot(stateColor(SessionState.Connected), Modifier.semantics { contentDescription = "Connected" })
                 }
                 if (host.authType == AuthType.KEY) {
                     Spacer(Modifier.width(6.dp))

@@ -22,6 +22,9 @@ interface HostDao {
     )
     fun observeAll(): Flow<List<Host>>
 
+    @Query("SELECT * FROM hosts ORDER BY id")
+    suspend fun all(): List<Host>
+
     @Query("SELECT * FROM hosts WHERE id = :id")
     suspend fun get(id: Long): Host?
 
@@ -54,6 +57,9 @@ interface HostDao {
 interface KeyDao {
     @Query("SELECT * FROM keys ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<SshKey>>
+
+    @Query("SELECT * FROM keys ORDER BY id")
+    suspend fun all(): List<SshKey>
 
     @Query("SELECT * FROM keys WHERE id = :id")
     suspend fun get(id: Long): SshKey?
@@ -114,6 +120,9 @@ interface PortForwardDao {
 interface SnippetDao {
     @Query("SELECT * FROM snippets ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<Snippet>>
+
+    @Query("SELECT * FROM snippets ORDER BY id")
+    suspend fun all(): List<Snippet>
 
     @Upsert
     suspend fun upsert(snippet: Snippet): Long

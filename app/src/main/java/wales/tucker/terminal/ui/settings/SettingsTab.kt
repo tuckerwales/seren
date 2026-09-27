@@ -2,6 +2,8 @@ package wales.tucker.terminal.ui.settings
 
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,9 +62,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import wales.tucker.terminal.BuildConfig
 import wales.tucker.terminal.MainActivity
+import wales.tucker.terminal.data.Backup
 import wales.tucker.terminal.data.Settings
 import wales.tucker.terminal.data.SettingsRepository
 import wales.tucker.terminal.data.ThemeMode
@@ -81,6 +86,34 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showAbout by remember { mutableStateOf(false) }
+    val backup = remember(container) { Backup(container.database) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch {
+            val message = runCatching {
+                val json = backup.export()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } ?: error("Cannot write the file")
+                }
+                "Hosts and snippets exported"
+            }.getOrElse { "Export failed: ${it.message}" }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val message = runCatching {
+                val json = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("Cannot read the file")
+                }
+                val r = backup.import(json)
+                buildString {
+                    append("Imported ${r.hosts} host${if (r.hosts == 1) "" else "s"} and ${r.snippets} snippet${if (r.snippets == 1) "" else "s"}")
+                    if (r.skipped > 0) append(", skipped ${r.skipped} already here")
+                }
+            }.getOrElse { "Import failed: ${it.message}" }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(title = { Text("Settings", fontWeight = FontWeight.SemiBold) }, windowInsets = WindowInsets.statusBars)
@@ -196,6 +229,14 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
                 }
             }
             NavRow("Known hosts", "Manage trusted server fingerprints", onKnownHosts)
+
+            SectionHeader("Backup")
+            NavRow("Export hosts and snippets", "Passwords and keys are not included") {
+                exportLauncher.launch("terminal-backup.json")
+            }
+            NavRow("Import hosts and snippets", "Adds them alongside the ones already here") {
+                importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+            }
 
             SectionHeader("About")
             NavRow("Terminal ${BuildConfig.VERSION_NAME}", "Open source licenses") { showAbout = true }

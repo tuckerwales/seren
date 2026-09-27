@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -29,6 +30,8 @@ data class Settings(
     val volumeKeysAsModifiers: Boolean = false,
     val appLock: Boolean = false,
     val confirmDisconnect: Boolean = true,
+    /** Labels of the extra keys the user has hidden from the extra keys row. */
+    val hiddenExtraKeys: Set<String> = emptySet(),
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -49,6 +52,7 @@ class SettingsRepository(private val context: Context) {
         val VOLUME_KEYS = booleanPreferencesKey("volume_keys_modifiers")
         val APP_LOCK = booleanPreferencesKey("app_lock")
         val CONFIRM_DISCONNECT = booleanPreferencesKey("confirm_disconnect")
+        val HIDDEN_EXTRA_KEYS = stringSetPreferencesKey("hidden_extra_keys")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -67,6 +71,7 @@ class SettingsRepository(private val context: Context) {
             volumeKeysAsModifiers = p[Keys.VOLUME_KEYS] ?: d.volumeKeysAsModifiers,
             appLock = p[Keys.APP_LOCK] ?: d.appLock,
             confirmDisconnect = p[Keys.CONFIRM_DISCONNECT] ?: d.confirmDisconnect,
+            hiddenExtraKeys = p[Keys.HIDDEN_EXTRA_KEYS] ?: d.hiddenExtraKeys,
         )
     }
 
@@ -83,6 +88,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVolumeKeysAsModifiers(v: Boolean) = context.dataStore.edit { it[Keys.VOLUME_KEYS] = v }
     suspend fun setAppLock(v: Boolean) = context.dataStore.edit { it[Keys.APP_LOCK] = v }
     suspend fun setConfirmDisconnect(v: Boolean) = context.dataStore.edit { it[Keys.CONFIRM_DISCONNECT] = v }
+    suspend fun setExtraKeyVisible(label: String, visible: Boolean) = context.dataStore.edit {
+        val hidden = it[Keys.HIDDEN_EXTRA_KEYS].orEmpty()
+        it[Keys.HIDDEN_EXTRA_KEYS] = if (visible) hidden - label else hidden + label
+    }
+    suspend fun resetExtraKeys() = context.dataStore.edit { it.remove(Keys.HIDDEN_EXTRA_KEYS) }
 
     companion object {
         const val MIN_FONT = 6f

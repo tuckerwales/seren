@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -184,5 +185,16 @@ class AppBehaviourTest {
 
         compose.onNodeWithContentDescription("Scroll to bottom").performClick()
         pollUntil("button hidden") { compose.onAllNodesWithContentDescription("Scroll to bottom").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test
+    fun extraKeysCanBeHiddenInSettings() {
+        compose.onNodeWithText("Settings").performClick()
+        compose.onNodeWithText("Customize extra keys").performScrollTo().performClick()
+        compose.waitUntil(5_000) { exists("Choose the keys") }
+        compose.onNodeWithText("Pipe").performClick()
+        compose.waitUntil(5_000) { runBlocking { container.settings.settings.first().hiddenExtraKeys } == setOf("|") }
+        compose.onNodeWithText("Show all").performClick()
+        compose.waitUntil(5_000) { runBlocking { container.settings.settings.first().hiddenExtraKeys }.isEmpty() }
     }
 }

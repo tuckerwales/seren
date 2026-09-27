@@ -55,6 +55,7 @@ fun HomeScreen(
     onEditHost: (Long?, Boolean) -> Unit,
     onImportKey: () -> Unit,
     onKnownHosts: () -> Unit,
+    onExtraKeys: () -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(HomeTab.HOSTS) }
     LaunchedEffect(quickConnectPrefill) { if (quickConnectPrefill != null) tab = HomeTab.HOSTS }
@@ -86,7 +87,7 @@ fun HomeScreen(
                     )
                     HomeTab.KEYS -> KeysTab(onImportKey = onImportKey)
                     HomeTab.SNIPPETS -> SnippetsTab()
-                    HomeTab.SETTINGS -> SettingsTab(settings = settings, onKnownHosts = onKnownHosts)
+                    HomeTab.SETTINGS -> SettingsTab(settings = settings, onKnownHosts = onKnownHosts, onExtraKeys = onExtraKeys)
                 }
             }
         }

@@ -51,4 +51,23 @@ class ExtraKeysBarTest {
         control.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "On for the next key"))
         assertEquals(ModifierState.ONCE, modifiers.ctrl)
     }
+
+    @Test
+    fun hiddenKeysAreLeftOut() {
+        compose.setContent {
+            ExtraKeysBar(
+                modifiers = StickyModifiers(),
+                background = Color.Black,
+                foreground = Color.White,
+                accent = Color.Blue,
+                onKey = {},
+                onText = {},
+                onToggleKeyboard = {},
+                hidden = setOf("|", "F12"),
+            )
+        }
+        compose.onNodeWithContentDescription("Pipe").assertDoesNotExist()
+        compose.onNodeWithContentDescription("F12").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Tilde").assertExists()
+    }
 }

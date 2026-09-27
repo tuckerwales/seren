@@ -75,7 +75,7 @@ import wales.tucker.terminal.ui.theme.MonoFamily
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit) {
+fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () -> Unit) {
     val container = appContainer()
     val repo = container.settings
     val scope = rememberCoroutineScope()
@@ -166,6 +166,10 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit) {
             }
             SwitchRow("Extra keys row", "Esc, Tab, Ctrl, Alt, arrows and more above the keyboard", settings.showExtraKeys) {
                 scope.launch { repo.setShowExtraKeys(it) }
+            }
+            if (settings.showExtraKeys) {
+                val hidden = settings.hiddenExtraKeys.size
+                NavRow("Customize extra keys", if (hidden == 0) "All keys shown" else "$hidden hidden", onExtraKeys)
             }
             SwitchRow("Volume keys as Ctrl and Alt", "Hold volume down for Ctrl, volume up for Alt", settings.volumeKeysAsModifiers) {
                 scope.launch { repo.setVolumeKeysAsModifiers(it) }

@@ -435,6 +435,7 @@ private fun TerminalContent(
             if (settings.showExtraKeys) {
                 ExtraKeysBar(
                     modifiers = modifiers,
+                    hidden = settings.hiddenExtraKeys,
                     background = lerpColor(bg, fg, 0.06f),
                     foreground = fg,
                     accent = accent,

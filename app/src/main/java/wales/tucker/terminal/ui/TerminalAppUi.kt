@@ -55,6 +55,7 @@ import wales.tucker.terminal.ui.common.appContainer
 import wales.tucker.terminal.ui.hosts.HostEditorScreen
 import wales.tucker.terminal.ui.home.HomeScreen
 import wales.tucker.terminal.ui.keys.KeyImportScreen
+import wales.tucker.terminal.ui.settings.ExtraKeysScreen
 import wales.tucker.terminal.ui.settings.KnownHostsScreen
 import wales.tucker.terminal.ui.sftp.SftpScreen
 import wales.tucker.terminal.ui.terminal.TerminalScreen
@@ -65,6 +66,7 @@ object Routes {
     const val TERMINAL = "terminal/{sessionId}"
     const val SFTP = "sftp/{sessionId}"
     const val KNOWN_HOSTS = "knownHosts"
+    const val EXTRA_KEYS = "extraKeys"
     const val KEY_IMPORT = "keyImport"
 
     fun hostEditor(id: Long? = null, duplicate: Boolean = false) = "host?id=${id ?: -1}&duplicate=$duplicate"
@@ -170,6 +172,7 @@ private fun AppNavHost(
                 onEditHost = { id, duplicate -> navController.navigate(Routes.hostEditor(id, duplicate)) },
                 onImportKey = { navController.navigate(Routes.KEY_IMPORT) },
                 onKnownHosts = { navController.navigate(Routes.KNOWN_HOSTS) },
+                onExtraKeys = { navController.navigate(Routes.EXTRA_KEYS) },
             )
         }
         composable(
@@ -200,6 +203,9 @@ private fun AppNavHost(
         }
         composable(Routes.SFTP, arguments = listOf(navArgument("sessionId") { type = NavType.IntType })) { entry ->
             SftpScreen(sessionId = entry.arguments?.getInt("sessionId") ?: 0, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.EXTRA_KEYS) {
+            ExtraKeysScreen(settings = settings, onBack = { navController.popBackStack() })
         }
         composable(Routes.KNOWN_HOSTS) {
             KnownHostsScreen(onBack = { navController.popBackStack() })

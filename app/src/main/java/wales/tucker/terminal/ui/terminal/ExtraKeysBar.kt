@@ -136,6 +136,11 @@ private val KEYS: List<ExtraKey> = listOf(
     ExtraKey.Special("F12", TerminalKey.F12),
 )
 
+/** A key the user can show or hide in settings: its label (the stored id) and spoken name. */
+data class ExtraKeyChoice(val label: String, val description: String)
+
+val EXTRA_KEY_CHOICES: List<ExtraKeyChoice> = KEYS.map { ExtraKeyChoice(it.label, it.description) }
+
 @Composable
 fun ExtraKeysBar(
     modifiers: StickyModifiers,
@@ -146,6 +151,7 @@ fun ExtraKeysBar(
     onText: (String) -> Unit,
     onToggleKeyboard: () -> Unit,
     modifier: Modifier = Modifier,
+    hidden: Set<String> = emptySet(),
 ) {
     val haptics = LocalHapticFeedback.current
     Row(
@@ -178,7 +184,7 @@ fun ExtraKeysBar(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            KEYS.forEach { key ->
+            KEYS.filterNot { it.label in hidden }.forEach { key ->
                 val state = when (key) {
                     ExtraKey.Ctrl -> modifiers.ctrl
                     ExtraKey.Alt -> modifiers.alt

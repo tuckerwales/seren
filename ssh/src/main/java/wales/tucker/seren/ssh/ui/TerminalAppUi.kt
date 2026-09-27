@@ -2,6 +2,7 @@ package wales.tucker.seren.ssh.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,9 +30,14 @@ import androidx.navigation.navArgument
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.ui.LockScreen
+import wales.tucker.seren.ssh.KeyFile
 import wales.tucker.seren.ssh.SshLink
+import wales.tucker.seren.ssh.data.Host
 import wales.tucker.seren.ssh.data.Settings
+import wales.tucker.seren.ssh.session.SessionState
+import wales.tucker.seren.ssh.session.TerminalSession
 import wales.tucker.seren.ssh.ui.common.appContainer
 import wales.tucker.seren.ssh.ui.hosts.HostEditorScreen
 import wales.tucker.seren.ssh.ui.home.HomeScreen
@@ -40,6 +46,8 @@ import wales.tucker.seren.ssh.ui.settings.ExtraKeysScreen
 import wales.tucker.seren.ssh.ui.settings.KnownHostsScreen
 import wales.tucker.seren.ssh.ui.sftp.SftpScreen
 import wales.tucker.seren.ssh.ui.terminal.TerminalScreen
+import wales.tucker.seren.ssh.ui.upload.SharedFiles
+import wales.tucker.seren.ssh.ui.upload.UploadTargetScreen
 
 object Routes {
     const val HOME = "home"
@@ -49,6 +57,7 @@ object Routes {
     const val KNOWN_HOSTS = "knownHosts"
     const val EXTRA_KEYS = "extraKeys"
     const val KEY_IMPORT = "keyImport"
+    const val UPLOAD = "upload"
 
     fun hostEditor(id: Long? = null, duplicate: Boolean = false) = "host?id=${id ?: -1}&duplicate=$duplicate&session=-1"
 
@@ -65,6 +74,8 @@ fun TerminalAppUi(
     onUnlock: () -> Unit,
     deepLinks: Channel<SshLink>,
     sessionLinks: Channel<Int>,
+    sharedFiles: Channel<List<Uri>> = Channel(),
+    keyFiles: Channel<KeyFile> = Channel(),
 ) {
     // The nav controller and the screens' saveable state live above the lock check, so unlocking
     // returns to the screen that was open rather than starting again from the hosts list.
@@ -117,6 +128,34 @@ fun TerminalAppUi(
         }
     }
 
+    // Files shared with Seren SSH, until they are uploaded or people change their mind.
+    var shared by remember { mutableStateOf<PendingUpload?>(null) }
+    LaunchedEffect(Unit) {
+        for (uris in sharedFiles) {
+            val files = withContext(Dispatchers.IO) { SharedFiles.resolve(context, uris) }
+            withContext(Dispatchers.Main) {
+                shared = PendingUpload(files)
+                navController.navigate(Routes.UPLOAD) { launchSingleTop = true }
+            }
+        }
+    }
+
+    // A private key from Seren Files, until Import key has read it.
+    var pendingKey by remember { mutableStateOf<KeyFile?>(null) }
+    LaunchedEffect(Unit) {
+        for (key in keyFiles) {
+            pendingKey = key
+            navController.navigate(Routes.KEY_IMPORT) { launchSingleTop = true }
+        }
+    }
+
+    val browseForUpload: (TerminalSession) -> Unit = { session ->
+        shared = shared?.copy(sessionId = session.id)
+        navController.navigate(Routes.sftp(session.id)) {
+            popUpTo(Routes.UPLOAD) { inclusive = true }
+        }
+    }
+
     stateHolder.SaveableStateProvider("app") {
         AppNavHost(
             navController = navController,
@@ -124,6 +163,25 @@ fun TerminalAppUi(
             openSession = openSession,
             quickConnectPrefill = quickConnectPrefill,
             onPrefillConsumed = { quickConnectPrefill = null },
+            shared = shared,
+            onSharedDone = { shared = null },
+            onUploadToSession = { session ->
+                // An old session is connected again, asking for a password here if need be.
+                if (session.state.value is SessionState.Failed || session.state.value is SessionState.Disconnected) session.reconnect()
+                browseForUpload(session)
+            },
+            onUploadToHost = { host ->
+                requestNotifications()
+                scope.launch(Dispatchers.Main) {
+                    try {
+                        browseForUpload(container.sessionManager.open(host))
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Could not open session: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+            pendingKey = pendingKey,
+            onKeyRead = { pendingKey = null },
         )
     }
 }
@@ -135,6 +193,12 @@ private fun AppNavHost(
     openSession: (suspend () -> Int) -> Unit,
     quickConnectPrefill: String?,
     onPrefillConsumed: () -> Unit,
+    shared: PendingUpload?,
+    onSharedDone: () -> Unit,
+    onUploadToSession: (TerminalSession) -> Unit,
+    onUploadToHost: (Host) -> Unit,
+    pendingKey: KeyFile?,
+    onKeyRead: () -> Unit,
 ) {
     val container = appContainer()
     NavHost(
@@ -189,7 +253,34 @@ private fun AppNavHost(
             )
         }
         composable(Routes.SFTP, arguments = listOf(navArgument("sessionId") { type = NavType.IntType })) { entry ->
-            SftpScreen(sessionId = entry.arguments?.getInt("sessionId") ?: 0, onBack = { navController.popBackStack() })
+            val sessionId = entry.arguments?.getInt("sessionId") ?: 0
+            SftpScreen(
+                sessionId = sessionId,
+                onBack = {
+                    if (shared?.sessionId == sessionId) onSharedDone()
+                    navController.popBackStack()
+                },
+                incoming = shared?.takeIf { it.sessionId == sessionId }?.files,
+                onIncomingHandled = onSharedDone,
+            )
+        }
+        composable(Routes.UPLOAD) {
+            val files = shared?.files
+            // Nothing to upload (say after the app was restarted): leave, unless already leaving.
+            LaunchedEffect(files) {
+                if (files == null && navController.currentDestination?.route == Routes.UPLOAD) navController.popBackStack()
+            }
+            if (files != null) {
+                UploadTargetScreen(
+                    files = files,
+                    onSession = onUploadToSession,
+                    onHost = onUploadToHost,
+                    onCancel = {
+                        onSharedDone()
+                        navController.popBackStack()
+                    },
+                )
+            }
         }
         composable(Routes.EXTRA_KEYS) {
             ExtraKeysScreen(settings = settings, onBack = { navController.popBackStack() })
@@ -198,10 +289,20 @@ private fun AppNavHost(
             KnownHostsScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.KEY_IMPORT) {
-            KeyImportScreen(onDone = { navController.popBackStack() })
+            KeyImportScreen(
+                keyFile = pendingKey,
+                onKeyFileRead = onKeyRead,
+                onDone = {
+                    onKeyRead()
+                    navController.popBackStack()
+                },
+            )
         }
     }
 }
+
+/** Shared files and, once people pick one, the session whose SFTP browser they go to. */
+data class PendingUpload(val files: SharedFiles, val sessionId: Int? = null)
 
 private fun NavHostController.popBackStackTo(route: String) {
     if (currentDestination?.route == route) return

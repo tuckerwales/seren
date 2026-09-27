@@ -4,19 +4,15 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -52,13 +47,13 @@ import wales.tucker.seren.auth.data.Settings
 import wales.tucker.seren.auth.otp.OtpAuthUri
 import wales.tucker.seren.auth.ui.appContainer
 import wales.tucker.seren.core.ui.LocalMessenger
-import wales.tucker.seren.auth.ui.common.PasswordField
 import wales.tucker.seren.auth.ui.containerViewModel
 import wales.tucker.seren.auth.ui.rememberIdentityCheck
 import wales.tucker.seren.core.ui.AboutDialog
 import wales.tucker.seren.core.ui.AppearanceSection
 import wales.tucker.seren.core.ui.CORE_LICENSES
 import wales.tucker.seren.core.ui.NavRow
+import wales.tucker.seren.core.ui.NewBackupPasswordDialog
 import wales.tucker.seren.core.ui.SectionHeader
 import wales.tucker.seren.core.ui.SwitchRow
 import java.io.IOException
@@ -194,7 +189,7 @@ fun SettingsTab(settings: Settings, onImport: () -> Unit) {
     }
 
     if (askPassword) {
-        ExportPasswordDialog(
+        NewBackupPasswordDialog(
             onExport = { password ->
                 askPassword = false
                 backup.pending = ExportKind.Encrypted(password)
@@ -250,45 +245,3 @@ val AUTH_LICENSES = listOf(
     "Bouncy Castle, MIT License",
 )
 
-const val MIN_BACKUP_PASSWORD = 8
-
-@Composable
-private fun ExportPasswordDialog(onExport: (CharArray) -> Unit, onDismiss: () -> Unit) {
-    var password by rememberSaveable { mutableStateOf("") }
-    var repeat by rememberSaveable { mutableStateOf("") }
-    var tried by rememberSaveable { mutableStateOf(false) }
-    val tooShort = password.length < MIN_BACKUP_PASSWORD
-    val mismatch = password != repeat
-    val submit = {
-        tried = true
-        if (!tooShort && !mismatch) onExport(password.toCharArray())
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Rounded.Lock, null) },
-        title = { Text("Choose a password") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("You'll need it to import the backup. If you forget it, the backup can't be opened.")
-                PasswordField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = "Password",
-                    error = if (tried && tooShort) "Use at least $MIN_BACKUP_PASSWORD characters" else null,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                PasswordField(
-                    value = repeat,
-                    onValueChange = { repeat = it },
-                    label = "Password again",
-                    error = if (tried && !tooShort && mismatch) "The passwords don't match" else null,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = { TextButton(onClick = submit) { Text("Export") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}

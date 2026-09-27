@@ -87,8 +87,8 @@ seren/
 ```
 
 Each app module has its own README, screenshots under `<module>/docs/screenshots`, and builds to
-its own APK. Shared UI, fonts, `SecretBox`, the snackbar `Messenger` and app lock live in `core` — a change there reaches
-every app.
+its own APK. Shared UI, fonts, `SecretBox`, backup encryption, the snackbar `Messenger`, app lock and
+the links between the apps live in `core`, so a change there reaches every app.
 
 ## Building
 
@@ -105,6 +105,20 @@ Requirements: JDK 17 or newer and the Android SDK (platform 36).
 
 CI builds and tests on every push and pull request; debug and release APKs are uploaded as
 artifacts.
+
+## Working together
+
+Each app works on its own, and offers the others by name when they are installed:
+
+- **Seren Files → Seren Edit:** "Open in Seren Edit" for any text file, saving back to it
+- **Seren Files → Seren SSH:** "Upload with Seren SSH" to send files to a server over SFTP, and
+  "Import into Seren SSH" for private keys
+- **Seren SSH → Seren Files:** "Show in Seren Files" after an SFTP download
+- **Seren SSH and Seren Auth** protect their backups with the same password encryption
+
+They hand each other files through ordinary Android intents and content links, never secrets, and
+the Seren-only actions need a permission only apps signed with the suite's key hold, so **sign every
+app with the same release key**. Details: [docs/BRAND.md, section 19](docs/BRAND.md#19-working-together).
 
 ## Design
 

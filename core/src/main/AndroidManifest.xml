@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merged into every Seren app. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Guards the Seren-only actions (wales.tucker.seren.core.suite.Suite): only apps signed with
+         the same key as the suite may use them. Every app declares it, so it exists whichever
+         Seren apps are installed. -->
+    <permission
+        android:name="wales.tucker.seren.permission.SUITE"
+        android:description="@string/seren_suite_permission_description"
+        android:label="@string/seren_suite_permission_label"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="wales.tucker.seren.permission.SUITE" />
+
+    <!-- Android 11+ hides other apps unless asked for by name: these are the only ones. -->
+    <queries>
+        <package android:name="wales.tucker.seren.ssh" />
+        <package android:name="wales.tucker.seren.edit" />
+        <package android:name="wales.tucker.seren.auth" />
+        <package android:name="wales.tucker.seren.files" />
+    </queries>
+</manifest>

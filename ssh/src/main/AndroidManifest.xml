@@ -38,7 +38,27 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="ssh" />
             </intent-filter>
+            <!-- Files shared from Seren Files or any other app, to upload over SFTP. -->
+            <intent-filter android:label="@string/upload_label">
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
         </activity>
+
+        <!-- "Import into Seren SSH" for a private key picked in Seren Files. Only Seren apps may ask. -->
+        <activity-alias
+            android:name=".ImportKeyActivity"
+            android:exported="true"
+            android:permission="wales.tucker.seren.permission.SUITE"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="wales.tucker.seren.action.IMPORT_KEY" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+            </intent-filter>
+        </activity-alias>
 
         <service
             android:name=".session.SessionService"

@@ -20,6 +20,8 @@ import org.robolectric.annotation.GraphicsMode
 import wales.tucker.seren.edit.MainActivity
 import wales.tucker.seren.edit.SerenApp
 import java.io.File
+import wales.tucker.seren.core.suite.Suite
+import wales.tucker.seren.core.suite.SuiteApp
 
 /** Drives the real UI: opening, editing and saving files, and the guards around them. */
 @RunWith(AndroidJUnit4::class)
@@ -59,6 +61,21 @@ class AppBehaviourTest {
 
         assertEquals("bread\r\nmilk\r\neggs\r\n", f.readText())
         compose.onNodeWithText("Internal storage/Documents").assertExists()
+    }
+
+    @Test
+    fun opensAndSavesFilesHandedOverBySerenFiles() {
+        val f = file("deploy.sh", "echo hi\n".toByteArray())
+        // Exactly what "Open in Seren Edit" in Seren Files sends (with a file link in place of its
+        // FileProvider link, which Robolectric can't serve).
+        val intent = Suite.viewIntent(SuiteApp.EDIT, Uri.fromFile(f), "text/plain", writable = true)
+        compose.runOnUiThread { compose.activity.handleIntent(intent) }
+        compose.waitUntil(5_000) { exists("echo hi") }
+
+        compose.onNode(hasSetTextAction()).performTextInput("set -e\n")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(5_000) { exists("Saved deploy.sh") }
+        assertEquals("set -e\necho hi\n", f.readText())
     }
 
     @Test

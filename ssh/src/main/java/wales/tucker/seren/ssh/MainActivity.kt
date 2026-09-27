@@ -1,5 +1,6 @@
 package wales.tucker.seren.ssh
 
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import wales.tucker.seren.core.security.AppLock
+import wales.tucker.seren.core.suite.Suite
 import wales.tucker.seren.core.ui.theme.SerenTheme
 import wales.tucker.seren.ssh.ui.TerminalAppUi
 
@@ -32,6 +34,12 @@ class MainActivity : FragmentActivity() {
 
     /** Sessions to show, from taps on the sessions notification. */
     val sessionLinks = Channel<Int>(Channel.CONFLATED)
+
+    /** Files shared with Seren SSH, waiting for people to pick where to upload them. */
+    val sharedFiles = Channel<List<Uri>>(Channel.CONFLATED)
+
+    /** Private keys handed over by Seren Files, waiting to be imported. */
+    val keyFiles = Channel<KeyFile>(Channel.CONFLATED)
 
     @VisibleForTesting
     internal var locked by mutableStateOf(false)
@@ -71,6 +79,8 @@ class MainActivity : FragmentActivity() {
                     onUnlock = { authenticate() },
                     deepLinks = deepLinks,
                     sessionLinks = sessionLinks,
+                    sharedFiles = sharedFiles,
+                    keyFiles = keyFiles,
                 )
             }
         }
@@ -107,10 +117,23 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    private fun handleIntent(intent: Intent?) {
+    @VisibleForTesting
+    internal fun handleIntent(intent: Intent?) {
         if (intent?.hasExtra(EXTRA_SESSION_ID) == true) {
             sessionLinks.trySend(intent.getIntExtra(EXTRA_SESSION_ID, 0))
             return
+        }
+        when (intent?.action) {
+            Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> {
+                sharedUris(intent).takeIf { it.isNotEmpty() }?.let { sharedFiles.trySend(it) }
+                return
+            }
+            Suite.ACTION_IMPORT_KEY -> {
+                intent.data?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT }?.let {
+                    keyFiles.trySend(KeyFile(it, intent.getStringExtra(Suite.EXTRA_DISPLAY_NAME)))
+                }
+                return
+            }
         }
         val uri = intent?.data ?: return
         if (intent.action == Intent.ACTION_VIEW && uri.scheme == "ssh") {
@@ -129,8 +152,26 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_SESSION_ID = "wales.tucker.seren.ssh.SESSION_ID"
+
+        /**
+         * The files in a share: the stream extras, or the clip when an app only sets that. Only
+         * content links count, so another app can't point Seren SSH at its own private files.
+         */
+        @Suppress("DEPRECATION")
+        internal fun sharedUris(intent: Intent): List<Uri> {
+            val streams = when (intent.action) {
+                Intent.ACTION_SEND -> listOfNotNull(intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
+                Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
+                else -> emptyList()
+            }
+            val clip = intent.clipData?.let { c -> (0 until c.itemCount).mapNotNull { c.getItemAt(it).uri } }.orEmpty()
+            return streams.ifEmpty { clip }.filter { it.scheme == ContentResolver.SCHEME_CONTENT }.distinct()
+        }
     }
 }
+
+/** A private key file to import, with its name when the app that sent it knows it. */
+data class KeyFile(val uri: Uri, val displayName: String?)
 
 /** A parsed ssh://[user@]host[:port] link. [username] is empty when a link names no user. */
 data class SshLink(val username: String, val hostname: String, val port: Int) {

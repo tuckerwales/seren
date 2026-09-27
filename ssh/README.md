@@ -39,6 +39,8 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 - Jump hosts (ProxyJump)
 - Local, remote and dynamic (SOCKS4/4a/5) port forwarding
 - SFTP file browser: browse, upload, download, rename, delete, create folders
+- Share files from any app to upload them: pick a server (an open session or a saved host), open
+  the folder, and upload; several files go one after another, asking before replacing any
 - Multiple concurrent sessions kept alive by a foreground service, with keep-alives and one-tap reconnect
 - Startup command per host (e.g. `tmux new -A -s main`), optional compression
 - Quick connect with `user@host:port`, and `ssh://` links
@@ -49,6 +51,13 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 - Passwords and private keys encrypted with an AES-256-GCM key held in the Android Keystore
 - Optional app lock with biometrics or the device screen lock
 - No cloud backup of secrets (they are bound to the device key)
+- Export hosts and snippets as JSON, or everything (saved passwords and private keys too) in a
+  backup encrypted with a password you choose, the same scrypt and AES-256-GCM format as Seren Auth
+
+**With the other Seren apps**
+- "Import into Seren SSH" on a private key in Seren Files opens Import key with it filled in
+- "Upload with Seren SSH" in Seren Files goes straight to picking a server
+- After an SFTP download, "Show in Seren Files" opens the folder it was saved in
 
 ## Building
 
@@ -70,8 +79,9 @@ From the repository root:
 This runs the emulator unit tests (parser, buffer, reflow, key encoding), key generation and
 import tests, and Robolectric UI tests that render every main screen to `ssh/build/screenshots`.
 
-The SSH integration tests and the end-to-end UI test (quick connect, host key and password
-prompts, a live shell, SFTP) run against a real OpenSSH server when these variables are set:
+The SSH integration tests and the end-to-end UI tests (quick connect, host key and password
+prompts, a live shell, SFTP, and uploading files shared from another app then showing the download
+in Seren Files) run against a real OpenSSH server when these variables are set:
 
 ```sh
 SSH_TEST_HOST=127.0.0.1 SSH_TEST_PORT=2222 SSH_TEST_USER=testuser SSH_TEST_PASSWORD=testpass \

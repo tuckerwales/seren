@@ -53,6 +53,7 @@ import wales.tucker.seren.files.ui.common.AccessGate
 import wales.tucker.seren.files.ui.common.DetailsDialog
 import wales.tucker.seren.files.ui.common.FileRow
 import wales.tucker.seren.files.ui.common.Opener
+import wales.tucker.seren.files.ui.common.SerenFileMenuItems
 import wales.tucker.seren.files.ui.common.displayPath
 import wales.tucker.seren.files.ui.containerViewModel
 import java.util.Calendar
@@ -153,6 +154,7 @@ fun RecentTab(settings: Settings, navigator: Navigator) {
                                     item("Open with", Icons.AutoMirrored.Rounded.OpenInNew) {
                                         if (!Opener.open(context, entry.file, choose = true)) messenger.show("No app on this device can open ${entry.name}")
                                     }
+                                    SerenFileMenuItems(entry, close)
                                     item("Share", Icons.Rounded.Share) { Opener.share(context, listOf(entry.file)) }
                                     item("Show in folder", Icons.Rounded.FolderOpen) { entry.file.parentFile?.let(navigator.openFolder) }
                                     item("Details", Icons.Rounded.Info) { details = entry }

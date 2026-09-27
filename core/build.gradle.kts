@@ -39,6 +39,7 @@ kotlin {
 dependencies {
     api(libs.androidx.core.ktx)
     api(libs.androidx.activity.compose)
+    api(libs.androidx.lifecycle.runtime.compose)
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.compose.ui)
     api(libs.androidx.compose.ui.graphics)
@@ -47,6 +48,8 @@ dependencies {
     api(libs.androidx.biometric)
     // biometric pulls in an old fragment release that rejects Activity Result request codes.
     api(libs.androidx.fragment.ktx)
+    // scrypt for password protected backups (see backup.PasswordSeal); only that class is used.
+    implementation(libs.bouncycastle.prov)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

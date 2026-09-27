@@ -40,6 +40,14 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 - Open or share through a content link, never a raw path; Open with to choose the app
 - Details: type, size (counted for whole folders), date, where it is, and its SHA-256 on request
 
+**With the other Seren apps**
+- "Open in Seren Edit" for text files, including dotfiles and files with no extension, which
+  Seren Edit can save back to
+- "Upload with Seren SSH" for one file or several picked ones, and "Import into Seren SSH" for
+  private keys (`id_ed25519`, `.pem`, `.ppk`)
+- Seren SSH's "Show in Seren Files" opens the folder a download was saved in, scrolled to it
+- Each appears only when that app is installed
+
 **Trash**
 - Deleting moves things to a trash folder on the same volume, instantly, with Undo
 - Restore puts items back where they were, recreating the folder if needed and never overwriting
@@ -86,8 +94,8 @@ This runs JVM tests of sorting, file types, copying and moving (conflicts, mergi
 moving into itself, cancelling, progress, links), zip compression and extraction (including zip
 slip), and search; Robolectric tests of the trash and of the operations behind each action and what
 they report; and UI tests that browse, copy and paste, pick and move several files, delete with Undo,
-restore from the trash, search, extract and bookmark, then render the main screens to
-`files/build/screenshots`.
+restore from the trash, search, extract and bookmark, offer the other Seren apps and show files
+they ask about, then render the main screens to `files/build/screenshots`.
 
 Robolectric can't settle a dialog that holds a focused text field, so New folder, New file, Rename
 and Compress are tested through `Operations` rather than by typing into their dialogs.
@@ -96,7 +104,7 @@ and Compress are tested through `Operations` rather than by typing into their di
 
 | Package | Contents |
 | --- | --- |
-| `fs` | Plain `java.io` file work: `Listing` and `NaturalOrder`, `FileTypes`, `FileOps` (names, copy, move, delete, measure, SHA-256), `Archives` (zip), `Search`, and `Storage` (volumes, access and recent files from the media store) |
+| `fs` | Plain `java.io` file work: `Listing` and `NaturalOrder`, `FileTypes`, `FileOps` (names, copy, move, delete, measure, SHA-256), `Archives` (zip), `Search`, `Storage` (volumes, access and recent files from the media store) and `Reveal` (which file another app's link points at) |
 | `data` | Room database of bookmarks and trash items, `TrashBin`, and DataStore settings |
 | `ops` | `Operations`: every change to files, run in an app-wide scope with progress, cancelling, the copy and move clipboard and snackbar messages |
 | `ui` | The Browse, Recent, Trash and Settings tabs, the folder screen with picking, search and paste, dialogs, thumbnails and opening files in other apps |

@@ -42,6 +42,21 @@
             </intent-filter>
         </activity>
 
+        <!-- "Show in Seren Files" from another Seren app, such as a download in Seren SSH. Only
+             Seren apps may ask, and Seren Files only reads the link, never the file. -->
+        <activity-alias
+            android:name=".RevealActivity"
+            android:exported="true"
+            android:permission="wales.tucker.seren.permission.SUITE"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="wales.tucker.seren.action.REVEAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Opening and sharing hand other apps a content link to one file, never a path. -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -11,6 +11,8 @@ import wales.tucker.seren.auth.otp.OtpFormatException
 import wales.tucker.seren.auth.otp.OtpToken
 import wales.tucker.seren.auth.otp.OtpType
 import java.util.Base64
+import wales.tucker.seren.core.backup.BackupCrypto
+import wales.tucker.seren.core.backup.PasswordSeal
 
 /** An account as it travels in a backup: its token plus the accent color it had. */
 data class BackupEntry(val token: OtpToken, val color: Int? = null)
@@ -44,9 +46,9 @@ sealed interface ImportRead {
  *                   "color": 0 } ] }
  * ```
  *
- * An encrypted backup replaces "accounts" with the same array encrypted: "kdf" holds the scrypt
- * parameters and a Base64 salt, "cipher" the AES-256-GCM nonce, and "data" the Base64 ciphertext
- * with the tag appended.
+ * An encrypted backup replaces "accounts" with the same array, sealed with the password the way
+ * every Seren backup is ([PasswordSeal]): "kdf" holds the scrypt parameters and a Base64 salt,
+ * "cipher" the AES-256-GCM nonce, and "data" the Base64 ciphertext with the tag appended.
  */
 object SerenBackup {
     const val FORMAT = "seren-auth-backup"
@@ -59,23 +61,7 @@ object SerenBackup {
         if (password == null) {
             return root.put("encrypted", false).put("accounts", accounts).toString(2)
         }
-        val params = BackupCrypto.DEFAULT_SCRYPT
-        val salt = BackupCrypto.randomBytes(BackupCrypto.SALT_SIZE)
-        val nonce = BackupCrypto.randomBytes(BackupCrypto.NONCE_SIZE)
-        val key = BackupCrypto.deriveKey(password, salt, params)
-        val data = BackupCrypto.encrypt(key, nonce, accounts.toString().toByteArray(Charsets.UTF_8))
-        key.fill(0)
-        val b64 = Base64.getEncoder()
-        return root
-            .put("encrypted", true)
-            .put(
-                "kdf",
-                JSONObject().put("algorithm", "scrypt").put("n", params.n).put("r", params.r).put("p", params.p)
-                    .put("salt", b64.encodeToString(salt)),
-            )
-            .put("cipher", JSONObject().put("algorithm", "AES-256-GCM").put("nonce", b64.encodeToString(nonce)))
-            .put("data", b64.encodeToString(data))
-            .toString(2)
+        return PasswordSeal.seal(root, accounts.toString().toByteArray(Charsets.UTF_8), password).toString(2)
     }
 
     fun read(root: JSONObject): ImportRead {
@@ -83,16 +69,9 @@ object SerenBackup {
         if (!root.optBoolean("encrypted")) {
             return ImportRead.Ready(entries(root.optJSONArray("accounts") ?: JSONArray()))
         }
-        val kdf = root.getJSONObject("kdf")
-        val b64 = Base64.getDecoder()
-        val params = BackupCrypto.ScryptParams(kdf.getInt("n"), kdf.getInt("r"), kdf.getInt("p"))
-        val salt = b64.decode(kdf.getString("salt"))
-        val nonce = b64.decode(root.getJSONObject("cipher").getString("nonce"))
-        val data = b64.decode(root.getString("data"))
+        val sealed = PasswordSeal.read(root)
         return ImportRead.Locked(SOURCE) { password ->
-            val key = BackupCrypto.deriveKey(password, salt, params)
-            val plain = BackupCrypto.decrypt(key, nonce, data) ?: throw OtpFormatException("That password isn't right")
-            key.fill(0)
+            val plain = sealed.open(password) ?: throw OtpFormatException("That password isn't right")
             entries(JSONArray(plain.toString(Charsets.UTF_8)))
         }
     }

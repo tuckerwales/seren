@@ -1,4 +1,4 @@
-package wales.tucker.seren.auth.backup
+package wales.tucker.seren.core.backup
 
 import org.bouncycastle.crypto.generators.SCrypt
 import java.security.SecureRandom

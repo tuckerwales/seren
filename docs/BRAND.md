@@ -30,6 +30,7 @@ Contents
 16. [Applying this to the text editor](#16-applying-this-to-the-text-editor)
 17. [Applying this to the authenticator](#17-applying-this-to-the-authenticator)
 18. [Applying this to the file manager](#18-applying-this-to-the-file-manager)
+19. [Working together](#19-working-together)
 
 ---
 
@@ -456,6 +457,9 @@ These are part of the brand, so every app implements them the same way:
   the app is hidden in recent apps (`setRecentsScreenshotEnabled(false)` on Android 13+,
   `FLAG_SECURE` below) and the lock screen says "Seren SSH is locked" (the full app name).
 - **Export and import.** A plain, documented file format so users can leave or move devices.
+  Password protected backups all use the same lock (`PasswordSeal` in Seren Core: scrypt and
+  AES-256-GCM), and the password dialogs come from Seren Core too (`NewBackupPasswordDialog`,
+  `UnlockBackupDialog`).
 - **Trust on first use.** When the app meets something it cannot verify (a host key, a file from
   outside), it shows the facts in mono and asks, with the safe option as the dismiss button.
 - **About dialog** lists the version, one sentence describing the app and every bundled library
@@ -516,6 +520,8 @@ Checklist for app number two and beyond:
 - [ ] `AboutDialog` with the app's libraries plus `CORE_LICENSES`.
 - [ ] Screenshot test and README in the structure above, and a line in the root README.
 - [ ] Add the app's nouns to the word list in section 11.
+- [ ] Add the app to `SuiteApp` in Seren Core, and offer what it does to the other apps (see
+      section 19).
 
 Anything a second app needs that one app already has (a component, a pattern, a helper) moves into
 Seren Core rather than being copied, so the apps cannot drift apart. This guide lives at the root of
@@ -591,6 +597,43 @@ The fourth app, Seren Files (the `files` module):
   waiting to be pasted show a pill shaped bar with Paste.
 - **Words:** Storage, Trash, Move to trash, Delete permanently, Restore, Bookmark, Compress, Extract,
   Paste (see section 11). Clashing names ask "Replace notes.txt?" with Replace, Keep both and Skip.
-- **Trust:** Seren Files has no network permission at all. Its one permission, all files access, is
-  asked for only from an explained empty state ("Allow access to your files"). Deleting goes to the
+- **Trust:** Seren Files has no network permission at all. The one permission people see, all files
+  access, is asked for only from an explained empty state ("Allow access to your files"). Deleting goes to the
   trash with Undo by default, and turning the trash off makes every delete say it's permanent.
+
+## 19. Working together
+
+Each app stands on its own, and each gets better when the others are installed. The code for this
+is `core.suite` in Seren Core.
+
+**What people see**
+
+- An app offers another Seren app by its full name, only when it is installed, checked again
+  each time the screen comes back: "Open in Seren Edit", "Upload with Seren SSH", "Import into
+  Seren SSH", "Show in Seren Files". Nothing is ever offered to install, so nothing nags.
+- The action sits next to the ordinary Android one ("Open with", "Share") rather than replacing
+  it, and the receiving app still asks before it does anything: Seren SSH asks which server and
+  folder before uploading, and Import key waits for the Import button.
+- When a handoff fails, the message names the app: "Seren SSH couldn't open notes.txt".
+
+**How it works**
+
+| From | To | What | How |
+| --- | --- | --- | --- |
+| Seren Files | Seren Edit | Open a text file, saving back to it | `ACTION_VIEW` with read and write grants |
+| Seren Files, any app | Seren SSH | Upload files over SFTP | `ACTION_SEND` / `ACTION_SEND_MULTIPLE` |
+| Seren Files | Seren SSH | Import a private key | `wales.tucker.seren.action.IMPORT_KEY` |
+| Seren SSH | Seren Files | Show a download in its folder | `wales.tucker.seren.action.REVEAL` |
+
+- **Ordinary intents first.** Whatever a standard action can do (view, edit, send) uses one, so
+  the apps also work with apps outside the suite. Only handoffs no standard action covers get a
+  Seren action, and the activities that take them require `wales.tucker.seren.permission.SUITE`,
+  a signature permission every app declares: only apps signed with the suite's key can use them.
+  Every app must therefore be signed with the same release key.
+- **Links, never paths or secrets.** Files travel as content links with one-off grants, and only
+  the access needed (write only for editing). Apps refuse `file:` links from other apps, so none
+  can point them at their own private files. Passwords, private keys and setup keys never pass from
+  one app to another; each app keeps its own lock and its own data.
+- **Package visibility.** Seren Core's manifest lists the four packages under `<queries>`, which
+  Android 11 and newer need before an app can see whether another is installed.
+

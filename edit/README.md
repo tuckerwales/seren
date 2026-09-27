@@ -29,7 +29,8 @@ syntax highlighting or search yet.
 
 **Files**
 - Create a file anywhere, open any file, or add whole folders to browse from the Files tab
-- "Open with Seren Edit" from other apps for text, JSON, XML, YAML, TOML and shell files
+- "Open with Seren Edit" from other apps for text, JSON, XML, YAML, TOML and shell files, and
+  "Open in Seren Edit" in Seren Files for any text file, dotfiles and config files included
 - Recent files, each with its own color
 - Keeps each file's encoding (UTF-8, UTF-8 or UTF-16 with a byte order mark, Latin-1) and line
   endings (LF, CRLF, CR), so saving never rewrites a file you didn't change

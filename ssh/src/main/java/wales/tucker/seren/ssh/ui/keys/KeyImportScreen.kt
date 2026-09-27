@@ -31,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +46,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.ui.theme.MonoSmall
+import wales.tucker.seren.ssh.KeyFile
 import wales.tucker.seren.ssh.data.SshKey
 import wales.tucker.seren.ssh.ssh.InvalidKeyException
 import wales.tucker.seren.ssh.ssh.PassphraseRequiredException
@@ -54,7 +56,7 @@ import wales.tucker.seren.ssh.ui.common.appContainer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KeyImportScreen(onDone: () -> Unit) {
+fun KeyImportScreen(onDone: () -> Unit, keyFile: KeyFile? = null, onKeyFileRead: () -> Unit = {}) {
     val container = appContainer()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -65,15 +67,15 @@ fun KeyImportScreen(onDone: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
+    /** Reads a key file into the form; [knownName] is the name the app that sent it gave. */
+    fun readFile(uri: Uri, knownName: String? = null) {
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    var displayName: String? = null
+                    var displayName: String? = knownName?.substringBeforeLast('.')
                     val size = context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE, OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
                         if (c.moveToFirst()) {
-                            displayName = c.getString(1)?.substringBeforeLast('.')
+                            displayName = c.getString(1)?.substringBeforeLast('.') ?: displayName
                             c.getLong(0)
                         } else {
                             0L
@@ -90,6 +92,18 @@ fun KeyImportScreen(onDone: () -> Unit) {
                 needsPassphrase = SshKeys.needsPassphrase(text)
                 error = null
             }.onFailure { error = it.message ?: "Could not read file" }
+        }
+    }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) readFile(uri)
+    }
+
+    // A key handed over by Seren Files: fill in the form, and people still check it and import.
+    LaunchedEffect(keyFile) {
+        if (keyFile != null) {
+            readFile(keyFile.uri, keyFile.displayName)
+            onKeyFileRead()
         }
     }
 

@@ -21,4 +21,5 @@
     <string name="state_connecting">Connecting…</string>
     <string name="action_reconnect">Reconnect</string>
     <string name="action_disconnect_all">Disconnect all</string>
+    <string name="upload_label">Upload with Seren SSH</string>
 </resources>

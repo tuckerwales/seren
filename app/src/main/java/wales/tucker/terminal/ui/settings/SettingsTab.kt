@@ -178,6 +178,9 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
                 scope.launch { repo.setKeepScreenOn(it) }
             }
             SwitchRow("Vibrate on bell", null, settings.vibrateOnBell) { scope.launch { repo.setVibrateOnBell(it) } }
+            SwitchRow("Confirm before disconnecting", "When closing a connected session", settings.confirmDisconnect) {
+                scope.launch { repo.setConfirmDisconnect(it) }
+            }
 
             SectionHeader("Security")
             SwitchRow("App lock", "Require biometrics or your screen lock to open the app, and hide it in recent apps", settings.appLock) { enabled ->
@@ -191,9 +194,6 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
                 } else {
                     scope.launch { repo.setAppLock(false) }
                 }
-            }
-            SwitchRow("Confirm before disconnecting", null, settings.confirmDisconnect) {
-                scope.launch { repo.setConfirmDisconnect(it) }
             }
             NavRow("Known hosts", "Manage trusted server fingerprints", onKnownHosts)
 

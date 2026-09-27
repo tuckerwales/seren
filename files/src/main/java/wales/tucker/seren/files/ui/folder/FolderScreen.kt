@@ -16,6 +16,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -30,6 +35,8 @@ import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.automirrored.rounded.NoteAdd
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.automirrored.rounded.ViewList
+import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Check
@@ -43,6 +50,7 @@ import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.FolderZip
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
@@ -114,14 +122,18 @@ import wales.tucker.seren.files.fs.SortOrder
 import wales.tucker.seren.files.fs.Volume
 import wales.tucker.seren.files.ui.appContainer
 import wales.tucker.seren.files.ui.common.AccessGate
+import wales.tucker.seren.files.ui.common.ArchivePasswordDialog
 import wales.tucker.seren.files.ui.common.ConflictDialog
 import wales.tucker.seren.files.ui.common.DeleteDialog
 import wales.tucker.seren.files.ui.common.DetailsDialog
 import wales.tucker.seren.files.ui.common.FileRow
+import wales.tucker.seren.files.ui.common.FileTile
 import wales.tucker.seren.files.ui.common.NameDialog
 import wales.tucker.seren.files.ui.common.Opener
 import wales.tucker.seren.files.ui.common.OperationCard
 import wales.tucker.seren.files.ui.common.PasteBar
+import wales.tucker.seren.files.ui.common.SaveBar
+import wales.tucker.seren.files.ui.common.Shortcuts
 import wales.tucker.seren.files.ui.common.displayPath
 import wales.tucker.seren.files.ui.common.folderTitle
 import wales.tucker.seren.files.ui.containerViewModel
@@ -153,6 +165,8 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
     val messenger = LocalMessenger.current
     val scope = rememberCoroutineScope()
     val clipboard by ops.clipboard.collectAsStateWithLifecycle()
+    val incoming by ops.incoming.collectAsStateWithLifecycle()
+    val passwordNeeded by ops.passwordNeeded.collectAsStateWithLifecycle()
     val operation by ops.current.collectAsStateWithLifecycle()
     val itemsText: (Int) -> String = ops::items
 
@@ -162,7 +176,11 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
     // Each folder keeps its scroll position, so Back lands where people left off.
     val listStates = remember { mutableMapOf<String, LazyListState>() }
     val listState = listStates.getOrPut(vm.folder.path) { LazyListState() }
-    val atTop by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+    val gridStates = remember { mutableMapOf<String, LazyGridState>() }
+    val gridState = gridStates.getOrPut(vm.folder.path) { LazyGridState() }
+    val atTop by remember(listState, gridState, settings.gridView) {
+        derivedStateOf { if (settings.gridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0 }
+    }
 
     LaunchedEffect(settings.sortOrder, settings.showHidden) { vm.configure(settings.sortOrder, settings.showHidden) }
     // Other apps may have changed things while Seren Files was in the background.
@@ -180,7 +198,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
             flash = null
             return@LaunchedEffect
         }
-        listPosition(ready.entries, path)?.let { listState.animateScrollToItem(it) }
+        listPosition(ready.entries, path)?.let { if (settings.gridView) gridState.animateScrollToItem(it) else listState.animateScrollToItem(it) }
         delay(HIGHLIGHT_MS)
         flash = null
     }
@@ -192,6 +210,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
         when {
             entry.isDirectory -> {
                 listStates.remove(entry.path)
+                gridStates.remove(entry.path)
                 if (searching) {
                     searching = false
                     query = ""
@@ -210,6 +229,10 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
         } else {
             Opener.share(context, entries.map { it.file })
         }
+    }
+
+    fun pinToHome(dir: File, name: String) {
+        if (!Shortcuts.pinFolder(context, dir, name)) messenger.show("Your home screen app can't add shortcuts")
     }
 
     fun pick(entries: List<FileEntry>, move: Boolean) {
@@ -258,6 +281,13 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                         },
                         actions = {
                             IconButton(onClick = { searching = true }) { Icon(Icons.Rounded.Search, "Search") }
+                            IconButton(onClick = { scope.launch { container.settings.setGridView(!settings.gridView) } }) {
+                                if (settings.gridView) {
+                                    Icon(Icons.AutoMirrored.Rounded.ViewList, "List view")
+                                } else {
+                                    Icon(Icons.Rounded.GridView, "Grid view")
+                                }
+                            }
                             FolderMenu(
                                 bookmarked = vm.bookmarked,
                                 showHidden = settings.showHidden,
@@ -266,6 +296,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                                 onShowHidden = { scope.launch { container.settings.setShowHidden(!settings.showHidden) } },
                                 onBookmark = { vm.toggleBookmark(vm.folder, title) },
                                 onSelectAll = vm::selectAll,
+                                onPinToHome = { pinToHome(vm.folder, title) },
                                 onCopyPath = {
                                     copyToClipboard(context, "Path", vm.folder.path)
                                     messenger.show("Copied the path")
@@ -292,6 +323,30 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                         onRename = { entries.singleOrNull()?.let { dialog = FolderDialog.Rename(it) } },
                         onCompress = { dialog = FolderDialog.Compress(entries) },
                         onDetails = { entries.singleOrNull()?.let { dialog = FolderDialog.Details(it) } },
+                        onOpenWith = {
+                            entries.singleOrNull()?.let { entry ->
+                                vm.clearSelection()
+                                if (!Opener.open(context, entry.file, choose = true)) messenger.show("No app on this device can open ${entry.name}")
+                            }
+                        },
+                        onExtract = {
+                            entries.singleOrNull()?.let { entry ->
+                                vm.clearSelection()
+                                ops.extract(entry.file)
+                            }
+                        },
+                        onBookmark = {
+                            entries.singleOrNull()?.let { entry ->
+                                vm.clearSelection()
+                                vm.toggleBookmark(entry.file, entry.name)
+                            }
+                        },
+                        onPinToHome = {
+                            entries.singleOrNull()?.let { entry ->
+                                vm.clearSelection()
+                                pinToHome(entry.file, entry.name)
+                            }
+                        },
                         onUpload = {
                             if (entries.any { it.isDirectory }) {
                                 messenger.show("Folders can't be uploaded. Compress them into a zip first.")
@@ -303,6 +358,15 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                         },
                     )
                 } else {
+                    incoming?.let { files ->
+                        SaveBar(
+                            files = files,
+                            itemsText = itemsText,
+                            enabled = operation == null && vm.contents is FolderContents.Ready,
+                            onSave = { ops.saveIncoming(vm.folder) },
+                            onCancel = ops::clearIncoming,
+                        )
+                    }
                     clipboard?.let { clip ->
                         PasteBar(
                             clip = clip,
@@ -316,7 +380,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
             }
         },
         floatingActionButton = {
-            if (!picking && !searching && clipboard == null && operation == null && vm.contents is FolderContents.Ready) {
+            if (!picking && !searching && clipboard == null && incoming == null && operation == null && vm.contents is FolderContents.Ready) {
                 ExtendedFloatingActionButton(
                     onClick = { dialog = FolderDialog.NewFolder },
                     icon = { Icon(Icons.Rounded.CreateNewFolder, null) },
@@ -356,6 +420,17 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                                 title = "Empty folder",
                                 message = if (clipboard != null) "Paste here, or create a folder with New folder." else "Create a folder here with New folder.",
                             )
+                        } else if (settings.gridView) {
+                            FolderGrid(
+                                entries = contents.entries,
+                                state = gridState,
+                                selected = vm.selected,
+                                highlighted = flash,
+                                thumbnails = settings.showThumbnails,
+                                itemsText = itemsText,
+                                onClick = { entry -> if (picking) vm.toggle(entry) else openEntry(entry) },
+                                onLongClick = vm::toggle,
+                            )
                         } else {
                             FolderList(
                                 entries = contents.entries,
@@ -380,6 +455,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                                         onCompress = { dialog = FolderDialog.Compress(listOf(entry)) },
                                         onExtract = { ops.extract(entry.file) },
                                         onBookmark = { vm.toggleBookmark(entry.file, entry.name) },
+                                        onPinToHome = { pinToHome(entry.file, entry.name) },
                                         onDetails = { dialog = FolderDialog.Details(entry) },
                                         onDelete = { dialog = FolderDialog.Delete(listOf(entry)) },
                                     )
@@ -458,7 +534,15 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
             onDismissRequest = { dialog = null },
             icon = { Icon(Icons.Rounded.Unarchive, null) },
             title = { Text("Extract ${d.entry.name}?") },
-            text = { Text("Its contents go into a new folder beside it. To open it in another app instead, use Open with.") },
+            text = {
+                Text(
+                    if (Archives.extractsToFile(d.entry.file)) {
+                        "It's decompressed into a new file beside it. To open it in another app instead, use Open with."
+                    } else {
+                        "Its contents go into a new folder beside it. To open it in another app instead, use Open with."
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     dialog = null
@@ -467,6 +551,10 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
             },
             dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancel") } },
         )
+    }
+
+    passwordNeeded?.let { request ->
+        ArchivePasswordDialog(request, onDismiss = ops::clearPasswordNeeded) { password -> ops.extract(request.archive, password) }
     }
 
     vm.pendingPlan?.let { plan ->
@@ -511,6 +599,45 @@ private fun FolderList(
                     onClick = { onClick(entry) },
                     onLongClick = { onLongClick(entry) },
                     menu = if (picking) null else { close -> menu(entry, close) },
+                )
+            }
+        }
+    }
+}
+
+/** Folders then files as a grid of tiles, each group under a header that spans the width. */
+@Composable
+private fun FolderGrid(
+    entries: List<FileEntry>,
+    state: LazyGridState,
+    selected: Set<String>,
+    highlighted: String?,
+    thumbnails: Boolean,
+    itemsText: (Int) -> String,
+    onClick: (FileEntry) -> Unit,
+    onLongClick: (FileEntry) -> Unit,
+) {
+    val folders = entries.filter { it.isDirectory }
+    val files = entries.filter { !it.isDirectory }
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 112.dp),
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 96.dp),
+    ) {
+        listOf("Folders" to folders, "Files" to files).forEach { (header, group) ->
+            if (group.isEmpty()) return@forEach
+            item(key = "header:$header", span = { GridItemSpan(maxLineSpan) }) {
+                SectionHeader(header, trailing = group.size.toString())
+            }
+            items(group, key = { it.path }) { entry ->
+                FileTile(
+                    entry = entry,
+                    thumbnails = thumbnails,
+                    itemsText = itemsText,
+                    selected = entry.path in selected || entry.path == highlighted,
+                    onClick = { onClick(entry) },
+                    onLongClick = { onLongClick(entry) },
                 )
             }
         }
@@ -650,6 +777,7 @@ private fun FolderMenu(
     onShowHidden: () -> Unit,
     onBookmark: () -> Unit,
     onSelectAll: () -> Unit,
+    onPinToHome: () -> Unit,
     onCopyPath: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -670,6 +798,7 @@ private fun FolderMenu(
             item("Show hidden files", Icons.Rounded.Visibility, trailing = if (showHidden) Icons.Rounded.Check else null, action = onShowHidden)
             item(if (bookmarked) "Remove bookmark" else "Add to bookmarks", if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, action = onBookmark)
             item("Select all", Icons.Rounded.SelectAll, action = onSelectAll)
+            item("Add to home screen", Icons.Rounded.AddToHomeScreen, action = onPinToHome)
             item("Copy path", Icons.Rounded.ContentCopy, action = onCopyPath)
         }
     }
@@ -688,6 +817,7 @@ private fun EntryMenu(
     onCompress: () -> Unit,
     onExtract: () -> Unit,
     onBookmark: () -> Unit,
+    onPinToHome: () -> Unit,
     onDetails: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -706,6 +836,7 @@ private fun EntryMenu(
     item("Compress", Icons.Rounded.FolderZip, onCompress)
     if (!entry.isDirectory && Archives.canExtract(entry.name)) item("Extract", Icons.Rounded.Unarchive, onExtract)
     if (entry.isDirectory) item("Add to bookmarks", Icons.Rounded.BookmarkBorder, onBookmark)
+    if (entry.isDirectory) item("Add to home screen", Icons.Rounded.AddToHomeScreen, onPinToHome)
     item("Details", Icons.Rounded.Info, onDetails)
     HorizontalDivider()
     item("Delete", Icons.Rounded.Delete, onDelete)
@@ -722,6 +853,10 @@ private fun SelectionBar(
     onRename: () -> Unit,
     onCompress: () -> Unit,
     onDetails: () -> Unit,
+    onOpenWith: () -> Unit,
+    onExtract: () -> Unit,
+    onBookmark: () -> Unit,
+    onPinToHome: () -> Unit,
     onUpload: () -> Unit,
 ) {
     val ssh = rememberInstalled(SuiteApp.SSH)
@@ -736,6 +871,33 @@ private fun SelectionBar(
                 BarAction(Icons.Rounded.MoreVert, "More") { more = true }
                 DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
                     val single = entries.size == 1
+                    val only = entries.singleOrNull()
+                    if (only != null && !only.isDirectory) {
+                        DropdownMenuItem(
+                            text = { Text("Open with") },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null) },
+                            onClick = { more = false; onOpenWith() },
+                        )
+                    }
+                    if (only != null && !only.isDirectory && Archives.canExtract(only.name)) {
+                        DropdownMenuItem(
+                            text = { Text("Extract") },
+                            leadingIcon = { Icon(Icons.Rounded.Unarchive, null) },
+                            onClick = { more = false; onExtract() },
+                        )
+                    }
+                    if (only != null && only.isDirectory) {
+                        DropdownMenuItem(
+                            text = { Text("Add to bookmarks") },
+                            leadingIcon = { Icon(Icons.Rounded.BookmarkBorder, null) },
+                            onClick = { more = false; onBookmark() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to home screen") },
+                            leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) },
+                            onClick = { more = false; onPinToHome() },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Rename") },
                         leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null) },

@@ -31,9 +31,9 @@ class ArchivesTest {
         var progress = 0L
         Archives.compress(listOf(notes, photos), zip) { progress = it }
         assertEquals(1018L, progress)
-        assertEquals(1018L, Archives.uncompressedSize(zip))
+        assertEquals(1018L, Archives.progressTotal(zip))
 
-        val out = File(temp.root, Archives.folderNameFor(zip))
+        val out = File(temp.root, Archives.extractedName(zip))
         Archives.extract(zip, out)
         assertEquals(
             listOf("notes.txt", "photos/", "photos/empty/", "photos/one.jpg", "photos/trip/", "photos/trip/two.jpg"),
@@ -80,8 +80,8 @@ class ArchivesTest {
 
     @Test
     fun namesForTheExtractedFolder() {
-        assertEquals("photos", Archives.folderNameFor(File("/x/photos.zip")))
-        assertEquals("archive.tar", Archives.folderNameFor(File("/x/archive.tar.zip")))
+        assertEquals("photos", Archives.extractedName(File("/x/photos.zip")))
+        assertEquals("archive.tar", Archives.extractedName(File("/x/archive.tar.zip")))
         assertTrue(Archives.canExtract("Photos.ZIP"))
         assertFalse(Archives.canExtract("photos.rar"))
     }

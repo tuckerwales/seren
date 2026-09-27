@@ -18,11 +18,16 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.security.AppLock
 import wales.tucker.seren.core.suite.Suite
 import wales.tucker.seren.core.ui.theme.SerenTheme
+import wales.tucker.seren.files.ops.Incoming
 import wales.tucker.seren.files.ui.FilesAppUi
+import wales.tucker.seren.files.ui.common.Shortcuts
+import java.io.File
 
 class MainActivity : FragmentActivity() {
 
@@ -30,6 +35,9 @@ class MainActivity : FragmentActivity() {
 
     /** Files other Seren apps asked to show, waiting for the UI (and the app lock). */
     val reveals = Channel<RevealRequest>(Channel.CONFLATED)
+
+    /** Folders to open, from a shortcut on the home screen. */
+    val folders = Channel<File>(Channel.CONFLATED)
 
     @VisibleForTesting
     internal var locked by mutableStateOf(false)
@@ -68,7 +76,7 @@ class MainActivity : FragmentActivity() {
             // known, rather than flashing the default theme or the lock screen on every launch.
             if (settings == null || !lockChecked) return@setContent
             SerenTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
-                FilesAppUi(settings = settings, locked = locked, onUnlock = { authenticate() }, reveals = reveals)
+                FilesAppUi(settings = settings, locked = locked, onUnlock = { authenticate() }, reveals = reveals, folders = folders)
             }
         }
     }
@@ -80,18 +88,33 @@ class MainActivity : FragmentActivity() {
 
     @VisibleForTesting
     internal fun handleIntent(intent: Intent?) {
-        if (intent?.action != Suite.ACTION_REVEAL) return
-        val uri = intent.data ?: return
-        reveals.trySend(RevealRequest(uri, intent.getStringExtra(Suite.EXTRA_DISPLAY_NAME)))
+        when (intent?.action) {
+            Suite.ACTION_REVEAL -> {
+                val uri = intent.data ?: return
+                reveals.trySend(RevealRequest(uri, intent.getStringExtra(Suite.EXTRA_DISPLAY_NAME)))
+            }
+            Shortcuts.ACTION_OPEN_FOLDER -> intent.getStringExtra(Shortcuts.EXTRA_PATH)?.let { folders.trySend(File(it)) }
+            // "Save to Seren Files" from the share sheet: people then open a folder and save there.
+            Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> lifecycleScope.launch {
+                val files = withContext(Dispatchers.IO) { Incoming.fromIntent(this@MainActivity, intent, container.storage.volumes()) }
+                if (files.isEmpty()) {
+                    container.operations.tell("There's nothing Seren Files can save in what was shared")
+                } else {
+                    container.operations.receive(files)
+                }
+            }
+        }
     }
 
     override fun onStop() {
         super.onStop()
+        container.appVisible = false
         stoppedAt = SystemClock.elapsedRealtime()
     }
 
     override fun onStart() {
         super.onStart()
+        container.appVisible = true
         if (stoppedAt > 0 && SystemClock.elapsedRealtime() - stoppedAt > AppLock.TIMEOUT_MS) {
             lifecycleScope.launch {
                 if (container.settings.settings.first().appLock && canAuthenticate()) {

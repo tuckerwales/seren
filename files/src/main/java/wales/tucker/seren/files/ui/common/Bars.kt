@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.SaveAlt
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import wales.tucker.seren.core.ui.formatSize
 import wales.tucker.seren.files.ops.FileClipboard
+import wales.tucker.seren.files.ops.IncomingFile
 import wales.tucker.seren.files.ops.Operation
 
 /** A copy, move, compress or extract in progress, with how far it's got and Cancel. */
@@ -94,6 +96,38 @@ fun PasteBar(clip: FileClipboard, itemsText: (Int) -> String, enabled: Boolean, 
             }
             Spacer(Modifier.width(8.dp))
             Button(onClick = onPaste, enabled = enabled) { Text("Paste") }
+        }
+    }
+}
+
+/**
+ * Shown while files another app shared wait to be saved. In a folder, [onSave] saves them there;
+ * elsewhere it's null and the bar says to open a folder.
+ */
+@Composable
+fun SaveBar(files: List<IncomingFile>, itemsText: (Int) -> String, enabled: Boolean, onSave: (() -> Unit)?, onCancel: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Row(Modifier.padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onCancel) { Icon(Icons.Rounded.Close, contentDescription = "Don't save") }
+            Icon(Icons.Rounded.SaveAlt, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                val what = files.singleOrNull()?.name ?: itemsText(files.size)
+                Text("Saving $what", style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    if (onSave != null) "Save here, or open another folder" else "Open a folder to save in",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+            if (onSave != null) {
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onSave, enabled = enabled) { Text("Save here") }
+            }
         }
     }
 }

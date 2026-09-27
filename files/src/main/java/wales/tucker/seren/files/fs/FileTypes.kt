@@ -33,7 +33,7 @@ object FileTypes {
             "html", "htm", "css", "js", "ts", "kt", "kts", "java", "py", "rb", "go", "rs", "c", "h", "cpp", "hpp", "cs",
             "swift", "sh", "bash", "zsh", "sql", "gradle", "srt", "vtt", "tex", "env",
         ).forEach { putIfAbsent(it, FileKind.TEXT) }
-        listOf("zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz", "zst", "jar")
+        listOf("zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "tbz", "tbz2", "xz", "txz", "zst", "jar")
             .forEach { put(it, FileKind.ARCHIVE) }
         listOf("apk", "apks", "xapk", "aab").forEach { put(it, FileKind.APP) }
     }

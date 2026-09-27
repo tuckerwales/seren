@@ -2,6 +2,7 @@ package wales.tucker.seren.files.ui
 
 import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,7 +21,9 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -36,7 +39,10 @@ import wales.tucker.seren.core.ui.Messenger
 import wales.tucker.seren.files.RevealRequest
 import wales.tucker.seren.files.data.Settings
 import wales.tucker.seren.files.fs.AndroidStorage
+import wales.tucker.seren.files.fs.Category
 import wales.tucker.seren.files.fs.Reveal
+import wales.tucker.seren.files.fs.volumeFor
+import wales.tucker.seren.files.ui.category.CategoryScreen
 import wales.tucker.seren.files.ui.folder.FolderScreen
 import wales.tucker.seren.files.ui.home.HomeScreen
 import java.io.File
@@ -44,6 +50,9 @@ import java.io.File
 object Routes {
     const val HOME = "home"
     const val FOLDER = "folder?path={path}&search={search}&highlight={highlight}"
+    const val CATEGORY = "category/{category}"
+
+    fun category(category: Category) = "category/${category.name}"
 
     /** [highlight] names an item to scroll to and pick out, for "Show in Seren Files". */
     fun folder(path: String, search: Boolean = false, highlight: String? = null) =
@@ -56,10 +65,23 @@ class StorageAccessState(val granted: Boolean, val request: () -> Unit)
 val LocalStorageAccess = staticCompositionLocalOf { StorageAccessState(granted = true, request = {}) }
 
 /** Opens folders and files from anywhere in the app. */
-class Navigator(val openFolder: (File) -> Unit, val search: (File) -> Unit, val back: () -> Unit)
+class Navigator(
+    val openFolder: (File) -> Unit,
+    val search: (File) -> Unit,
+    val back: () -> Unit,
+    /** Opens the folder [file] is in, scrolled to it and picked out for a moment. */
+    val reveal: (File) -> Unit = {},
+    val openCategory: (Category) -> Unit = {},
+)
 
 @Composable
-fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveals: Channel<RevealRequest> = Channel()) {
+fun FilesAppUi(
+    settings: Settings,
+    locked: Boolean,
+    onUnlock: () -> Unit,
+    reveals: Channel<RevealRequest> = Channel(),
+    folders: Channel<File> = Channel(),
+) {
     // The nav controller and the screens' saveable state live above the lock check, so unlocking
     // returns to the screen that was open.
     val navController = rememberNavController()
@@ -77,6 +99,7 @@ fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveal
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         granted = container.storage.hasAccess()
     }
+    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val access = StorageAccessState(granted) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val intents = listOfNotNull(AndroidStorage.accessSettingsIntent(context), AndroidStorage.allAccessSettingsIntent())
@@ -102,6 +125,16 @@ fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveal
         LaunchedEffect(Unit) {
             container.operations.messages.collect { messenger.show(it.text, it.action, it.onAction) }
         }
+        // The first long job is when a progress notification first matters, so ask then, once.
+        val busy = container.operations.current.collectAsStateWithLifecycle().value != null
+        LaunchedEffect(busy) {
+            if (busy && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !settings.askedNotifications &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                container.settings.setAskedNotifications(true)
+                notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
         // Another Seren app asked to show a file: open its folder with it picked out.
         LaunchedEffect(Unit) {
             for (request in reveals) {
@@ -121,6 +154,19 @@ fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveal
                 }
             }
         }
+        // A folder pinned to the home screen: open it, if it's still there and on this device's storage.
+        LaunchedEffect(Unit) {
+            for (folder in folders) {
+                val usable = withContext(Dispatchers.IO) { folder.isDirectory && volumeFor(folder, container.storage.volumes()) != null }
+                withContext(Dispatchers.Main) {
+                    if (usable) {
+                        navController.navigate(Routes.folder(folder.path)) { popUpTo(Routes.HOME) }
+                    } else {
+                        messenger.show("${folder.name.ifEmpty { folder.path }} was moved or deleted")
+                    }
+                }
+            }
+        }
         stateHolder.SaveableStateProvider("app") {
             AppNavHost(navController, settings)
         }
@@ -134,6 +180,10 @@ private fun AppNavHost(navController: NavHostController, settings: Settings) {
             openFolder = { folder -> navController.navigate(Routes.folder(folder.path)) },
             search = { folder -> navController.navigate(Routes.folder(folder.path, search = true)) },
             back = { navController.popBackStack() },
+            reveal = { file ->
+                file.parentFile?.let { navController.navigate(Routes.folder(it.path, highlight = file.name)) }
+            },
+            openCategory = { navController.navigate(Routes.category(it)) },
         )
     }
     NavHost(
@@ -146,6 +196,10 @@ private fun AppNavHost(navController: NavHostController, settings: Settings) {
     ) {
         composable(Routes.HOME) {
             HomeScreen(settings = settings, navigator = navigator)
+        }
+        composable(Routes.CATEGORY, arguments = listOf(navArgument("category") { type = NavType.StringType })) { entry ->
+            val category = entry.arguments?.getString("category")?.let { name -> Category.entries.firstOrNull { it.name == name } }
+            if (category != null) CategoryScreen(category = category, settings = settings, navigator = navigator)
         }
         composable(
             Routes.FOLDER,

@@ -193,4 +193,39 @@ class SftpViewModelTest {
         assertEquals(Download(Uri.fromFile(saved), "report.txt"), downloads.single())
         assertEquals("numbers", saved.readText())
     }
+
+    @Test
+    fun browsingCarriesOnWhenItsChannelCloses() {
+        val vm = viewModel()
+        // The view model browses on the session's shared channel: close it under it.
+        runBlocking { session.sftp().close() }
+        runBlocking { remote.writeText(SftpClient.join(dir, "later.txt"), "hello") }
+        val messages = mutableListOf<String>()
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined).launch { vm.messages.collect { messages += it } }
+        vm.refresh()
+        pollUntil("listing") { vm.files.value.any { it.name == "later.txt" } }
+        job.cancel()
+        assertEquals(emptyList<String>(), messages.filter { it.startsWith("Cannot open") })
+    }
+
+    @Test
+    fun browsingComesBackAfterAReconnect() {
+        val vm = viewModel()
+        session.reconnect()
+        pollUntil("reconnected") {
+            when (val p = session.prompt.value) {
+                is SessionPrompt.Password -> p.respond(PasswordResponse(password, false))
+                is SessionPrompt.KeyboardInteractive -> p.respond(p.prompts.map { password })
+                else -> Unit
+            }
+            session.state.value == SessionState.Connected
+        }
+        runBlocking {
+            remote = session.openSftpChannel()
+            remote.writeText(SftpClient.join(dir, "after.txt"), "back")
+        }
+        vm.refresh()
+        pollUntil("listing after reconnect") { vm.files.value.any { it.name == "after.txt" } }
+        assertEquals(dir, vm.path.value)
+    }
 }

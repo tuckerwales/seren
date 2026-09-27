@@ -20,7 +20,6 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import wales.tucker.terminal.data.Settings
 import wales.tucker.terminal.ui.TerminalAppUi
 import wales.tucker.terminal.ui.theme.TerminalTheme
 
@@ -53,11 +52,14 @@ class MainActivity : FragmentActivity() {
         if (savedInstanceState == null) handleIntent(intent)
 
         setContent {
-            val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = Settings())
+            val settings = container.settings.settings.collectAsStateWithLifecycle(initialValue = null).value
+            // Show only the window background until the saved settings and the lock state are
+            // known, rather than flashing the default theme or the lock screen on every launch.
+            if (settings == null || !lockChecked) return@setContent
             TerminalTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
                 TerminalAppUi(
                     settings = settings,
-                    locked = locked || !lockChecked,
+                    locked = locked,
                     onUnlock = { authenticate() },
                     deepLinks = deepLinks,
                 )

@@ -134,6 +134,9 @@ class HostsViewModel(private val container: AppContainer) : ViewModel() {
         container.database.hostDao().delete(host)
     }
 
+    val confirmDisconnect: StateFlow<Boolean> = container.settings.settings.map { it.confirmDisconnect }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     fun closeSession(session: TerminalSession) = container.sessionManager.close(session)
 }
 
@@ -158,6 +161,8 @@ fun HostsTab(
         searching = false
         query = ""
     }
+    val confirmDisconnect by vm.confirmDisconnect.collectAsStateWithLifecycle()
+    var confirmClose by remember { mutableStateOf<TerminalSession?>(null) }
     var alreadyOpen by remember { mutableStateOf<Pair<Host, TerminalSession>?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberLazyListState()
@@ -240,7 +245,10 @@ fun HostsTab(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(sessions, key = { it.id }) { s ->
-                            SessionCard(s, onClick = { onOpenSession(s.id) }, onClose = { vm.closeSession(s) })
+                            SessionCard(s, onClick = { onOpenSession(s.id) }, onClose = {
+                                // Same rule as the terminal's Disconnect: only live sessions ask.
+                                if (confirmDisconnect && s.state.value == SessionState.Connected) confirmClose = s else vm.closeSession(s)
+                            })
                         }
                     }
                 }
@@ -289,6 +297,16 @@ fun HostsTab(
                 }
             }
         }
+    }
+
+    confirmClose?.let { session ->
+        AlertDialog(
+            onDismissRequest = { confirmClose = null },
+            title = { Text("Disconnect?") },
+            text = { Text("The session to ${session.spec.subtitle} will be closed.") },
+            confirmButton = { TextButton(onClick = { confirmClose = null; vm.closeSession(session) }) { Text("Disconnect") } },
+            dismissButton = { TextButton(onClick = { confirmClose = null }) { Text("Cancel") } },
+        )
     }
 
     alreadyOpen?.let { (host, session) ->

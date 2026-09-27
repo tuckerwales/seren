@@ -226,4 +226,30 @@ class AppBehaviourTest {
         compose.waitUntil(5_000) { exists("Quick connect") && !exists("Search hosts") }
         assertFalse(compose.activity.isFinishing)
     }
+
+    @Test
+    fun closingAConnectedSessionCardAsksFirst() {
+        assumeTrue("SSH_TEST_HOST not set", sshHost != null)
+        JschAndroidConfig.apply()
+        val password = System.getenv("SSH_TEST_PASSWORD") ?: "testpass"
+        val session = runBlocking { container.sessionManager.openQuick(sshUser, sshHost!!, sshPort) }
+        pollUntil("connected", 20_000) {
+            when (val p = session.prompt.value) {
+                is wales.tucker.terminal.session.SessionPrompt.HostKey -> p.respond(true)
+                is wales.tucker.terminal.session.SessionPrompt.Password -> p.respond(wales.tucker.terminal.ssh.PasswordResponse(password, false))
+                is wales.tucker.terminal.session.SessionPrompt.KeyboardInteractive -> p.respond(p.prompts.map { password })
+                null -> Unit
+            }
+            session.state.value == wales.tucker.terminal.session.SessionState.Connected && exists("Connected")
+        }
+        compose.onNodeWithContentDescription("Close session").performClick()
+        pollUntil("confirmation") { exists("Disconnect?") }
+        compose.onNodeWithText("Cancel").performClick()
+        pollUntil("dialog closed") { !exists("Disconnect?") }
+        assertEquals(listOf(session), container.sessionManager.sessions.value)
+        compose.onNodeWithContentDescription("Close session").performClick()
+        pollUntil("confirmation") { exists("Disconnect?") }
+        compose.onNodeWithText("Disconnect").performClick()
+        pollUntil("closed") { container.sessionManager.sessions.value.isEmpty() }
+    }
 }

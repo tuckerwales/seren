@@ -30,6 +30,9 @@ class MainActivity : FragmentActivity() {
     /** ssh:// links waiting to be opened by the UI. */
     val deepLinks = Channel<SshLink>(Channel.BUFFERED)
 
+    /** Sessions to show, from taps on the sessions notification. */
+    val sessionLinks = Channel<Int>(Channel.CONFLATED)
+
     @VisibleForTesting
     internal var locked by mutableStateOf(false)
     private var lockChecked by mutableStateOf(false)
@@ -62,6 +65,7 @@ class MainActivity : FragmentActivity() {
                     locked = locked,
                     onUnlock = { authenticate() },
                     deepLinks = deepLinks,
+                    sessionLinks = sessionLinks,
                 )
             }
         }
@@ -90,6 +94,10 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        if (intent?.hasExtra(EXTRA_SESSION_ID) == true) {
+            sessionLinks.trySend(intent.getIntExtra(EXTRA_SESSION_ID, 0))
+            return
+        }
         val uri = intent?.data ?: return
         if (intent.action == Intent.ACTION_VIEW && uri.scheme == "ssh") {
             SshLink.parse(uri)?.let { deepLinks.trySend(it) }
@@ -128,6 +136,7 @@ class MainActivity : FragmentActivity() {
     }
 
     companion object {
+        const val EXTRA_SESSION_ID = "wales.tucker.terminal.SESSION_ID"
         private const val LOCK_TIMEOUT_MS = 30_000L
         const val AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_WEAK or
             BiometricManager.Authenticators.DEVICE_CREDENTIAL

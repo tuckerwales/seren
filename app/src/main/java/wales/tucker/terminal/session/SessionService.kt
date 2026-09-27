@@ -52,6 +52,10 @@ class SessionService : LifecycleService() {
         super.onStartCommand(intent, flags, startId)
         if (intent?.action == ACTION_DISCONNECT_ALL) {
             manager.closeAll()
+        } else if (intent?.action == ACTION_RECONNECT) {
+            manager.sessions.value
+                .filter { it.state.value is SessionState.Disconnected || it.state.value is SessionState.Failed }
+                .forEach { it.reconnect() }
         } else {
             startInForeground(buildNotification(manager.sessions.value.map { SessionStatus(it, it.state.value, it.prompt.value != null) }))
         }
@@ -78,9 +82,18 @@ class SessionService : LifecycleService() {
     private data class SessionStatus(val session: TerminalSession, val state: SessionState, val waitingForUser: Boolean)
 
     private fun buildNotification(sessions: List<SessionStatus>): Notification {
+        // Tapping opens the session that needs attention, or the only one; otherwise the app.
+        val target = sessions.firstOrNull { it.waitingForUser } ?: sessions.singleOrNull()
+        val openIntent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        target?.let { openIntent.putExtra(MainActivity.EXTRA_SESSION_ID, it.session.id) }
         val open = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            this, 0, openIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val dropped = sessions.count { it.state is SessionState.Disconnected || it.state is SessionState.Failed }
+        val reconnect = PendingIntent.getService(
+            this, 2,
+            Intent(this, SessionService::class.java).setAction(ACTION_RECONNECT),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val disconnect = PendingIntent.getService(
@@ -127,6 +140,7 @@ class SessionService : LifecycleService() {
             .setSilent(true)
             .setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .apply { if (dropped > 0) addAction(0, getString(R.string.action_reconnect), reconnect) }
             .addAction(0, getString(R.string.action_disconnect_all), disconnect)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
@@ -136,5 +150,6 @@ class SessionService : LifecycleService() {
         const val CHANNEL_ID = "sessions"
         const val NOTIFICATION_ID = 1
         const val ACTION_DISCONNECT_ALL = "wales.tucker.terminal.DISCONNECT_ALL"
+        const val ACTION_RECONNECT = "wales.tucker.terminal.RECONNECT"
     }
 }

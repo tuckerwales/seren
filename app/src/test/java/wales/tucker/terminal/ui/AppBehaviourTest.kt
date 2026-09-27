@@ -145,4 +145,13 @@ class AppBehaviourTest {
         assertEquals(SshLink("bob", "fe80::1", 2200), withUser)
         assertEquals("[fe80::1]:2200", withUser.address)
     }
+
+    @Test
+    fun notificationTapsOpenTheSession() {
+        val session = runBlocking { container.sessionManager.openQuick("user", "127.0.0.1", 1) }
+        compose.waitForIdle()
+        assertFalse(exists("Couldn't connect"))
+        compose.activity.sessionLinks.trySend(session.id)
+        pollUntil("terminal") { exists("Couldn't connect") }
+    }
 }

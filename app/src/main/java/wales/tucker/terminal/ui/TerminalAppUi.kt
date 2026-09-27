@@ -78,6 +78,7 @@ fun TerminalAppUi(
     locked: Boolean,
     onUnlock: () -> Unit,
     deepLinks: Channel<SshLink>,
+    sessionLinks: Channel<Int>,
 ) {
     // The nav controller and the screens' saveable state live above the lock check, so unlocking
     // returns to the screen that was open rather than starting again from the hosts list.
@@ -114,6 +115,18 @@ fun TerminalAppUi(
                 navController.popBackStackTo(Routes.HOME)
                 quickConnectPrefill = "@${link.address}"
                 Toast.makeText(context, "Enter a username to connect to ${link.hostname}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        for (id in sessionLinks) {
+            if (container.sessionManager.get(id) != null) {
+                navController.navigate(Routes.terminal(id)) {
+                    // Replace any terminal (and SFTP screen) already open, as the switcher does.
+                    popUpTo(Routes.TERMINAL) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }

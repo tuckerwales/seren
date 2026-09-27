@@ -1,5 +1,7 @@
 package wales.tucker.seren.auth.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -19,6 +21,7 @@ import org.robolectric.annotation.GraphicsMode
 import wales.tucker.seren.auth.MainActivity
 import wales.tucker.seren.auth.TestApp
 import wales.tucker.seren.auth.otp.OtpAlgorithm
+import wales.tucker.seren.auth.otp.OtpAuthUri
 import wales.tucker.seren.auth.otp.OtpToken
 import wales.tucker.seren.auth.otp.OtpType
 import wales.tucker.seren.core.ui.theme.ThemeMode
@@ -107,5 +110,21 @@ class AppScreenshotTest {
         compose.onNodeWithText("Show QR code").performClick()
         waitFor("Scan to add")
         shot("07_qr_code")
+    }
+
+    @Test
+    fun copiedSetupLink() {
+        seed()
+        waitFor("octocat")
+        // Copy a link in "another app", then come back to Seren Auth.
+        val link = OtpAuthUri.format(OtpToken("Dropbox", "sam@example.com", "NBSWY3DPEB3W64TMMQQGC3DEEBZXIYLS"))
+        compose.runOnUiThread { compose.activity.window.decorView.dispatchWindowFocusChanged(false) }
+        compose.waitForIdle()
+        compose.runOnUiThread {
+            app.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("", link))
+            compose.activity.window.decorView.dispatchWindowFocusChanged(true)
+        }
+        waitFor("Copied setup link")
+        shot("08_copied_link")
     }
 }

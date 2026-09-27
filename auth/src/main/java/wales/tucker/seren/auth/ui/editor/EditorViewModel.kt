@@ -104,7 +104,10 @@ data class AccountForm(
     }
 }
 
-/** Adds a new account (optionally filled in from an otpauth [link]) or edits the one with [id]. */
+/**
+ * Adds a new account, optionally filled in from an otpauth [link] or a bare setup key, or edits
+ * the one with [id].
+ */
 class EditorViewModel(private val container: AppContainer, val id: Long?, link: String?) : ViewModel() {
     var form by mutableStateOf(AccountForm())
         private set
@@ -144,15 +147,8 @@ class EditorViewModel(private val container: AppContainer, val id: Long?, link: 
                 loaded = true
             }
         } else if (link != null) {
-            val token = try {
-                OtpAuthUri.parse(link)
-            } catch (e: OtpFormatException) {
-                null
-            }
-            if (token != null) {
-                // A scanned code counts as a change, so leaving asks before dropping it.
-                form = AccountForm.of(token, null)
-            }
+            // A scanned code or copied key counts as a change, so leaving asks before dropping it.
+            form = AccountForm().withSecret(link)
         }
     }
 

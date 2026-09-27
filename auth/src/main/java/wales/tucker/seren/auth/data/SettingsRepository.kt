@@ -18,6 +18,8 @@ data class Settings(
     val hideCodes: Boolean = false,
     /** Show the next code under the current one when it is about to change. */
     val showNextCode: Boolean = true,
+    /** Offer to add a setup link or key found on the clipboard when the app comes back to the front. */
+    val offerCopied: Boolean = true,
     val appLock: Boolean = false,
     /** Block screenshots and screen recording, which also hides the app in recent apps. */
     val blockScreenshots: Boolean = true,
@@ -32,6 +34,7 @@ class SettingsRepository(private val context: Context) {
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val HIDE_CODES = booleanPreferencesKey("hide_codes")
         val SHOW_NEXT_CODE = booleanPreferencesKey("show_next_code")
+        val OFFER_COPIED = booleanPreferencesKey("offer_copied")
         val APP_LOCK = booleanPreferencesKey("app_lock")
         val BLOCK_SCREENSHOTS = booleanPreferencesKey("block_screenshots")
     }
@@ -43,6 +46,7 @@ class SettingsRepository(private val context: Context) {
             dynamicColor = p[Keys.DYNAMIC_COLOR] ?: d.dynamicColor,
             hideCodes = p[Keys.HIDE_CODES] ?: d.hideCodes,
             showNextCode = p[Keys.SHOW_NEXT_CODE] ?: d.showNextCode,
+            offerCopied = p[Keys.OFFER_COPIED] ?: d.offerCopied,
             appLock = p[Keys.APP_LOCK] ?: d.appLock,
             blockScreenshots = p[Keys.BLOCK_SCREENSHOTS] ?: d.blockScreenshots,
         )
@@ -52,6 +56,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDynamicColor(v: Boolean) = context.dataStore.edit { it[Keys.DYNAMIC_COLOR] = v }
     suspend fun setHideCodes(v: Boolean) = context.dataStore.edit { it[Keys.HIDE_CODES] = v }
     suspend fun setShowNextCode(v: Boolean) = context.dataStore.edit { it[Keys.SHOW_NEXT_CODE] = v }
+    suspend fun setOfferCopied(v: Boolean) = context.dataStore.edit { it[Keys.OFFER_COPIED] = v }
     suspend fun setAppLock(v: Boolean) = context.dataStore.edit { it[Keys.APP_LOCK] = v }
     suspend fun setBlockScreenshots(v: Boolean) = context.dataStore.edit { it[Keys.BLOCK_SCREENSHOTS] = v }
 }

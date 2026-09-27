@@ -1,0 +1,214 @@
+package wales.tucker.seren.ssh.ui.snippets
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.automirrored.rounded.KeyboardReturn
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import wales.tucker.seren.core.ui.Avatar
+import wales.tucker.seren.core.ui.EmptyState
+import wales.tucker.seren.core.ui.groupedShape
+import wales.tucker.seren.core.ui.theme.MonoSmall
+import wales.tucker.seren.ssh.AppContainer
+import wales.tucker.seren.ssh.data.Snippet
+import wales.tucker.seren.ssh.session.SessionState
+import wales.tucker.seren.ssh.session.TerminalSession
+import wales.tucker.seren.ssh.ui.common.containerViewModel
+
+class SnippetsViewModel(private val container: AppContainer) : ViewModel() {
+    val snippets: StateFlow<List<Snippet>> = container.database.snippetDao().observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun save(snippet: Snippet) = viewModelScope.launch { container.database.snippetDao().upsert(snippet) }
+    fun delete(snippet: Snippet) = viewModelScope.launch { container.database.snippetDao().delete(snippet) }
+
+    /** Sessions a snippet can be sent to. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val connectedSessions: StateFlow<List<TerminalSession>> = container.sessionManager.sessions
+        .flatMapLatest { list ->
+            if (list.isEmpty()) flowOf(emptyList())
+            else combine(list.map { s -> s.state.map { st -> s.takeIf { st == SessionState.Connected } } }) { it.filterNotNull() }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SnippetsTab(onOpenSession: (Int) -> Unit) {
+    val vm = containerViewModel { SnippetsViewModel(it) }
+    val snippets by vm.snippets.collectAsStateWithLifecycle()
+    var editing by remember { mutableStateOf<Snippet?>(null) }
+    val connected by vm.connectedSessions.collectAsStateWithLifecycle()
+    fun sendTo(session: TerminalSession, snippet: Snippet) {
+        session.sendSnippet(snippet.command, snippet.autoRun)
+        onOpenSession(session.id)
+    }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    fun delete(snippet: Snippet) {
+        vm.delete(snippet)
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar("Deleted ${snippet.name}", actionLabel = "Undo", duration = SnackbarDuration.Long)
+            // Upserting with the same id puts it back as it was.
+            if (result == SnackbarResult.ActionPerformed) vm.save(snippet)
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
+        topBar = { TopAppBar(title = { Text("Snippets", fontWeight = FontWeight.SemiBold) }, windowInsets = WindowInsets.statusBars) },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { editing = Snippet(name = "", command = "") },
+                icon = { Icon(Icons.Rounded.Add, null) },
+                text = { Text("New snippet") },
+            )
+        },
+        contentWindowInsets = WindowInsets(0),
+    ) { padding ->
+        if (snippets.isEmpty()) {
+            Column(Modifier.fillMaxSize().padding(padding)) {
+                EmptyState(
+                    icon = Icons.Rounded.Terminal,
+                    title = "No snippets",
+                    message = "Save commands you run often and send them to any session from the terminal menu.",
+                )
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)) {
+                itemsIndexed(snippets, key = { _, s -> s.id }) { index, s ->
+                    ListItem(
+                        headlineContent = { Text(s.name) },
+                        supportingContent = { Text(s.command, style = MonoSmall, maxLines = 3, overflow = TextOverflow.Ellipsis) },
+                        leadingContent = { Avatar(s.name, MaterialTheme.colorScheme.secondary, icon = Icons.Rounded.Terminal) },
+                        trailingContent = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (s.autoRun) Icon(Icons.AutoMirrored.Rounded.KeyboardReturn, contentDescription = "Runs immediately", tint = MaterialTheme.colorScheme.outline)
+                                if (connected.isNotEmpty()) {
+                                    var pick by remember { mutableStateOf(false) }
+                                    IconButton(onClick = { val only = connected.singleOrNull()
+                                        if (only != null) sendTo(only, s) else pick = true }) {
+                                        Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = "Send ${s.name} to a session")
+                                        DropdownMenu(expanded = pick, onDismissRequest = { pick = false }) {
+                                            connected.forEach { session ->
+                                                val title by session.title.collectAsStateWithLifecycle()
+                                                DropdownMenuItem(
+                                                    text = { Text(title) },
+                                                    onClick = { pick = false; sendTo(session, s) },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                IconButton(onClick = { delete(s) }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete ${s.name}") }
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 1.dp)
+                            .clip(groupedShape(index, snippets.size))
+                            .clickable { editing = s },
+                    )
+                }
+            }
+        }
+    }
+
+    editing?.let { snippet ->
+        var name by remember(snippet) { mutableStateOf(snippet.name) }
+        var command by remember(snippet) { mutableStateOf(snippet.command) }
+        var autoRun by remember(snippet) { mutableStateOf(snippet.autoRun) }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text(if (snippet.id == 0L) "New snippet" else "Edit snippet") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = command,
+                        onValueChange = { command = it },
+                        label = { Text("Command") },
+                        textStyle = MonoSmall.copy(fontSize = MaterialTheme.typography.bodyLarge.fontSize),
+                        keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { autoRun = !autoRun }) {
+                        Checkbox(checked = autoRun, onCheckedChange = { autoRun = it })
+                        Text("Press Enter after sending")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = command.isNotBlank(),
+                    onClick = {
+                        vm.save(snippet.copy(name = name.trim().ifBlank { command.trim().take(32) }, command = command, autoRun = autoRun))
+                        editing = null
+                    },
+                ) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
+        )
+    }
+}

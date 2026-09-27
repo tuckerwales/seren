@@ -4,7 +4,9 @@
 /.idea/
 .DS_Store
 /build/
-/app/build/
+/core/build/
+/ssh/build/
+/edit/build/
 /captures/
 .externalNativeBuild/
 .cxx/

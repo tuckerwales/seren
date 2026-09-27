@@ -69,7 +69,7 @@ fun KnownHostsScreen(onBack: () -> Unit) {
                             Column {
                                 Text(h.keyType, style = MaterialTheme.typography.labelMedium)
                                 Text(h.fingerprint, style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Added ${relativeTime(h.addedAt).lowercase()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text("Added ${relativeTime(h.addedAt, midSentence = true)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                             }
                         },
                         leadingContent = { Icon(Icons.Rounded.Shield, null, tint = MaterialTheme.colorScheme.primary) },

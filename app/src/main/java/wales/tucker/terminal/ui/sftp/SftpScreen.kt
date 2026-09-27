@@ -141,13 +141,23 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
         }
     }
 
-    fun navigate(target: String) {
+    /** Folders visited before the current one, for Back. */
+    private val history = ArrayDeque<String>()
+    private val _canGoBack = MutableStateFlow(false)
+    val canGoBack = _canGoBack.asStateFlow()
+
+    fun navigate(target: String) = open(target, record = true)
+
+    private fun open(target: String, record: Boolean) {
         val c = client ?: return
         viewModelScope.launch {
             _loading.value = true
             try {
                 val resolved = runCatching { c.realPath(target) }.getOrDefault(target)
                 _files.value = c.list(resolved)
+                val previous = _path.value
+                if (record && previous != null && previous != resolved) history.addLast(previous)
+                _canGoBack.value = history.isNotEmpty()
                 _path.value = resolved
                 _error.value = null
             } catch (e: Exception) {
@@ -159,13 +169,13 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
         }
     }
 
-    fun refresh() = _path.value?.let { navigate(it) }
+    fun refresh() = _path.value?.let { open(it, record = false) }
 
-    fun up(): Boolean {
-        val p = _path.value ?: return false
-        if (p == "/") return false
-        navigate(SftpClient.parent(p))
-        return true
+    /** Returns to the previously visited folder. */
+    fun back() {
+        val previous = history.removeLastOrNull() ?: return
+        _canGoBack.value = history.isNotEmpty()
+        open(previous, record = false)
     }
 
     fun goHome() = navigate(home)
@@ -356,7 +366,8 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
 
     var confirmLeave by remember { mutableStateOf(false) }
     val leave = { if (transfer != null) confirmLeave = true else onBack() }
-    BackHandler(enabled = path != null && path != "/") { vm.up() }
+    val canGoBack by vm.canGoBack.collectAsStateWithLifecycle()
+    BackHandler(enabled = canGoBack) { vm.back() }
     // Declared last so it takes precedence while a transfer is running.
     BackHandler(enabled = transfer != null) { confirmLeave = true }
 

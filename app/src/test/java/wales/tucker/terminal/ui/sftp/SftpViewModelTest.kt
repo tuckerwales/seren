@@ -128,4 +128,24 @@ class SftpViewModelTest {
         ShadowLooper.idleMainLooper()
         assertEquals(null, runCatching { remoteText("other.txt") }.getOrNull())
     }
+
+    @Test
+    fun backRetracesVisitedFolders() {
+        val sub = SftpClient.join(dir, "sub")
+        runBlocking { remote.mkdir(sub) }
+        val vm = viewModel()
+        val home = runBlocking { remote.home() }
+        vm.navigate(sub)
+        pollUntil("sub folder") { vm.path.value == sub && !vm.loading.value }
+        vm.navigate("/")
+        pollUntil("root") { vm.path.value == "/" && !vm.loading.value }
+
+        vm.back()
+        pollUntil("back to sub") { vm.path.value == sub && !vm.loading.value }
+        vm.back()
+        pollUntil("back to test folder") { vm.path.value == dir && !vm.loading.value }
+        vm.back()
+        pollUntil("back home") { vm.path.value == home && !vm.loading.value }
+        assertEquals(false, vm.canGoBack.value)
+    }
 }

@@ -744,7 +744,8 @@ private fun ConnectionLostCard(reason: String, onReconnect: () -> Unit, modifier
     ElevatedCard(modifier.fillMaxWidth().padding(16.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Connection lost", style = MaterialTheme.typography.titleMedium)
-            Text(reason, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // The title already says the connection was lost.
+            Text(reason.removePrefix("Connection lost: ").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 Button(onClick = onReconnect) { Text("Reconnect") }
             }

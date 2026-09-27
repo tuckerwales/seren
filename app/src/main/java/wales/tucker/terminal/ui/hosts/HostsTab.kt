@@ -123,7 +123,7 @@ class HostsViewModel(private val container: AppContainer) : ViewModel() {
     val connectedHostIds: StateFlow<Set<Long>> = sessions
         .flatMapLatest { list ->
             if (list.isEmpty()) flowOf(emptySet())
-            else combine(list.map { s -> s.state.map { st -> s.spec.hostId.takeIf { st == SessionState.Connected } } }) { ids ->
+            else combine(list.map { s -> combine(s.state, s.hostId) { st, id -> id.takeIf { st == SessionState.Connected } } }) { ids ->
                 ids.filterNotNull().toSet()
             }
         }
@@ -286,7 +286,7 @@ fun HostsTab(
                             // Offer the newest live session to this host rather than silently
                             // opening a second one.
                             val live = sessions.lastOrNull {
-                                it.spec.hostId == host.id && (it.state.value == SessionState.Connected || it.state.value == SessionState.Connecting)
+                                it.hostId.value == host.id && (it.state.value == SessionState.Connected || it.state.value == SessionState.Connecting)
                             }
                             if (live != null) alreadyOpen = host to live else onConnect(host)
                         },

@@ -62,14 +62,17 @@ import wales.tucker.terminal.ui.terminal.TerminalScreen
 
 object Routes {
     const val HOME = "home"
-    const val HOST_EDITOR = "host?id={id}&duplicate={duplicate}"
+    const val HOST_EDITOR = "host?id={id}&duplicate={duplicate}&session={session}"
     const val TERMINAL = "terminal/{sessionId}"
     const val SFTP = "sftp/{sessionId}"
     const val KNOWN_HOSTS = "knownHosts"
     const val EXTRA_KEYS = "extraKeys"
     const val KEY_IMPORT = "keyImport"
 
-    fun hostEditor(id: Long? = null, duplicate: Boolean = false) = "host?id=${id ?: -1}&duplicate=$duplicate"
+    fun hostEditor(id: Long? = null, duplicate: Boolean = false) = "host?id=${id ?: -1}&duplicate=$duplicate&session=-1"
+
+    /** A new host filled in from a quick connect session. */
+    fun saveSessionAsHost(sessionId: Int) = "host?id=-1&duplicate=false&session=$sessionId"
     fun terminal(sessionId: Int) = "terminal/$sessionId"
     fun sftp(sessionId: Int) = "sftp/$sessionId"
 }
@@ -180,11 +183,13 @@ private fun AppNavHost(
             arguments = listOf(
                 navArgument("id") { type = NavType.LongType; defaultValue = -1L },
                 navArgument("duplicate") { type = NavType.BoolType; defaultValue = false },
+                navArgument("session") { type = NavType.IntType; defaultValue = -1 },
             ),
         ) { entry ->
             val id = entry.arguments?.getLong("id")?.takeIf { it > 0 }
             val duplicate = entry.arguments?.getBoolean("duplicate") ?: false
-            HostEditorScreen(hostId = id, duplicate = duplicate, onDone = { navController.popBackStack() })
+            val fromSession = entry.arguments?.getInt("session")?.takeIf { it > 0 }
+            HostEditorScreen(hostId = id, duplicate = duplicate, fromSessionId = fromSession, onDone = { navController.popBackStack() })
         }
         composable(Routes.TERMINAL, arguments = listOf(navArgument("sessionId") { type = NavType.IntType })) { entry ->
             val sessionId = entry.arguments?.getInt("sessionId") ?: 0
@@ -198,6 +203,7 @@ private fun AppNavHost(
                     }
                 },
                 onOpenSftp = { navController.navigate(Routes.sftp(sessionId)) },
+                onSaveAsHost = { navController.navigate(Routes.saveSessionAsHost(sessionId)) },
                 onClosed = { navController.popBackStackTo(Routes.HOME) },
             )
         }

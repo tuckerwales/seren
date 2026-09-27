@@ -49,14 +49,15 @@ class SessionManager(
 
     private suspend fun start(spec: SessionSpec): TerminalSession {
         val scrollback = settings.settings.first().scrollback
-        val session = TerminalSession(
+        lateinit var session: TerminalSession
+        session = TerminalSession(
             id = nextId.getAndIncrement(),
             spec = spec,
             connectionFactory = { ui -> SshConnection(db.knownHostDao(), ui) },
             scope = scope,
             scrollback = scrollback,
-            onPasswordRemembered = { pw -> rememberPassword(spec.hostId, pw) },
-            onConnected = { markConnected(spec.hostId) },
+            onPasswordRemembered = { pw -> rememberPassword(session.hostId.value, pw) },
+            onConnected = { markConnected(session.hostId.value) },
         )
         _sessions.update { it + session }
         ensureService()

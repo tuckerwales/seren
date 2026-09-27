@@ -132,7 +132,11 @@ class HostEditorViewModel(
     private val container: AppContainer,
     private val hostId: Long?,
     private val duplicate: Boolean,
+    fromSessionId: Int? = null,
 ) : ViewModel() {
+    /** The quick connect session this new host is being saved from, if any. */
+    private val fromSession = fromSessionId?.let { container.sessionManager.get(it) }?.takeIf { it.hostId.value <= 0 }
+
     private val _form = MutableStateFlow(HostForm(color = (0 until HostColors.size).random()))
     val form: StateFlow<HostForm> = _form.asStateFlow()
 
@@ -153,6 +157,19 @@ class HostEditorViewModel(
     val isNew: Boolean get() = hostId == null || duplicate
 
     init {
+        fromSession?.let { s ->
+            val target = s.spec.target
+            val password = s.typedPassword
+            _form.value = _form.value.copy(
+                hostname = target.hostname,
+                port = target.port.toString(),
+                username = target.username,
+                authType = if (password != null) AuthType.PASSWORD else AuthType.NONE,
+                password = password.orEmpty(),
+                lastConnectedAt = System.currentTimeMillis(),
+            )
+            initial = _form.value
+        }
         if (hostId != null) {
             viewModelScope.launch {
                 val h = container.database.hostDao().get(hostId) ?: return@launch
@@ -219,6 +236,7 @@ class HostEditorViewModel(
             val dao = container.database.hostDao()
             val id = if (host.id == 0L) dao.insert(host) else host.id.also { dao.update(host) }
             container.database.portForwardDao().replaceForHost(id, f.forwards)
+            fromSession?.linkToHost(id)
             _saved.value = true
         }
     }
@@ -226,8 +244,8 @@ class HostEditorViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit) {
-    val vm = containerViewModel(key = "host-$hostId-$duplicate") { HostEditorViewModel(it, hostId, duplicate) }
+fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit, fromSessionId: Int? = null) {
+    val vm = containerViewModel(key = "host-$hostId-$duplicate-$fromSessionId") { HostEditorViewModel(it, hostId, duplicate, fromSessionId) }
     val form by vm.form.collectAsStateWithLifecycle()
     val keys by vm.keys.collectAsStateWithLifecycle()
     val hosts by vm.hosts.collectAsStateWithLifecycle()

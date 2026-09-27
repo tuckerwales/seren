@@ -110,6 +110,25 @@ class TerminalSession(
     private val _state = MutableStateFlow<SessionState>(SessionState.Connecting)
     val state: StateFlow<SessionState> = _state.asStateFlow()
 
+    private val _hostId = MutableStateFlow(spec.hostId)
+
+    /** The saved host this session belongs to, or 0 for a quick connect not (yet) saved as one. */
+    val hostId: StateFlow<Long> = _hostId.asStateFlow()
+
+    /**
+     * The password last typed for a quick connect session, offered when it is saved as a host.
+     * Never kept for saved hosts, whose "Remember password" option stores it instead.
+     */
+    @Volatile
+    var typedPassword: String? = null
+        private set
+
+    /** Links a quick connect session to the host it was just saved as. */
+    fun linkToHost(id: Long) {
+        _hostId.value = id
+        typedPassword = null
+    }
+
     private val _title = MutableStateFlow(spec.title)
     val title: StateFlow<String> = _title.asStateFlow()
 
@@ -366,7 +385,9 @@ class TerminalSession(
 
         override fun promptPassword(target: String, message: String, error: String?): PasswordResponse? {
             val d = CompletableDeferred<PasswordResponse?>()
-            return ask(SessionPrompt.Password(target, message, error, spec.hostId > 0, d), d)
+            val response = ask(SessionPrompt.Password(target, message, error, _hostId.value > 0, d), d)
+            if (_hostId.value <= 0 && response != null) typedPassword = response.password
+            return response
         }
 
         override fun promptKeyboardInteractive(

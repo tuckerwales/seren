@@ -272,4 +272,45 @@ class AppBehaviourTest {
         compose.waitUntil(5_000) { exists("Quick connect") }
         assertEquals(listOf("example.com"), runBlocking { container.database.hostDao().observeAll().first() }.map { it.hostname })
     }
+
+    @Test
+    fun quickConnectSessionsCanBeSavedAsHosts() {
+        openFailingSession()
+        val session = container.sessionManager.sessions.value.single()
+        compose.onNodeWithContentDescription("More").performClick()
+        pollUntil("menu") { exists("Save as host") }
+        compose.onNodeWithText("Save as host").performClick()
+        pollUntil("editor") { exists("New host") }
+        compose.onNodeWithText("Save").performClick()
+        pollUntil("saved") { session.hostId.value > 0 }
+
+        val host = runBlocking { container.database.hostDao().get(session.hostId.value)!! }
+        assertEquals(Triple("user", "127.0.0.1", 1), Triple(host.username, host.hostname, host.port))
+        assertEquals(wales.tucker.terminal.data.AuthType.NONE, host.authType)
+        pollUntil("back on the terminal") { !exists("New host") }
+        compose.onNodeWithContentDescription("More").performClick()
+        pollUntil("menu") { exists("Reconnect") }
+        assertFalse(exists("Save as host"))
+    }
+
+    @Test
+    fun savingAQuickConnectKeepsTheTypedPassword() {
+        assumeTrue("SSH_TEST_HOST not set", sshHost != null)
+        JschAndroidConfig.apply()
+        val password = System.getenv("SSH_TEST_PASSWORD") ?: "testpass"
+        val session = runBlocking { container.sessionManager.openQuick(sshUser, sshHost!!, sshPort) }
+        pollUntil("connected", 20_000) {
+            when (val p = session.prompt.value) {
+                is wales.tucker.terminal.session.SessionPrompt.HostKey -> p.respond(true)
+                is wales.tucker.terminal.session.SessionPrompt.Password -> p.respond(wales.tucker.terminal.ssh.PasswordResponse(password, false))
+                is wales.tucker.terminal.session.SessionPrompt.KeyboardInteractive -> p.respond(p.prompts.map { password })
+                null -> Unit
+            }
+            session.state.value == wales.tucker.terminal.session.SessionState.Connected
+        }
+        val form = wales.tucker.terminal.ui.hosts.HostEditorViewModel(container, null, false, session.id).form.value
+        assertEquals(password, form.password)
+        assertEquals(wales.tucker.terminal.data.AuthType.PASSWORD, form.authType)
+        assertEquals(sshPort.toString(), form.port)
+    }
 }

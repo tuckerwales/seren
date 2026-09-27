@@ -41,6 +41,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Folder
@@ -139,6 +140,7 @@ fun TerminalScreen(
     onSwitchSession: (Int) -> Unit,
     onOpenSftp: () -> Unit,
     onClosed: () -> Unit,
+    onSaveAsHost: () -> Unit = {},
 ) {
     val container = appContainer()
     val session = remember(sessionId) { container.sessionManager.get(sessionId) }
@@ -146,7 +148,7 @@ fun TerminalScreen(
         LaunchedEffect(Unit) { onClosed() }
         return
     }
-    TerminalContent(session, settings, onBack, onSwitchSession, onOpenSftp, onClosed)
+    TerminalContent(session, settings, onBack, onSwitchSession, onOpenSftp, onClosed, onSaveAsHost)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -158,6 +160,7 @@ private fun TerminalContent(
     onSwitchSession: (Int) -> Unit,
     onOpenSftp: () -> Unit,
     onClosed: () -> Unit,
+    onSaveAsHost: () -> Unit,
 ) {
     val container = appContainer()
     val context = LocalContext.current
@@ -166,6 +169,7 @@ private fun TerminalContent(
     val title by session.title.collectAsStateWithLifecycle()
     val prompt by session.prompt.collectAsStateWithLifecycle()
     val log by session.log.collectAsStateWithLifecycle()
+    val linkedHostId by session.hostId.collectAsStateWithLifecycle()
     val sessions by container.sessionManager.sessions.collectAsStateWithLifecycle()
     val snippets by container.database.snippetDao().observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     val snackbar = remember { SnackbarHostState() }
@@ -316,6 +320,13 @@ private fun TerminalContent(
                             leadingIcon = { Icon(Icons.Rounded.Terminal, null) },
                             onClick = { menuOpen = false; snippetsOpen = true },
                         )
+                        if (linkedHostId <= 0) {
+                            DropdownMenuItem(
+                                text = { Text("Save as host") },
+                                leadingIcon = { Icon(Icons.Rounded.BookmarkAdd, null) },
+                                onClick = { menuOpen = false; onSaveAsHost() },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Browse files (SFTP)") },
                             leadingIcon = { Icon(Icons.Rounded.Folder, null) },

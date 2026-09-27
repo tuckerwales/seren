@@ -2,11 +2,14 @@ package wales.tucker.terminal
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.VisibleForTesting
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.getValue
@@ -17,9 +20,10 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import wales.tucker.terminal.data.Settings
 import wales.tucker.terminal.ui.TerminalAppUi
 import wales.tucker.terminal.ui.theme.TerminalTheme
 
@@ -30,7 +34,11 @@ class MainActivity : FragmentActivity() {
     /** ssh:// links waiting to be opened by the UI. */
     val deepLinks = Channel<SshLink>(Channel.BUFFERED)
 
-    private var locked by mutableStateOf(false)
+    /** Sessions to show, from taps on the sessions notification. */
+    val sessionLinks = Channel<Int>(Channel.CONFLATED)
+
+    @VisibleForTesting
+    internal var locked by mutableStateOf(false)
     private var lockChecked by mutableStateOf(false)
     private var stoppedAt = 0L
 
@@ -48,18 +56,43 @@ class MainActivity : FragmentActivity() {
             if (locked) authenticate()
         }
 
+        // With app lock on, keep server output out of the recents screen as well.
+        lifecycleScope.launch {
+            container.settings.settings.map { it.appLock }.distinctUntilChanged().collect(::hideFromRecents)
+        }
+
         if (savedInstanceState == null) handleIntent(intent)
 
         setContent {
-            val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = Settings())
+            val settings = container.settings.settings.collectAsStateWithLifecycle(initialValue = null).value
+            // Show only the window background until the saved settings and the lock state are
+            // known, rather than flashing the default theme or the lock screen on every launch.
+            if (settings == null || !lockChecked) return@setContent
             TerminalTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
                 TerminalAppUi(
                     settings = settings,
-                    locked = locked || !lockChecked,
+                    locked = locked,
                     onUnlock = { authenticate() },
                     deepLinks = deepLinks,
+                    sessionLinks = sessionLinks,
                 )
             }
+        }
+    }
+
+    @VisibleForTesting
+    internal var hiddenFromRecents = false
+        private set
+
+    private fun hideFromRecents(hide: Boolean) {
+        hiddenFromRecents = hide
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(!hide)
+        } else if (hide) {
+            // No way to blank just the thumbnail before Android 13; this also blocks screenshots.
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 
@@ -86,6 +119,10 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        if (intent?.hasExtra(EXTRA_SESSION_ID) == true) {
+            sessionLinks.trySend(intent.getIntExtra(EXTRA_SESSION_ID, 0))
+            return
+        }
         val uri = intent?.data ?: return
         if (intent.action == Intent.ACTION_VIEW && uri.scheme == "ssh") {
             SshLink.parse(uri)?.let { deepLinks.trySend(it) }
@@ -124,18 +161,28 @@ class MainActivity : FragmentActivity() {
     }
 
     companion object {
+        const val EXTRA_SESSION_ID = "wales.tucker.terminal.SESSION_ID"
         private const val LOCK_TIMEOUT_MS = 30_000L
         const val AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_WEAK or
             BiometricManager.Authenticators.DEVICE_CREDENTIAL
     }
 }
 
-/** A parsed ssh://[user@]host[:port] link. */
+/** A parsed ssh://[user@]host[:port] link. [username] is empty when a link names no user. */
 data class SshLink(val username: String, val hostname: String, val port: Int) {
+    val hasUser: Boolean get() = username.isNotBlank()
+
+    /** "host", "host:port" or "[v6:host]:port", as typed into quick connect after "user@". */
+    val address: String
+        get() {
+            val host = if (':' in hostname) "[$hostname]" else hostname
+            return if (port == 22) host else "$host:$port"
+        }
+
     companion object {
         fun parse(uri: Uri): SshLink? {
-            val host = uri.host?.takeIf { it.isNotBlank() } ?: return null
-            val user = uri.userInfo?.substringBefore(';')?.substringBefore(':')?.takeIf { it.isNotBlank() } ?: return null
+            val host = uri.host?.takeIf { it.isNotBlank() }?.removeSurrounding("[", "]") ?: return null
+            val user = uri.userInfo?.substringBefore(';')?.substringBefore(':')?.trim().orEmpty()
             val port = if (uri.port in 1..65535) uri.port else 22
             return SshLink(user, host, port)
         }

@@ -1,5 +1,6 @@
 package wales.tucker.terminal.ui.hosts
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -74,16 +75,25 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import wales.tucker.terminal.AppContainer
@@ -108,10 +118,24 @@ class HostsViewModel(private val container: AppContainer) : ViewModel() {
 
     val sessions = container.sessionManager.sessions
 
+    /** Saved hosts with at least one connected session. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val connectedHostIds: StateFlow<Set<Long>> = sessions
+        .flatMapLatest { list ->
+            if (list.isEmpty()) flowOf(emptySet())
+            else combine(list.map { s -> combine(s.state, s.hostId) { st, id -> id.takeIf { st == SessionState.Connected } } }) { ids ->
+                ids.filterNotNull().toSet()
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     fun delete(host: Host) = viewModelScope.launch {
         container.database.hostDao().clearJumpHost(host.id)
         container.database.hostDao().delete(host)
     }
+
+    val confirmDisconnect: StateFlow<Boolean> = container.settings.settings.map { it.confirmDisconnect }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     fun closeSession(session: TerminalSession) = container.sessionManager.close(session)
 }
@@ -121,17 +145,34 @@ class HostsViewModel(private val container: AppContainer) : ViewModel() {
 fun HostsTab(
     onConnect: (Host) -> Unit,
     onQuickConnect: (SshLink) -> Unit,
+    quickConnectPrefill: String?,
+    onPrefillConsumed: () -> Unit,
     onOpenSession: (Int) -> Unit,
     onEditHost: (Long?, Boolean) -> Unit,
 ) {
     val vm = containerViewModel { HostsViewModel(it) }
     val hosts by vm.hosts.collectAsStateWithLifecycle()
     val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val connectedHostIds by vm.connectedHostIds.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Host?>(null) }
+    BackHandler(enabled = searching) {
+        searching = false
+        query = ""
+    }
+    val confirmDisconnect by vm.confirmDisconnect.collectAsStateWithLifecycle()
+    var confirmClose by remember { mutableStateOf<TerminalSession?>(null) }
+    var alreadyOpen by remember { mutableStateOf<Pair<Host, TerminalSession>?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberLazyListState()
+    LaunchedEffect(quickConnectPrefill) {
+        if (quickConnectPrefill != null) {
+            searching = false
+            query = ""
+            listState.scrollToItem(0)
+        }
+    }
     val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
 
     val filtered = remember(hosts, query) {
@@ -194,7 +235,7 @@ fun HostsTab(
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
             if (!searching) {
-                item { QuickConnectCard(onQuickConnect) }
+                item { QuickConnectCard(onQuickConnect, quickConnectPrefill, onPrefillConsumed) }
             }
             if (sessions.isNotEmpty() && !searching) {
                 item { SectionHeader("Active sessions") }
@@ -204,7 +245,10 @@ fun HostsTab(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(sessions, key = { it.id }) { s ->
-                            SessionCard(s, onClick = { onOpenSession(s.id) }, onClose = { vm.closeSession(s) })
+                            SessionCard(s, onClick = { onOpenSession(s.id) }, onClose = {
+                                // Same rule as the terminal's Disconnect: only live sessions ask.
+                                if (confirmDisconnect && s.state.value == SessionState.Connected) confirmClose = s else vm.closeSession(s)
+                            })
                         }
                     }
                 }
@@ -237,8 +281,15 @@ fun HostsTab(
                     HostRow(
                         host = host,
                         shape = groupedShape(index, list.size),
-                        activeCount = sessions.count { it.spec.hostId == host.id },
-                        onClick = { onConnect(host) },
+                        connected = host.id in connectedHostIds,
+                        onClick = {
+                            // Offer the newest live session to this host rather than silently
+                            // opening a second one.
+                            val live = sessions.lastOrNull {
+                                it.hostId.value == host.id && (it.state.value == SessionState.Connected || it.state.value == SessionState.Connecting)
+                            }
+                            if (live != null) alreadyOpen = host to live else onConnect(host)
+                        },
                         onEdit = { onEditHost(host.id, false) },
                         onDuplicate = { onEditHost(host.id, true) },
                         onDelete = { pendingDelete = host },
@@ -246,6 +297,30 @@ fun HostsTab(
                 }
             }
         }
+    }
+
+    confirmClose?.let { session ->
+        AlertDialog(
+            onDismissRequest = { confirmClose = null },
+            title = { Text("Disconnect?") },
+            text = { Text("The session to ${session.spec.subtitle} will be closed.") },
+            confirmButton = { TextButton(onClick = { confirmClose = null; vm.closeSession(session) }) { Text("Disconnect") } },
+            dismissButton = { TextButton(onClick = { confirmClose = null }) { Text("Cancel") } },
+        )
+    }
+
+    alreadyOpen?.let { (host, session) ->
+        AlertDialog(
+            onDismissRequest = { alreadyOpen = null },
+            title = { Text("${host.displayName} is already open") },
+            text = { Text("Switch to the open session, or start another one alongside it.") },
+            confirmButton = {
+                TextButton(onClick = { alreadyOpen = null; onOpenSession(session.id) }) { Text("Switch to it") }
+            },
+            dismissButton = {
+                TextButton(onClick = { alreadyOpen = null; onConnect(host) }) { Text("New session") }
+            },
+        )
     }
 
     pendingDelete?.let { host ->
@@ -263,16 +338,27 @@ fun HostsTab(
 }
 
 @Composable
-private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit) {
-    var text by rememberSaveable { mutableStateOf("") }
+private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit, prefill: String?, onPrefillConsumed: () -> Unit) {
+    var field by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+    val text = field.text
     var error by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(prefill) {
+        if (prefill != null) {
+            // Put the cursor at the start, where the username goes.
+            field = TextFieldValue(prefill, selection = TextRange(0))
+            error = false
+            onPrefillConsumed()
+            focus.requestFocus()
+        }
+    }
     val submit = {
         val link = SshLink.parse(text)
         if (link == null) {
             error = true
         } else {
             error = false
-            text = ""
+            field = TextFieldValue()
             onQuickConnect(link)
         }
     }
@@ -301,8 +387,8 @@ private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit) {
             }
             Spacer(Modifier.height(14.dp))
             TextField(
-                value = text,
-                onValueChange = { text = it; error = false },
+                value = field,
+                onValueChange = { field = it; error = false },
                 placeholder = { Text("user@host:port", style = monoField, color = MaterialTheme.colorScheme.outline) },
                 singleLine = true,
                 isError = error,
@@ -318,7 +404,7 @@ private fun QuickConnectCard(onQuickConnect: (SshLink) -> Unit) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "Connect")
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 shape = CircleShape,
                 textStyle = monoField,
                 colors = pillFieldColors(MaterialTheme.colorScheme.surfaceContainerHighest),
@@ -345,6 +431,7 @@ private fun pillFieldColors(container: Color) = TextFieldDefaults.colors(
 private fun SessionCard(session: TerminalSession, onClick: () -> Unit, onClose: () -> Unit) {
     val state by session.state.collectAsState()
     val title by session.title.collectAsState()
+    val waitingForUser = session.prompt.collectAsState().value != null
     Card(
         onClick = onClick,
         modifier = Modifier.width(220.dp),
@@ -352,14 +439,14 @@ private fun SessionCard(session: TerminalSession, onClick: () -> Unit, onClose: 
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            StatusDot(stateColor(state))
+            StatusDot(stateColor(state, waitingForUser))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    stateLabel(state),
+                    stateLabel(state, waitingForUser),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (waitingForUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -370,14 +457,16 @@ private fun SessionCard(session: TerminalSession, onClick: () -> Unit, onClose: 
 }
 
 @Composable
-fun stateColor(state: SessionState): Color = when (state) {
+fun stateColor(state: SessionState, waitingForUser: Boolean = false): Color = when (state) {
+    SessionState.Connecting if waitingForUser -> MaterialTheme.colorScheme.primary
     SessionState.Connected -> Color(0xFF2FBF71)
     SessionState.Connecting -> Color(0xFFF5A524)
     is SessionState.Disconnected -> MaterialTheme.colorScheme.outline
     is SessionState.Failed -> MaterialTheme.colorScheme.error
 }
 
-fun stateLabel(state: SessionState): String = when (state) {
+fun stateLabel(state: SessionState, waitingForUser: Boolean = false): String = when (state) {
+    SessionState.Connecting if waitingForUser -> "Waiting for your input"
     SessionState.Connected -> "Connected"
     SessionState.Connecting -> "Connecting…"
     is SessionState.Disconnected -> state.reason
@@ -388,7 +477,7 @@ fun stateLabel(state: SessionState): String = when (state) {
 private fun HostRow(
     host: Host,
     shape: Shape,
-    activeCount: Int,
+    connected: Boolean,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
@@ -417,9 +506,9 @@ private fun HostRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                if (activeCount > 0) {
+                if (connected) {
                     Spacer(Modifier.width(8.dp))
-                    StatusDot(stateColor(SessionState.Connected))
+                    StatusDot(stateColor(SessionState.Connected), Modifier.semantics { contentDescription = "Connected" })
                 }
                 if (host.authType == AuthType.KEY) {
                     Spacer(Modifier.width(6.dp))

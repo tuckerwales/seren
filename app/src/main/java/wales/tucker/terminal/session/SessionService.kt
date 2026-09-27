@@ -36,7 +36,7 @@ class SessionService : LifecycleService() {
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             manager.sessions.flatMapLatest { sessions ->
                 if (sessions.isEmpty()) flowOf(emptyList())
-                else combine(sessions.map { s -> s.state }) { sessions.zip(it.toList()) }
+                else combine(sessions.map { s -> combine(s.state, s.prompt) { st, p -> SessionStatus(s, st, p != null) } }) { it.toList() }
             }.collectLatest { list ->
                 if (list.isEmpty()) {
                     ServiceCompat.stopForeground(this@SessionService, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -52,8 +52,12 @@ class SessionService : LifecycleService() {
         super.onStartCommand(intent, flags, startId)
         if (intent?.action == ACTION_DISCONNECT_ALL) {
             manager.closeAll()
+        } else if (intent?.action == ACTION_RECONNECT) {
+            manager.sessions.value
+                .filter { it.state.value is SessionState.Disconnected || it.state.value is SessionState.Failed }
+                .forEach { it.reconnect() }
         } else {
-            startInForeground(buildNotification(manager.sessions.value.map { it to it.state.value }))
+            startInForeground(buildNotification(manager.sessions.value.map { SessionStatus(it, it.state.value, it.prompt.value != null) }))
         }
         return START_NOT_STICKY
     }
@@ -75,10 +79,21 @@ class SessionService : LifecycleService() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    private fun buildNotification(sessions: List<Pair<TerminalSession, SessionState>>): Notification {
+    private data class SessionStatus(val session: TerminalSession, val state: SessionState, val waitingForUser: Boolean)
+
+    private fun buildNotification(sessions: List<SessionStatus>): Notification {
+        // Tapping opens the session that needs attention, or the only one; otherwise the app.
+        val target = sessions.firstOrNull { it.waitingForUser } ?: sessions.singleOrNull()
+        val openIntent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        target?.let { openIntent.putExtra(MainActivity.EXTRA_SESSION_ID, it.session.id) }
         val open = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            this, 0, openIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val dropped = sessions.count { it.state is SessionState.Disconnected || it.state is SessionState.Failed }
+        val reconnect = PendingIntent.getService(
+            this, 2,
+            Intent(this, SessionService::class.java).setAction(ACTION_RECONNECT),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val disconnect = PendingIntent.getService(
@@ -86,27 +101,31 @@ class SessionService : LifecycleService() {
             Intent(this, SessionService::class.java).setAction(ACTION_DISCONNECT_ALL),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val connected = sessions.count { it.second == SessionState.Connected }
+        val connected = sessions.count { it.state == SessionState.Connected }
+        val waiting = sessions.count { it.waitingForUser }
         val title = when (sessions.size) {
             0 -> getString(R.string.app_name)
-            1 -> sessions[0].first.spec.title
+            1 -> sessions[0].session.spec.title
             else -> resources.getQuantityString(R.plurals.notification_sessions, sessions.size, sessions.size)
         }
         val text = when {
             sessions.isEmpty() -> ""
-            sessions.size == 1 -> when (val s = sessions[0].second) {
-                SessionState.Connected -> getString(R.string.state_connected_to, sessions[0].first.spec.subtitle)
+            sessions[0].waitingForUser && sessions.size == 1 -> getString(R.string.state_waiting_for_input)
+            sessions.size == 1 -> when (val s = sessions[0].state) {
+                SessionState.Connected -> getString(R.string.state_connected_to, sessions[0].session.spec.subtitle)
                 SessionState.Connecting -> getString(R.string.state_connecting)
                 is SessionState.Disconnected -> s.reason
                 is SessionState.Failed -> s.error
             }
+            waiting > 0 -> resources.getQuantityString(R.plurals.notification_waiting_count, waiting, waiting)
             else -> resources.getQuantityString(R.plurals.notification_connected_count, connected, connected)
         }
         val style = NotificationCompat.InboxStyle()
-        sessions.forEach { (s, st) ->
-            val label = when (st) {
-                SessionState.Connected -> "●"
-                SessionState.Connecting -> "…"
+        sessions.forEach { (s, st, waitingForUser) ->
+            val label = when {
+                waitingForUser -> "!"
+                st == SessionState.Connected -> "●"
+                st == SessionState.Connecting -> "…"
                 else -> "○"
             }
             style.addLine("$label ${s.spec.title} · ${s.spec.subtitle}")
@@ -121,6 +140,7 @@ class SessionService : LifecycleService() {
             .setSilent(true)
             .setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .apply { if (dropped > 0) addAction(0, getString(R.string.action_reconnect), reconnect) }
             .addAction(0, getString(R.string.action_disconnect_all), disconnect)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
@@ -130,5 +150,6 @@ class SessionService : LifecycleService() {
         const val CHANNEL_ID = "sessions"
         const val NOTIFICATION_ID = 1
         const val ACTION_DISCONNECT_ALL = "wales.tucker.terminal.DISCONNECT_ALL"
+        const val ACTION_RECONNECT = "wales.tucker.terminal.RECONNECT"
     }
 }

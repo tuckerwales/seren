@@ -4,6 +4,10 @@ import com.jcraft.jsch.ChannelSftp
 import com.jcraft.jsch.SftpATTRS
 import com.jcraft.jsch.SftpProgressMonitor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -78,13 +82,24 @@ class SftpClient(private val channel: ChannelSftp) {
 
     suspend fun chmod(path: String, mode: Int) = io { chmod(mode, path) }
 
-    suspend fun download(path: String, out: OutputStream, onProgress: (Long, Long) -> Unit) = io {
-        val size = runCatching { stat(path).size }.getOrDefault(-1L)
-        get(path, out, monitor(size, onProgress))
+    /** Downloads [path] into [out]. Cancelling the calling coroutine stops the transfer. */
+    suspend fun download(path: String, out: OutputStream, onProgress: (Long, Long) -> Unit) {
+        val job = currentCoroutineContext().job
+        io {
+            val size = runCatching { stat(path).size }.getOrDefault(-1L)
+            get(path, out, monitor(size, job, onProgress))
+        }
+        job.ensureActive()
     }
 
-    suspend fun upload(input: InputStream, path: String, size: Long, onProgress: (Long, Long) -> Unit) = io {
-        put(input, path, monitor(size, onProgress), ChannelSftp.OVERWRITE)
+    /**
+     * Uploads [input] to [path]. Cancelling the calling coroutine stops the transfer and leaves a
+     * partial file behind, for the caller to remove.
+     */
+    suspend fun upload(input: InputStream, path: String, size: Long, onProgress: (Long, Long) -> Unit) {
+        val job = currentCoroutineContext().job
+        io { put(input, path, monitor(size, job, onProgress), ChannelSftp.OVERWRITE) }
+        job.ensureActive()
     }
 
     suspend fun readText(path: String, maxBytes: Int = 1_000_000): String = io {
@@ -102,7 +117,8 @@ class SftpClient(private val channel: ChannelSftp) {
         runCatching { channel.disconnect() }
     }
 
-    private fun monitor(total: Long, onProgress: (Long, Long) -> Unit) = object : SftpProgressMonitor {
+    /** Reports progress, and stops the transfer once [job] is cancelled. */
+    private fun monitor(total: Long, job: Job, onProgress: (Long, Long) -> Unit) = object : SftpProgressMonitor {
         private var transferred = 0L
         override fun init(op: Int, src: String?, dest: String?, max: Long) {
             onProgress(0, if (total > 0) total else max)
@@ -111,7 +127,7 @@ class SftpClient(private val channel: ChannelSftp) {
         override fun count(count: Long): Boolean {
             transferred += count
             onProgress(transferred, total)
-            return true
+            return job.isActive
         }
 
         override fun end() {}

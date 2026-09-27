@@ -1,5 +1,6 @@
 package wales.tucker.terminal.ui.hosts
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,10 +63,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -126,9 +132,18 @@ class HostEditorViewModel(
     private val container: AppContainer,
     private val hostId: Long?,
     private val duplicate: Boolean,
+    fromSessionId: Int? = null,
 ) : ViewModel() {
+    /** The quick connect session this new host is being saved from, if any. */
+    private val fromSession = fromSessionId?.let { container.sessionManager.get(it) }?.takeIf { it.hostId.value <= 0 }
+
     private val _form = MutableStateFlow(HostForm(color = (0 until HostColors.size).random()))
     val form: StateFlow<HostForm> = _form.asStateFlow()
+
+    /** The form as loaded, to tell whether leaving would lose changes. */
+    private var initial: HostForm = _form.value
+
+    val hasChanges: Boolean get() = _form.value != initial
     private var encryptedPassword: String? = null
 
     val keys: StateFlow<List<SshKey>> = container.database.keyDao().observeAll()
@@ -142,6 +157,19 @@ class HostEditorViewModel(
     val isNew: Boolean get() = hostId == null || duplicate
 
     init {
+        fromSession?.let { s ->
+            val target = s.spec.target
+            val password = s.typedPassword
+            _form.value = _form.value.copy(
+                hostname = target.hostname,
+                port = target.port.toString(),
+                username = target.username,
+                authType = if (password != null) AuthType.PASSWORD else AuthType.NONE,
+                password = password.orEmpty(),
+                lastConnectedAt = System.currentTimeMillis(),
+            )
+            initial = _form.value
+        }
         if (hostId != null) {
             viewModelScope.launch {
                 val h = container.database.hostDao().get(hostId) ?: return@launch
@@ -167,6 +195,7 @@ class HostEditorViewModel(
                     lastConnectedAt = if (duplicate) 0 else h.lastConnectedAt,
                     createdAt = if (duplicate) System.currentTimeMillis() else h.createdAt,
                 )
+                initial = _form.value
             }
         }
     }
@@ -207,6 +236,7 @@ class HostEditorViewModel(
             val dao = container.database.hostDao()
             val id = if (host.id == 0L) dao.insert(host) else host.id.also { dao.update(host) }
             container.database.portForwardDao().replaceForHost(id, f.forwards)
+            fromSession?.linkToHost(id)
             _saved.value = true
         }
     }
@@ -214,29 +244,48 @@ class HostEditorViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit) {
-    val vm = containerViewModel(key = "host-$hostId-$duplicate") { HostEditorViewModel(it, hostId, duplicate) }
+fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit, fromSessionId: Int? = null) {
+    val vm = containerViewModel(key = "host-$hostId-$duplicate-$fromSessionId") { HostEditorViewModel(it, hostId, duplicate, fromSessionId) }
     val form by vm.form.collectAsStateWithLifecycle()
     val keys by vm.keys.collectAsStateWithLifecycle()
     val hosts by vm.hosts.collectAsStateWithLifecycle()
     val saved by vm.saved.collectAsStateWithLifecycle()
     var showErrors by remember { mutableStateOf(false) }
     var editingForward by remember { mutableStateOf<Pair<Int, PortForward>?>(null) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val hostnameFocus = remember { FocusRequester() }
+    val portFocus = remember { FocusRequester() }
+    val usernameFocus = remember { FocusRequester() }
+    val keyPickerView = remember { BringIntoViewRequester() }
 
     LaunchedEffect(saved) { if (saved) onDone() }
+
+    val leave = { if (vm.hasChanges && !saved) confirmDiscard = true else onDone() }
+    BackHandler(enabled = !saved) { leave() }
+
+    /** Saves, or shows the errors and moves to the first field that needs fixing. */
+    val save = {
+        showErrors = true
+        when {
+            form.hostnameError != null -> hostnameFocus.requestFocus()
+            form.portError != null -> portFocus.requestFocus()
+            form.usernameError != null -> usernameFocus.requestFocus()
+            form.keyError != null -> scope.launch { keyPickerView.bringIntoView() }
+            else -> vm.save()
+        }
+        Unit
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(if (vm.isNew) "New host" else "Edit host") },
                 navigationIcon = {
-                    IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = leave) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
                 },
                 actions = {
-                    TextButton(onClick = {
-                        showErrors = true
-                        vm.save()
-                    }) { Text("Save") }
+                    TextButton(onClick = save) { Text("Save") }
                 },
             )
         },
@@ -269,7 +318,7 @@ fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit) {
                         isError = showErrors && form.hostnameError != null,
                         supportingText = if (showErrors && form.hostnameError != null) ({ Text(form.hostnameError!!) }) else null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).focusRequester(hostnameFocus),
                     )
                     OutlinedTextField(
                         value = form.port,
@@ -277,8 +326,9 @@ fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit) {
                         label = { Text("Port") },
                         singleLine = true,
                         isError = showErrors && form.portError != null,
+                        supportingText = if (showErrors && form.portError != null) ({ Text(form.portError!!) }) else null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.width(96.dp),
+                        modifier = Modifier.width(112.dp).focusRequester(portFocus),
                     )
                 }
                 OutlinedTextField(
@@ -289,7 +339,7 @@ fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit) {
                     isError = showErrors && form.usernameError != null,
                     supportingText = if (showErrors && form.usernameError != null) ({ Text(form.usernameError!!) }) else null,
                     keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(usernameFocus),
                 )
             }
 
@@ -308,7 +358,9 @@ fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit) {
                 when (form.authType) {
                     AuthType.PASSWORD -> PasswordField(form, vm)
                     AuthType.KEY -> {
-                        KeyPicker(keys, form.keyId, showErrors && form.keyError != null) { id -> vm.update { it.copy(keyId = id) } }
+                        Box(Modifier.bringIntoViewRequester(keyPickerView)) {
+                            KeyPicker(keys, form.keyId, showErrors && form.keyError != null) { id -> vm.update { it.copy(keyId = id) } }
+                        }
                         if (keys.isEmpty()) {
                             Text(
                                 "You have no keys yet. Generate or import one from the Keys tab.",
@@ -417,7 +469,7 @@ fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit) {
             }
             Spacer(Modifier.height(24.dp))
             Button(
-                onClick = { showErrors = true; vm.save() },
+                onClick = save,
                 modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(52.dp).navigationBarsPadding(),
             ) {
                 Icon(Icons.Rounded.Check, null)
@@ -425,6 +477,16 @@ fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit) {
                 Text("Save host")
             }
         }
+    }
+
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text("Discard changes?") },
+            text = { Text(if (vm.isNew) "This host hasn't been saved." else "Your changes to this host haven't been saved.") },
+            confirmButton = { TextButton(onClick = { confirmDiscard = false; onDone() }) { Text("Discard") } },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep editing") } },
+        )
     }
 
     editingForward?.let { (index, forward) ->

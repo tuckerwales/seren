@@ -36,15 +36,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GppMaybe
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
@@ -75,6 +78,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -93,15 +97,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import wales.tucker.terminal.data.Settings
@@ -121,6 +130,7 @@ import wales.tucker.terminal.ui.hosts.stateColor
 import wales.tucker.terminal.ui.hosts.stateLabel
 import wales.tucker.terminal.ui.theme.MonoFamily
 import wales.tucker.terminal.ui.theme.MonoSmall
+import wales.tucker.terminal.ui.theme.SystemBarAppearance
 
 @Composable
 fun TerminalScreen(
@@ -130,6 +140,7 @@ fun TerminalScreen(
     onSwitchSession: (Int) -> Unit,
     onOpenSftp: () -> Unit,
     onClosed: () -> Unit,
+    onSaveAsHost: () -> Unit = {},
 ) {
     val container = appContainer()
     val session = remember(sessionId) { container.sessionManager.get(sessionId) }
@@ -137,7 +148,7 @@ fun TerminalScreen(
         LaunchedEffect(Unit) { onClosed() }
         return
     }
-    TerminalContent(session, settings, onBack, onSwitchSession, onOpenSftp, onClosed)
+    TerminalContent(session, settings, onBack, onSwitchSession, onOpenSftp, onClosed, onSaveAsHost)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -149,6 +160,7 @@ private fun TerminalContent(
     onSwitchSession: (Int) -> Unit,
     onOpenSftp: () -> Unit,
     onClosed: () -> Unit,
+    onSaveAsHost: () -> Unit,
 ) {
     val container = appContainer()
     val context = LocalContext.current
@@ -157,6 +169,7 @@ private fun TerminalContent(
     val title by session.title.collectAsStateWithLifecycle()
     val prompt by session.prompt.collectAsStateWithLifecycle()
     val log by session.log.collectAsStateWithLifecycle()
+    val linkedHostId by session.hostId.collectAsStateWithLifecycle()
     val sessions by container.sessionManager.sessions.collectAsStateWithLifecycle()
     val snippets by container.database.snippetDao().observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     val snackbar = remember { SnackbarHostState() }
@@ -167,6 +180,7 @@ private fun TerminalContent(
     var snippetsOpen by remember { mutableStateOf(false) }
     var confirmClose by remember { mutableStateOf(false) }
     var keyboardShownOnce by remember { mutableStateOf(false) }
+    var scrolledBackInHistory by remember { mutableStateOf(false) }
 
     val scheme = remember(session.spec.colorSchemeId, settings.colorSchemeId) {
         ColorSchemes.byId(session.spec.colorSchemeId ?: settings.colorSchemeId)
@@ -185,6 +199,7 @@ private fun TerminalContent(
     val bg = Color(scheme.background)
     val fg = Color(scheme.foreground)
     val accent = Color(scheme.cursor)
+    SystemBarAppearance(lightBars = bg.luminance() > 0.5f)
     val currentSettings by rememberUpdatedState(settings)
 
     // Session events: bell, clipboard, messages.
@@ -203,6 +218,12 @@ private fun TerminalContent(
             }
         }
     }
+
+    // Leave once the session is closed, whether from this screen, the notification's
+    // "Disconnect all" or anywhere else. A closed session cannot be reconnected.
+    val closed = sessions.none { it.id == session.id }
+    LaunchedEffect(closed) { if (closed) onClosed() }
+    if (closed) return
 
     LaunchedEffect(state) {
         if (state == SessionState.Connected && !keyboardShownOnce) {
@@ -262,14 +283,15 @@ private fun TerminalContent(
                         sessions.forEach { s ->
                             val st by s.state.collectAsState()
                             val t by s.title.collectAsState()
+                            val waiting = s.prompt.collectAsState().value != null
                             DropdownMenuItem(
                                 text = {
                                     Column {
                                         Text(t, fontWeight = if (s.id == session.id) FontWeight.Bold else FontWeight.Normal)
-                                        Text(stateLabel(st), style = MaterialTheme.typography.bodySmall)
+                                        Text(stateLabel(st, waiting), style = MaterialTheme.typography.bodySmall)
                                     }
                                 },
-                                leadingIcon = { StatusDot(stateColor(st)) },
+                                leadingIcon = { StatusDot(stateColor(st, waiting)) },
                                 onClick = {
                                     switcherOpen = false
                                     if (s.id != session.id) onSwitchSession(s.id)
@@ -298,6 +320,13 @@ private fun TerminalContent(
                             leadingIcon = { Icon(Icons.Rounded.Terminal, null) },
                             onClick = { menuOpen = false; snippetsOpen = true },
                         )
+                        if (linkedHostId <= 0) {
+                            DropdownMenuItem(
+                                text = { Text("Save as host") },
+                                leadingIcon = { Icon(Icons.Rounded.BookmarkAdd, null) },
+                                onClick = { menuOpen = false; onSaveAsHost() },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Browse files (SFTP)") },
                             leadingIcon = { Icon(Icons.Rounded.Folder, null) },
@@ -329,7 +358,7 @@ private fun TerminalContent(
                                 if (settings.confirmDisconnect && state == SessionState.Connected) {
                                     confirmClose = true
                                 } else {
-                                    container.sessionManager.close(session); onClosed()
+                                    container.sessionManager.close(session)
                                 }
                             },
                         )
@@ -348,6 +377,10 @@ private fun TerminalContent(
                                 override fun onModifiersConsumed() = modifiers.consume()
                                 override fun onFontSizeChanged(sizeSp: Float) {
                                     scope.launch { container.settings.setFontSize(sizeSp) }
+                                }
+
+                                override fun onScrolledBackChanged(scrolledBack: Boolean) {
+                                    scrolledBackInHistory = scrolledBack
                                 }
                             }
                             view.session = session
@@ -373,8 +406,24 @@ private fun TerminalContent(
                     bg = bg,
                     accent = accent,
                     onRetry = { session.reconnect() },
-                    onClose = { container.sessionManager.close(session); onClosed() },
+                    onClose = { container.sessionManager.close(session) },
                 )
+
+                // Qualified, so the enclosing Column's scoped overload is not picked.
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = scrolledBackInHistory,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                ) {
+                    SmallFloatingActionButton(
+                        onClick = { terminalView?.scrollToBottom() },
+                        containerColor = lerpColor(bg, fg, 0.16f),
+                        contentColor = fg,
+                    ) {
+                        Icon(Icons.Rounded.KeyboardDoubleArrowDown, contentDescription = "Scroll to bottom")
+                    }
+                }
 
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
             }
@@ -386,16 +435,18 @@ private fun TerminalContent(
             ) {
                 DisconnectedBar(
                     reason = (state as? SessionState.Disconnected)?.reason ?: "",
+                    bg = bg,
                     fg = fg,
                     accent = accent,
                     onReconnect = { session.reconnect() },
-                    onClose = { container.sessionManager.close(session); onClosed() },
+                    onClose = { container.sessionManager.close(session) },
                 )
             }
 
             if (settings.showExtraKeys) {
                 ExtraKeysBar(
                     modifiers = modifiers,
+                    hidden = settings.hiddenExtraKeys,
                     background = lerpColor(bg, fg, 0.06f),
                     foreground = fg,
                     accent = accent,
@@ -427,7 +478,7 @@ private fun TerminalContent(
             onRun = { snippet ->
                 snippetsOpen = false
                 terminalView?.scrollToBottom()
-                session.writeText(snippet.command + if (snippet.autoRun) "\r" else "")
+                session.sendSnippet(snippet.command, snippet.autoRun)
             },
         )
     }
@@ -441,7 +492,6 @@ private fun TerminalContent(
                 TextButton(onClick = {
                     confirmClose = false
                     container.sessionManager.close(session)
-                    onClosed()
                 }) { Text("Disconnect") }
             },
             dismissButton = { TextButton(onClick = { confirmClose = false }) { Text("Cancel") } },
@@ -541,8 +591,9 @@ private fun ConnectionOverlay(
 }
 
 @Composable
-private fun DisconnectedBar(reason: String, fg: Color, accent: Color, onReconnect: () -> Unit, onClose: () -> Unit) {
-    Surface(color = lerpColor(Color.Black, fg, 0.12f), modifier = Modifier.fillMaxWidth()) {
+private fun DisconnectedBar(reason: String, bg: Color, fg: Color, accent: Color, onReconnect: () -> Unit, onClose: () -> Unit) {
+    // A tint of the terminal's own background, so the bar suits light schemes as well as dark.
+    Surface(color = lerpColor(bg, fg, 0.12f), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.LinkOff, null, tint = fg.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(10.dp))
@@ -557,7 +608,9 @@ private fun DisconnectedBar(reason: String, fg: Color, accent: Color, onReconnec
 private fun HostKeyDialog(prompt: SessionPrompt.HostKey) {
     val r = prompt.request
     AlertDialog(
-        onDismissRequest = {},
+        // Back declines; a stray tap outside does not.
+        onDismissRequest = { prompt.respond(false) },
+        properties = DialogProperties(dismissOnClickOutside = false),
         icon = {
             Icon(
                 if (r.changed) Icons.Rounded.GppMaybe else Icons.Rounded.Shield,
@@ -565,20 +618,34 @@ private fun HostKeyDialog(prompt: SessionPrompt.HostKey) {
                 tint = if (r.changed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
             )
         },
-        title = { Text(if (r.changed) "Host key has changed!" else "Verify host") },
+        title = {
+            Text(
+                when {
+                    r.changed -> "Host key has changed!"
+                    r.newKeyType -> "New key type"
+                    else -> "Verify host"
+                },
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (r.changed) {
-                    Text(
-                        "The key presented by ${r.host} does not match the one saved earlier. " +
+            // JSch names non-standard ports "[host]:port".
+            val host = r.host.removePrefix("[").replace("]:", ":")
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                when {
+                    r.changed -> Text(
+                        "The key presented by $host does not match the one saved earlier. " +
                             "Someone could be intercepting your connection, or the server was reinstalled.",
                         color = MaterialTheme.colorScheme.error,
                     )
-                } else {
-                    Text("This is the first time connecting to ${r.host}. Check that the fingerprint matches the server's before trusting it.")
+                    r.newKeyType -> Text(
+                        "$host is already trusted, but it presented a ${r.keyType} key it hasn't used before. " +
+                            "Servers do this after an upgrade or configuration change. Check the new fingerprint before trusting it.",
+                    )
+                    else -> Text("This is the first time connecting to $host. Check that the fingerprint matches the server's before trusting it.")
                 }
                 FingerprintCard(label = "${r.keyType} fingerprint", value = r.fingerprint)
                 r.previousFingerprint?.let { FingerprintCard(label = "Previously saved", value = it) }
+                r.otherKnownKeys.forEach { FingerprintCard(label = "Already trusted ${it.keyType}", value = it.fingerprint) }
             }
         },
         confirmButton = {
@@ -607,27 +674,37 @@ private fun PasswordDialog(prompt: SessionPrompt.Password) {
     var password by remember(prompt) { mutableStateOf("") }
     var remember by remember(prompt) { mutableStateOf(false) }
     var visible by remember(prompt) { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(prompt) { focus.requestFocus() }
+    val submit: () -> Unit = { prompt.respond(PasswordResponse(password, remember)) }
     AlertDialog(
-        onDismissRequest = {},
+        onDismissRequest = { prompt.respond(null) },
+        properties = DialogProperties(dismissOnClickOutside = false),
         icon = { Icon(Icons.Rounded.Key, null) },
         title = { Text("Password") },
         text = {
             Column {
                 Text(prompt.target, style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                prompt.error?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                }
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Password") },
                     singleLine = true,
+                    isError = prompt.error != null,
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { submit() }),
                     trailingIcon = {
                         IconButton(onClick = { visible = !visible }) {
-                            Icon(if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = "Toggle visibility")
+                            Icon(if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = if (visible) "Hide password" else "Show password")
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
                 if (prompt.canRemember) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { remember = !remember }) {
@@ -638,7 +715,7 @@ private fun PasswordDialog(prompt: SessionPrompt.Password) {
             }
         },
         confirmButton = {
-            Button(onClick = { prompt.respond(PasswordResponse(password, remember)) }) { Text("Connect") }
+            Button(onClick = submit) { Text("Connect") }
         },
         dismissButton = { TextButton(onClick = { prompt.respond(null) }) { Text("Cancel") } },
     )
@@ -647,15 +724,20 @@ private fun PasswordDialog(prompt: SessionPrompt.Password) {
 @Composable
 private fun KeyboardInteractiveDialog(prompt: SessionPrompt.KeyboardInteractive) {
     val answers = remember(prompt) { prompt.prompts.map { mutableStateOf("") } }
+    val focus = remember(prompt) { prompt.prompts.map { FocusRequester() } }
+    LaunchedEffect(prompt) { focus.firstOrNull()?.requestFocus() }
+    val submit: () -> Unit = { prompt.respond(answers.map { it.value }) }
     AlertDialog(
-        onDismissRequest = {},
+        onDismissRequest = { prompt.respond(null) },
+        properties = DialogProperties(dismissOnClickOutside = false),
         icon = { Icon(Icons.Rounded.Key, null) },
         title = { Text(prompt.name.ifBlank { "Authentication" }) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(prompt.target, style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (prompt.instruction.isNotBlank()) Text(prompt.instruction)
                 prompt.prompts.forEachIndexed { i, p ->
+                    val last = i == prompt.prompts.lastIndex
                     OutlinedTextField(
                         value = answers[i].value,
                         onValueChange = { answers[i].value = it },
@@ -665,13 +747,18 @@ private fun KeyboardInteractiveDialog(prompt: SessionPrompt.KeyboardInteractive)
                         keyboardOptions = KeyboardOptions(
                             keyboardType = if (p.echo) KeyboardType.Text else KeyboardType.Password,
                             autoCorrectEnabled = false,
+                            imeAction = if (last) ImeAction.Done else ImeAction.Next,
                         ),
-                        modifier = Modifier.fillMaxWidth(),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focus.getOrNull(i + 1)?.requestFocus() },
+                            onDone = { submit() },
+                        ),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus[i]),
                     )
                 }
             }
         },
-        confirmButton = { Button(onClick = { prompt.respond(answers.map { it.value }) }) { Text("Continue") } },
+        confirmButton = { Button(onClick = submit) { Text("Continue") } },
         dismissButton = { TextButton(onClick = { prompt.respond(null) }) { Text("Cancel") } },
     )
 }

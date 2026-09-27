@@ -53,6 +53,8 @@ sealed class SessionPrompt {
     class Password(
         val target: String,
         val message: String,
+        /** Why the password is asked for again, such as a rejected saved password. */
+        val error: String?,
         val canRemember: Boolean,
         private val answer: CompletableDeferred<PasswordResponse?>,
     ) : SessionPrompt() {
@@ -107,6 +109,25 @@ class TerminalSession(
 
     private val _state = MutableStateFlow<SessionState>(SessionState.Connecting)
     val state: StateFlow<SessionState> = _state.asStateFlow()
+
+    private val _hostId = MutableStateFlow(spec.hostId)
+
+    /** The saved host this session belongs to, or 0 for a quick connect not (yet) saved as one. */
+    val hostId: StateFlow<Long> = _hostId.asStateFlow()
+
+    /**
+     * The password last typed for a quick connect session, offered when it is saved as a host.
+     * Never kept for saved hosts, whose "Remember password" option stores it instead.
+     */
+    @Volatile
+    var typedPassword: String? = null
+        private set
+
+    /** Links a quick connect session to the host it was just saved as. */
+    fun linkToHost(id: Long) {
+        _hostId.value = id
+        typedPassword = null
+    }
 
     private val _title = MutableStateFlow(spec.title)
     val title: StateFlow<String> = _title.asStateFlow()
@@ -267,6 +288,12 @@ class TerminalSession(
 
     fun writeText(text: String) = write(text.toByteArray(Charsets.UTF_8))
 
+    /**
+     * Types a snippet. Line breaks are sent as Enter (CR), as a keyboard would, rather than raw
+     * line feeds, and [autoRun] presses Enter after the last line.
+     */
+    fun sendSnippet(command: String, autoRun: Boolean) = writeText(snippetInput(command, autoRun))
+
     fun sendKey(key: TerminalKey, modifiers: Int = 0) {
         val bytes = synchronized(emulator) {
             KeyEncoder.encode(key, modifiers, emulator.applicationCursorKeys, emulator.newLineMode)
@@ -305,6 +332,15 @@ class TerminalSession(
             val conn = connection?.takeIf { it.isConnected } ?: throw IOException("Not connected")
             SftpClient(conn.openSftp()).also { sftp = it }
         }
+    }
+
+    /**
+     * Opens a separate SFTP channel for one long running operation, such as a file transfer, so
+     * that it does not hold up browsing on the shared channel. The caller closes it.
+     */
+    suspend fun openSftpChannel(): SftpClient = withContext(Dispatchers.IO) {
+        val conn = connection?.takeIf { it.isConnected } ?: throw IOException("Not connected")
+        SftpClient(conn.openSftp())
     }
 
     private fun closeSftp() {
@@ -353,9 +389,11 @@ class TerminalSession(
             return ask(SessionPrompt.HostKey(request, d), d)
         }
 
-        override fun promptPassword(target: String, message: String): PasswordResponse? {
+        override fun promptPassword(target: String, message: String, error: String?): PasswordResponse? {
             val d = CompletableDeferred<PasswordResponse?>()
-            return ask(SessionPrompt.Password(target, message, spec.hostId > 0, d), d)
+            val response = ask(SessionPrompt.Password(target, message, error, _hostId.value > 0, d), d)
+            if (_hostId.value <= 0 && response != null) typedPassword = response.password
+            return response
         }
 
         override fun promptKeyboardInteractive(
@@ -378,6 +416,12 @@ class TerminalSession(
             screenListener?.invoke()
         }
     }
+}
+
+/** What typing a snippet sends: see [TerminalSession.sendSnippet]. */
+internal fun snippetInput(command: String, autoRun: Boolean): String {
+    val text = command.replace("\r\n", "\n").replace('\r', '\n').trimEnd('\n')
+    return text.replace('\n', '\r') + if (autoRun) "\r" else ""
 }
 
 sealed interface SessionEvent {

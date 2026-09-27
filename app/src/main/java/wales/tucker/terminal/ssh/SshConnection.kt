@@ -38,8 +38,14 @@ data class HostKeyRequest(
     val fingerprint: String,
     /** Fingerprint previously stored for this host and key type, when the key changed. */
     val previousFingerprint: String?,
+    /**
+     * Keys of other types already trusted for this host, when the server presents a key type it
+     * has not used before. Not a first connection, but not a changed key either.
+     */
+    val otherKnownKeys: List<KnownHost> = emptyList(),
 ) {
     val changed: Boolean get() = previousFingerprint != null
+    val newKeyType: Boolean get() = !changed && otherKnownKeys.isNotEmpty()
 }
 
 data class PasswordResponse(val password: String, val remember: Boolean)
@@ -52,7 +58,8 @@ data class KeyboardInteractivePrompt(val text: String, val echo: Boolean)
  */
 interface ConnectionUi {
     fun verifyHostKey(request: HostKeyRequest): Boolean
-    fun promptPassword(target: String, message: String): PasswordResponse?
+    /** [error] explains why a password is being asked for again, when an earlier one failed. */
+    fun promptPassword(target: String, message: String, error: String?): PasswordResponse?
     fun promptKeyboardInteractive(
         target: String,
         name: String,
@@ -229,6 +236,21 @@ class SshConnection(
     ) : UserInfo, UIKeyboardInteractive {
         private var password: String? = null
         private var storedPasswordUsed = false
+        private var passwordsTyped = 0
+
+        /** Why the user is being asked (again), given the passwords tried so far. */
+        private fun retryReason(): String? = when {
+            passwordsTyped > 0 -> "Incorrect password, try again"
+            storedPasswordUsed -> "The saved password was not accepted"
+            else -> null
+        }
+
+        private fun askPassword(message: String): PasswordResponse {
+            val response = ui.promptPassword(label, message, retryReason()) ?: throw cancel()
+            passwordsTyped++
+            if (remember && response.remember) passwordToRemember = response.password
+            return response
+        }
         private val label = "${target.username}@${target.hostname}"
 
         override fun getPassphrase(): String? = null
@@ -241,9 +263,7 @@ class SshConnection(
                 password = target.password
                 return true
             }
-            val response = ui.promptPassword(label, message ?: "Password for $label") ?: throw cancel()
-            password = response.password
-            if (remember && response.remember) passwordToRemember = response.password
+            password = askPassword(message ?: "Password for $label").password
             return true
         }
 
@@ -271,9 +291,7 @@ class SshConnection(
                 return arrayOf(target.password)
             }
             if (prompts.size == 1 && echo?.getOrNull(0) != true && prompts[0].contains("password", ignoreCase = true)) {
-                val response = ui.promptPassword(label, prompts[0].trim()) ?: throw cancel()
-                if (remember && response.remember) passwordToRemember = response.password
-                return arrayOf(response.password)
+                return arrayOf(askPassword(prompts[0].trim()).password)
             }
             val list = prompts.mapIndexed { i, p -> KeyboardInteractivePrompt(p, echo?.getOrNull(i) ?: false) }
             val answers = ui.promptKeyboardInteractive(label, name.orEmpty(), instruction.orEmpty(), list) ?: throw cancel()
@@ -338,7 +356,8 @@ class DatabaseHostKeyRepository(
         if (sameType == null && entries.any { it.key == encoded }) return HostKeyRepository.OK
 
         val fingerprint = SshKeys.fingerprint(key)
-        val accepted = ui.verifyHostKey(HostKeyRequest(host, type, fingerprint, sameType?.fingerprint))
+        val others = if (sameType == null) entries else emptyList()
+        val accepted = ui.verifyHostKey(HostKeyRequest(host, type, fingerprint, sameType?.fingerprint, others))
         if (!accepted) {
             return if (sameType != null) HostKeyRepository.CHANGED else HostKeyRepository.NOT_INCLUDED
         }

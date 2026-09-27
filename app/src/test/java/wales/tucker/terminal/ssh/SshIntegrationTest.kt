@@ -1,7 +1,13 @@
 package wales.tucker.terminal.ssh
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -11,9 +17,12 @@ import wales.tucker.terminal.data.KeyType
 import wales.tucker.terminal.data.PortForward
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Runs against a real sshd. Enabled when SSH_TEST_HOST is set, e.g.
@@ -34,6 +43,7 @@ class SshIntegrationTest {
     ) : ConnectionUi {
         val hostKeyRequests = mutableListOf<HostKeyRequest>()
         var passwordPrompts = 0
+        val passwordErrors = mutableListOf<String?>()
         val logs = mutableListOf<String>()
 
         override fun verifyHostKey(request: HostKeyRequest): Boolean {
@@ -41,8 +51,9 @@ class SshIntegrationTest {
             return acceptHostKey
         }
 
-        override fun promptPassword(target: String, message: String): PasswordResponse? {
+        override fun promptPassword(target: String, message: String, error: String?): PasswordResponse? {
             passwordPrompts++
+            passwordErrors += error
             return passwordAnswer?.let { PasswordResponse(it, remember = true) }
         }
 
@@ -113,12 +124,44 @@ class SshIntegrationTest {
     }
 
     @Test
+    fun newKeyTypeForAKnownHostIsReported() {
+        SshConnection(dao, TestUi()).apply { connect(target()); disconnect() }
+        val stored = dao.entries.value.single()
+        // Pretend only a key of another type was trusted before.
+        val other = stored.copy(keyType = "ssh-other", key = "b3RoZXI=", fingerprint = "SHA256:other")
+        dao.entries.value = listOf(other)
+        val ui = TestUi(acceptHostKey = false)
+        runCatching { SshConnection(dao, ui).connect(target()) }
+        val request = ui.hostKeyRequests.single()
+        assertFalse(request.changed)
+        assertTrue(request.newKeyType)
+        assertEquals(listOf(other), request.otherKnownKeys)
+    }
+
+    @Test
     fun promptsForPasswordWhenNotStored() {
         val ui = TestUi()
         val c = SshConnection(dao, ui)
         c.connect(target(pw = null))
         assertTrue(ui.passwordPrompts >= 1 || c.isConnected)
         assertEquals(password, c.passwordToRemember ?: password)
+        c.disconnect()
+    }
+
+    @Test
+    fun passwordPromptsSayWhyTheyAskAgain() {
+        val answers = ArrayDeque(listOf("wrong", password))
+        val ui = object : ConnectionUi by TestUi() {
+            val errors = mutableListOf<String?>()
+            override fun promptPassword(target: String, message: String, error: String?): PasswordResponse? {
+                errors += error
+                return PasswordResponse(answers.removeFirst(), remember = false)
+            }
+        }
+        val c = SshConnection(dao, ui)
+        c.connect(target(pw = "stale"))
+        assertTrue(c.isConnected)
+        assertEquals(listOf("The saved password was not accepted", "Incorrect password, try again"), ui.errors)
         c.disconnect()
     }
 
@@ -280,6 +323,64 @@ class SshIntegrationTest {
         assertEquals("abc", sftp.readText(SftpClient.join(dir, "t.txt")))
         sftp.delete(sftp.stat(dir))
         assertTrue(sftp.list(home).none { it.path == dir })
+        sftp.close()
+        c.disconnect()
+    }
+
+    @Test
+    fun sftpBrowsingIsNotBlockedByATransferOnAnotherChannel() = runBlocking {
+        val c = SshConnection(dao, TestUi())
+        c.connect(target())
+        val browse = SftpClient(c.openSftp())
+        val transfer = SftpClient(c.openSftp())
+        val home = browse.home()
+        val file = SftpClient.join(home, "big-${System.nanoTime()}.bin")
+        val data = ByteArray(2 * 1024 * 1024) { it.toByte() }
+        browse.upload(data.inputStream(), file, data.size.toLong()) { _, _ -> }
+
+        // A destination that stalls, like a slow disk, until the listing below has finished.
+        val release = CountDownLatch(1)
+        val stalled = CountDownLatch(1)
+        val out = object : OutputStream() {
+            override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+            override fun write(b: ByteArray, off: Int, len: Int) {
+                stalled.countDown()
+                release.await()
+            }
+        }
+        val download = async(Dispatchers.IO) { transfer.download(file, out) { _, _ -> } }
+        assertTrue(stalled.await(10, TimeUnit.SECONDS))
+        val listing = withTimeout(5_000) { browse.list(home) }
+        assertTrue(listing.any { it.path == file })
+        release.countDown()
+        download.await()
+
+        browse.delete(browse.stat(file))
+        transfer.close()
+        browse.close()
+        c.disconnect()
+    }
+
+    @Test
+    fun cancellingATransferStopsIt() = runBlocking {
+        val c = SshConnection(dao, TestUi())
+        c.connect(target())
+        val sftp = SftpClient(c.openSftp())
+        val file = SftpClient.join(sftp.home(), "cancel-${System.nanoTime()}.bin")
+        val data = ByteArray(8 * 1024 * 1024) { it.toByte() }
+        sftp.upload(data.inputStream(), file, data.size.toLong()) { _, _ -> }
+
+        val out = ByteArrayOutputStream()
+        val job = launch(Dispatchers.IO) {
+            sftp.download(file, out) { done, _ -> if (done > 0) coroutineContext.job.cancel() }
+        }
+        job.join()
+        assertTrue(job.isCancelled)
+        assertTrue("stopped early, got ${out.size()} bytes", out.size() < data.size)
+
+        // The channel is still usable afterwards.
+        assertEquals(data.size.toLong(), sftp.stat(file).size)
+        sftp.delete(sftp.stat(file))
         sftp.close()
         c.disconnect()
     }

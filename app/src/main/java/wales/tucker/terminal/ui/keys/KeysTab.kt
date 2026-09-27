@@ -1,8 +1,7 @@
 package wales.tucker.terminal.ui.keys
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Intent
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -56,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -83,6 +83,7 @@ import wales.tucker.terminal.ui.common.Avatar
 import wales.tucker.terminal.ui.common.Chip
 import wales.tucker.terminal.ui.common.EmptyState
 import wales.tucker.terminal.ui.common.containerViewModel
+import wales.tucker.terminal.ui.common.copyToClipboard
 import wales.tucker.terminal.ui.theme.MonoSmall
 
 class KeysViewModel(private val container: AppContainer) : ViewModel() {
@@ -127,6 +128,8 @@ class KeysViewModel(private val container: AppContainer) : ViewModel() {
         container.database.keyDao().delete(key)
     }
 
+    suspend fun hostsUsing(key: SshKey): Int = container.database.hostDao().countUsingKey(key.id)
+
     /** Decrypts the private key for export. */
     suspend fun privateKey(key: SshKey): String = withContext(Dispatchers.Default) {
         container.secretBox.decryptString(key.encryptedPrivateKey)
@@ -146,9 +149,12 @@ fun KeysTab(onImportKey: () -> Unit) {
     var deleting by remember { mutableStateOf<SshKey?>(null) }
     var exporting by remember { mutableStateOf<SshKey?>(null) }
 
-    fun copy(text: String, label: String) {
-        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(label, text))
-        Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
+    fun copy(text: String, label: String, sensitive: Boolean = false) {
+        copyToClipboard(context, label, text, sensitive)
+        // Android 13 and later confirm copies themselves.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
+        }
     }
 
     Scaffold(
@@ -240,11 +246,21 @@ fun KeysTab(onImportKey: () -> Unit) {
     }
 
     deleting?.let { key ->
+        val users by produceState<Int?>(null, key) { value = vm.hostsUsing(key) }
         AlertDialog(
             onDismissRequest = { deleting = null },
             icon = { Icon(Icons.Rounded.Delete, null) },
             title = { Text("Delete ${key.name}?") },
-            text = { Text("Hosts using this key will fall back to password authentication. This cannot be undone.") },
+            text = {
+                Text(
+                    when (users) {
+                        null -> "This cannot be undone."
+                        0 -> "No saved hosts use this key. This cannot be undone."
+                        1 -> "1 host uses this key and will fall back to password authentication. This cannot be undone."
+                        else -> "$users hosts use this key and will fall back to password authentication. This cannot be undone."
+                    },
+                )
+            },
             confirmButton = { TextButton(onClick = { vm.delete(key); deleting = null }) { Text("Delete") } },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )
@@ -258,13 +274,13 @@ fun KeysTab(onImportKey: () -> Unit) {
             text = {
                 Text(
                     "Anyone with your private key can log in to your servers. Only copy it to move it somewhere you trust. " +
-                        "Clipboard contents may be visible to other apps.",
+                        "It is cleared from the clipboard after a minute.",
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
-                        copy(vm.privateKey(key), "Private key")
+                        copy(vm.privateKey(key), "Private key", sensitive = true)
                         exporting = null
                     }
                 }) { Text("Copy private key") }

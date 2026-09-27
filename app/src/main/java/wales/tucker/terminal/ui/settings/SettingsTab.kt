@@ -2,6 +2,8 @@ package wales.tucker.terminal.ui.settings
 
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,9 +62,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import wales.tucker.terminal.BuildConfig
 import wales.tucker.terminal.MainActivity
+import wales.tucker.terminal.data.Backup
 import wales.tucker.terminal.data.Settings
 import wales.tucker.terminal.data.SettingsRepository
 import wales.tucker.terminal.data.ThemeMode
@@ -75,12 +80,40 @@ import wales.tucker.terminal.ui.theme.MonoFamily
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit) {
+fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () -> Unit) {
     val container = appContainer()
     val repo = container.settings
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showAbout by remember { mutableStateOf(false) }
+    val backup = remember(container) { Backup(container.database) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch {
+            val message = runCatching {
+                val json = backup.export()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } ?: error("Cannot write the file")
+                }
+                "Hosts and snippets exported"
+            }.getOrElse { "Export failed: ${it.message}" }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val message = runCatching {
+                val json = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("Cannot read the file")
+                }
+                val r = backup.import(json)
+                buildString {
+                    append("Imported ${r.hosts} host${if (r.hosts == 1) "" else "s"} and ${r.snippets} snippet${if (r.snippets == 1) "" else "s"}")
+                    if (r.skipped > 0) append(", skipped ${r.skipped} already here")
+                }
+            }.getOrElse { "Import failed: ${it.message}" }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(title = { Text("Settings", fontWeight = FontWeight.SemiBold) }, windowInsets = WindowInsets.statusBars)
@@ -149,7 +182,7 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 Text("Scrollback", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "Lines kept in history for new sessions",
+                    "Lines of history kept for each session",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -167,6 +200,10 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit) {
             SwitchRow("Extra keys row", "Esc, Tab, Ctrl, Alt, arrows and more above the keyboard", settings.showExtraKeys) {
                 scope.launch { repo.setShowExtraKeys(it) }
             }
+            if (settings.showExtraKeys) {
+                val hidden = settings.hiddenExtraKeys.size
+                NavRow("Customize extra keys", if (hidden == 0) "All keys shown" else "$hidden hidden", onExtraKeys)
+            }
             SwitchRow("Volume keys as Ctrl and Alt", "Hold volume down for Ctrl, volume up for Alt", settings.volumeKeysAsModifiers) {
                 scope.launch { repo.setVolumeKeysAsModifiers(it) }
             }
@@ -174,9 +211,12 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit) {
                 scope.launch { repo.setKeepScreenOn(it) }
             }
             SwitchRow("Vibrate on bell", null, settings.vibrateOnBell) { scope.launch { repo.setVibrateOnBell(it) } }
+            SwitchRow("Confirm before disconnecting", "When closing a connected session", settings.confirmDisconnect) {
+                scope.launch { repo.setConfirmDisconnect(it) }
+            }
 
             SectionHeader("Security")
-            SwitchRow("App lock", "Require biometrics or your screen lock to open the app", settings.appLock) { enabled ->
+            SwitchRow("App lock", "Require biometrics or your screen lock to open the app, and hide it in recent apps", settings.appLock) { enabled ->
                 val activity = context as? MainActivity
                 if (enabled && activity != null) {
                     if (!activity.canAuthenticate()) {
@@ -188,10 +228,15 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit) {
                     scope.launch { repo.setAppLock(false) }
                 }
             }
-            SwitchRow("Confirm before disconnecting", null, settings.confirmDisconnect) {
-                scope.launch { repo.setConfirmDisconnect(it) }
-            }
             NavRow("Known hosts", "Manage trusted server fingerprints", onKnownHosts)
+
+            SectionHeader("Backup")
+            NavRow("Export hosts and snippets", "Passwords and keys are not included") {
+                exportLauncher.launch("terminal-backup.json")
+            }
+            NavRow("Import hosts and snippets", "Adds them alongside the ones already here") {
+                importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+            }
 
             SectionHeader("About")
             NavRow("Terminal ${BuildConfig.VERSION_NAME}", "Open source licenses") { showAbout = true }
@@ -294,7 +339,7 @@ private fun FontSizeRow(size: Float, scheme: ColorScheme, onChange: (Float) -> U
     Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Text size", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text("${value.toInt()} sp", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text("${formatFontSize(value)} sp", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
         Slider(
             value = value,
@@ -324,4 +369,10 @@ private fun FontSizeRow(size: Float, scheme: ColorScheme, onChange: (Float) -> U
             modifier = Modifier.padding(top = 6.dp),
         )
     }
+}
+
+/** "13" or "13.5": pinch to zoom stores half steps, which the slider alone never produces. */
+internal fun formatFontSize(size: Float): String {
+    val halves = Math.round(size * 2)
+    return if (halves % 2 == 0) (halves / 2).toString() else "${halves / 2}.5"
 }

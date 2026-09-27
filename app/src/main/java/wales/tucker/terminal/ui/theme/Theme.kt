@@ -11,7 +11,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -109,16 +109,31 @@ fun TerminalTheme(
         dark -> DarkColors
         else -> LightColors
     }
+    SystemBarAppearance(lightBars = !dark)
+    MaterialTheme(colorScheme = colors, typography = Typography(), content = content)
+}
+
+/**
+ * Picks dark (for [lightBars]) or light status and navigation bar icons while in composition,
+ * restoring the previous appearance afterwards. Screens with their own background, such as the
+ * terminal, use it to keep the icons readable.
+ */
+@Composable
+fun SystemBarAppearance(lightBars: Boolean) {
     val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as? Activity)?.window ?: return@SideEffect
-            val controller = WindowCompat.getInsetsController(window, view)
-            controller.isAppearanceLightStatusBars = !dark
-            controller.isAppearanceLightNavigationBars = !dark
+    if (view.isInEditMode) return
+    DisposableEffect(view, lightBars) {
+        val window = (view.context as? Activity)?.window ?: return@DisposableEffect onDispose {}
+        val controller = WindowCompat.getInsetsController(window, view)
+        val previousStatus = controller.isAppearanceLightStatusBars
+        val previousNavigation = controller.isAppearanceLightNavigationBars
+        controller.isAppearanceLightStatusBars = lightBars
+        controller.isAppearanceLightNavigationBars = lightBars
+        onDispose {
+            controller.isAppearanceLightStatusBars = previousStatus
+            controller.isAppearanceLightNavigationBars = previousNavigation
         }
     }
-    MaterialTheme(colorScheme = colors, typography = Typography(), content = content)
 }
 
 /** Accent colors users can tag hosts with. */

@@ -154,11 +154,15 @@ fun Chip(text: String, color: Color = MaterialTheme.colorScheme.secondaryContain
     }
 }
 
-fun relativeTime(timestamp: Long, now: Long = System.currentTimeMillis()): String {
-    if (timestamp <= 0) return "Never"
+/**
+ * "Just now", "5 min ago", "3 d ago" or a date. Pass [midSentence] to get lower case words for use
+ * after other text, as in "Added just now"; dates keep their capitals.
+ */
+fun relativeTime(timestamp: Long, now: Long = System.currentTimeMillis(), midSentence: Boolean = false): String {
+    if (timestamp <= 0) return if (midSentence) "never" else "Never"
     val diff = (now - timestamp) / 1000
     return when {
-        diff < 60 -> "Just now"
+        diff < 60 -> if (midSentence) "just now" else "Just now"
         diff < 3600 -> "${diff / 60} min ago"
         diff < 86400 -> "${diff / 3600} h ago"
         diff < 86400 * 7 -> "${diff / 86400} d ago"

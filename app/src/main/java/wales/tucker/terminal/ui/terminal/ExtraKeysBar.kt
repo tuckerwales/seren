@@ -33,6 +33,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,42 +75,53 @@ class StickyModifiers {
 private sealed interface ExtraKey {
     val label: String
 
-    data class Special(override val label: String, val key: TerminalKey, val repeat: Boolean = false) : ExtraKey
-    data class Text(override val label: String, val text: String) : ExtraKey
-    data object Ctrl : ExtraKey { override val label = "CTRL" }
+    /** What screen readers announce. */
+    val description: String get() = label
+
+    data class Special(
+        override val label: String,
+        val key: TerminalKey,
+        val repeat: Boolean = false,
+        override val description: String = label,
+    ) : ExtraKey
+    data class Text(override val label: String, val text: String, override val description: String = label) : ExtraKey
+    data object Ctrl : ExtraKey {
+        override val label = "CTRL"
+        override val description = "Control"
+    }
     data object Alt : ExtraKey { override val label = "ALT" }
 }
 
 private val KEYS: List<ExtraKey> = listOf(
-    ExtraKey.Special("ESC", TerminalKey.ESCAPE),
-    ExtraKey.Special("TAB", TerminalKey.TAB),
+    ExtraKey.Special("ESC", TerminalKey.ESCAPE, description = "Escape"),
+    ExtraKey.Special("TAB", TerminalKey.TAB, description = "Tab"),
     ExtraKey.Ctrl,
     ExtraKey.Alt,
-    ExtraKey.Special("←", TerminalKey.LEFT, repeat = true),
-    ExtraKey.Special("↓", TerminalKey.DOWN, repeat = true),
-    ExtraKey.Special("↑", TerminalKey.UP, repeat = true),
-    ExtraKey.Special("→", TerminalKey.RIGHT, repeat = true),
-    ExtraKey.Text("-", "-"),
-    ExtraKey.Text("/", "/"),
-    ExtraKey.Text("|", "|"),
-    ExtraKey.Text("~", "~"),
-    ExtraKey.Special("HOME", TerminalKey.HOME),
-    ExtraKey.Special("END", TerminalKey.END),
-    ExtraKey.Special("PGUP", TerminalKey.PAGE_UP, repeat = true),
-    ExtraKey.Special("PGDN", TerminalKey.PAGE_DOWN, repeat = true),
-    ExtraKey.Special("DEL", TerminalKey.DELETE, repeat = true),
-    ExtraKey.Text("\\", "\\"),
-    ExtraKey.Text("_", "_"),
-    ExtraKey.Text(":", ":"),
-    ExtraKey.Text("*", "*"),
-    ExtraKey.Text("&", "&"),
-    ExtraKey.Text("$", "$"),
-    ExtraKey.Text("<", "<"),
-    ExtraKey.Text(">", ">"),
-    ExtraKey.Text("{", "{"),
-    ExtraKey.Text("}", "}"),
-    ExtraKey.Text("[", "["),
-    ExtraKey.Text("]", "]"),
+    ExtraKey.Special("←", TerminalKey.LEFT, repeat = true, description = "Left arrow"),
+    ExtraKey.Special("↓", TerminalKey.DOWN, repeat = true, description = "Down arrow"),
+    ExtraKey.Special("↑", TerminalKey.UP, repeat = true, description = "Up arrow"),
+    ExtraKey.Special("→", TerminalKey.RIGHT, repeat = true, description = "Right arrow"),
+    ExtraKey.Text("-", "-", "Minus"),
+    ExtraKey.Text("/", "/", "Slash"),
+    ExtraKey.Text("|", "|", "Pipe"),
+    ExtraKey.Text("~", "~", "Tilde"),
+    ExtraKey.Special("HOME", TerminalKey.HOME, description = "Home"),
+    ExtraKey.Special("END", TerminalKey.END, description = "End"),
+    ExtraKey.Special("PGUP", TerminalKey.PAGE_UP, repeat = true, description = "Page up"),
+    ExtraKey.Special("PGDN", TerminalKey.PAGE_DOWN, repeat = true, description = "Page down"),
+    ExtraKey.Special("DEL", TerminalKey.DELETE, repeat = true, description = "Delete"),
+    ExtraKey.Text("\\", "\\", "Backslash"),
+    ExtraKey.Text("_", "_", "Underscore"),
+    ExtraKey.Text(":", ":", "Colon"),
+    ExtraKey.Text("*", "*", "Asterisk"),
+    ExtraKey.Text("&", "&", "Ampersand"),
+    ExtraKey.Text("$", "$", "Dollar"),
+    ExtraKey.Text("<", "<", "Less than"),
+    ExtraKey.Text(">", ">", "Greater than"),
+    ExtraKey.Text("{", "{", "Left brace"),
+    ExtraKey.Text("}", "}", "Right brace"),
+    ExtraKey.Text("[", "[", "Left bracket"),
+    ExtraKey.Text("]", "]", "Right bracket"),
     ExtraKey.Special("F1", TerminalKey.F1),
     ExtraKey.Special("F2", TerminalKey.F2),
     ExtraKey.Special("F3", TerminalKey.F3),
@@ -119,6 +136,11 @@ private val KEYS: List<ExtraKey> = listOf(
     ExtraKey.Special("F12", TerminalKey.F12),
 )
 
+/** A key the user can show or hide in settings: its label (the stored id) and spoken name. */
+data class ExtraKeyChoice(val label: String, val description: String)
+
+val EXTRA_KEY_CHOICES: List<ExtraKeyChoice> = KEYS.map { ExtraKeyChoice(it.label, it.description) }
+
 @Composable
 fun ExtraKeysBar(
     modifiers: StickyModifiers,
@@ -129,6 +151,7 @@ fun ExtraKeysBar(
     onText: (String) -> Unit,
     onToggleKeyboard: () -> Unit,
     modifier: Modifier = Modifier,
+    hidden: Set<String> = emptySet(),
 ) {
     val haptics = LocalHapticFeedback.current
     Row(
@@ -140,13 +163,17 @@ fun ExtraKeysBar(
     ) {
         KeyCap(
             label = null,
+            description = "Toggle keyboard",
             foreground = foreground,
             active = false,
             accent = accent,
-            onPress = { onToggleKeyboard() },
+            onPress = {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onToggleKeyboard()
+            },
             modifier = Modifier.padding(start = 4.dp),
         ) {
-            Icon(Icons.Rounded.Keyboard, contentDescription = "Toggle keyboard", tint = foreground, modifier = Modifier.size(20.dp))
+            Icon(Icons.Rounded.Keyboard, contentDescription = null, tint = foreground, modifier = Modifier.size(20.dp))
         }
         Row(
             modifier = Modifier
@@ -157,7 +184,7 @@ fun ExtraKeysBar(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            KEYS.forEach { key ->
+            KEYS.filterNot { it.label in hidden }.forEach { key ->
                 val state = when (key) {
                     ExtraKey.Ctrl -> modifiers.ctrl
                     ExtraKey.Alt -> modifiers.alt
@@ -165,6 +192,13 @@ fun ExtraKeysBar(
                 }
                 KeyCap(
                     label = key.label,
+                    description = key.description,
+                    stateDescription = when {
+                        key != ExtraKey.Ctrl && key != ExtraKey.Alt -> null
+                        state == ModifierState.OFF -> "Off"
+                        state == ModifierState.ONCE -> "On for the next key"
+                        else -> "Locked on"
+                    },
                     foreground = foreground,
                     active = state != ModifierState.OFF,
                     locked = state == ModifierState.LOCKED,
@@ -188,6 +222,7 @@ fun ExtraKeysBar(
 @Composable
 private fun KeyCap(
     label: String?,
+    description: String,
     foreground: Color,
     active: Boolean,
     accent: Color,
@@ -195,6 +230,7 @@ private fun KeyCap(
     modifier: Modifier = Modifier,
     locked: Boolean = false,
     repeat: Boolean = false,
+    stateDescription: String? = null,
     content: (@Composable () -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
@@ -210,6 +246,14 @@ private fun KeyCap(
             .widthIn(min = 42.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
+            // The press handling below is raw pointer input, which accessibility services can't
+            // see; describe the key as a button they can activate.
+            .clearAndSetSemantics {
+                role = Role.Button
+                contentDescription = description
+                stateDescription?.let { this.stateDescription = it }
+                onClick { onPress(); true }
+            }
             .pointerInput(repeat) {
                 awaitEachGesture {
                     awaitFirstDown()

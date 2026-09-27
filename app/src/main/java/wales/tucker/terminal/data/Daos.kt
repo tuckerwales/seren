@@ -12,8 +12,18 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface HostDao {
-    @Query("SELECT * FROM hosts ORDER BY lastConnectedAt DESC, nickname COLLATE NOCASE ASC")
+    /**
+     * All hosts by display name (the nickname, or the hostname when there is none), so the list
+     * keeps its order instead of reshuffling after every connection.
+     */
+    @Query(
+        "SELECT * FROM hosts ORDER BY CASE WHEN trim(nickname) = '' THEN hostname ELSE trim(nickname) END COLLATE NOCASE, " +
+            "hostname COLLATE NOCASE, id",
+    )
     fun observeAll(): Flow<List<Host>>
+
+    @Query("SELECT * FROM hosts ORDER BY id")
+    suspend fun all(): List<Host>
 
     @Query("SELECT * FROM hosts WHERE id = :id")
     suspend fun get(id: Long): Host?
@@ -36,6 +46,9 @@ interface HostDao {
     @Query("UPDATE hosts SET jumpHostId = NULL WHERE jumpHostId = :id")
     suspend fun clearJumpHost(id: Long)
 
+    @Query("SELECT COUNT(*) FROM hosts WHERE keyId = :keyId")
+    suspend fun countUsingKey(keyId: Long): Int
+
     @Query("UPDATE hosts SET keyId = NULL, authType = 'PASSWORD' WHERE keyId = :keyId")
     suspend fun clearKey(keyId: Long)
 }
@@ -44,6 +57,9 @@ interface HostDao {
 interface KeyDao {
     @Query("SELECT * FROM keys ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<SshKey>>
+
+    @Query("SELECT * FROM keys ORDER BY id")
+    suspend fun all(): List<SshKey>
 
     @Query("SELECT * FROM keys WHERE id = :id")
     suspend fun get(id: Long): SshKey?
@@ -104,6 +120,9 @@ interface PortForwardDao {
 interface SnippetDao {
     @Query("SELECT * FROM snippets ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<Snippet>>
+
+    @Query("SELECT * FROM snippets ORDER BY id")
+    suspend fun all(): List<Snippet>
 
     @Upsert
     suspend fun upsert(snippet: Snippet): Long

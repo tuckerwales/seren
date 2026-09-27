@@ -1,4 +1,4 @@
-package wales.tucker.seren.auth.ui.common
+package wales.tucker.seren.core.ui
 
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -8,8 +8,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * The app's one snackbar, shared by every screen so a message survives navigating back (such as
- * "Added GitHub" after saving, or "Deleted GitHub" with Undo).
+ * An app's one snackbar, shared by every screen so a message survives navigating back (such as
+ * "Added GitHub" after saving, or "Moved notes.txt to the trash" with Undo). Provide it with
+ * [LocalMessenger] at the top of the app's UI.
  */
 class Messenger(internal val scope: CoroutineScope) {
     val host = SnackbarHostState()

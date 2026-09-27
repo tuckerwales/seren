@@ -30,8 +30,8 @@ import wales.tucker.seren.auth.otp.GoogleMigration
 import wales.tucker.seren.auth.otp.OtpAuthUri
 import wales.tucker.seren.auth.otp.OtpFormatException
 import wales.tucker.seren.auth.qr.QrCodes
-import wales.tucker.seren.auth.ui.common.LocalMessenger
-import wales.tucker.seren.auth.ui.common.Messenger
+import wales.tucker.seren.core.ui.LocalMessenger
+import wales.tucker.seren.core.ui.Messenger
 import wales.tucker.seren.auth.ui.editor.AccountEditorScreen
 import wales.tucker.seren.auth.ui.home.HomeScreen
 import wales.tucker.seren.auth.ui.importing.ImportDialogs

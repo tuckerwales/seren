@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 import wales.tucker.seren.core.ui.Avatar
 import wales.tucker.seren.core.ui.EmptyState
 import wales.tucker.seren.core.ui.GroupedTile
+import wales.tucker.seren.core.ui.formatSize
 import wales.tucker.seren.core.ui.groupedShape
 import wales.tucker.seren.core.ui.relativeTime
 import wales.tucker.seren.core.ui.theme.MonoSmall
@@ -211,13 +212,6 @@ private fun NewFileDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
         confirmButton = { TextButton(onClick = { onCreate(name.trim()) }, enabled = name.isNotBlank()) { Text("Create") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
-}
-
-/** "0 bytes", "812 bytes", "22 KB", "1.4 MB". */
-internal fun formatSize(bytes: Long): String = when {
-    bytes < 1024 -> if (bytes == 1L) "1 byte" else "$bytes bytes"
-    bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-    else -> String.format(java.util.Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0))
 }
 
 /** The storage path to show under a folder's name, from its tree and document id. */

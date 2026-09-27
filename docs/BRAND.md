@@ -2,7 +2,7 @@
 
 **Seren** (Welsh for "star", said *SEH-ren*) is a suite of free, open source Android apps with no
 ads and no tracking. This guide describes how the apps look, feel and speak. Seren SSH was the
-first app, Seren Edit the second and Seren Auth the third; what they share lives in **Seren Core** (the `core` module),
+first app, Seren Edit the second, Seren Auth the third and Seren Files the fourth; what they share lives in **Seren Core** (the `core` module),
 so when in doubt, open
 `core/src/main/java/wales/tucker/seren/core/ui/theme/Theme.kt` and
 `core/src/main/java/wales/tucker/seren/core/ui/Components.kt`.
@@ -29,6 +29,7 @@ Contents
 15. [Starting a new app](#15-starting-a-new-app)
 16. [Applying this to the text editor](#16-applying-this-to-the-text-editor)
 17. [Applying this to the authenticator](#17-applying-this-to-the-authenticator)
+18. [Applying this to the file manager](#18-applying-this-to-the-file-manager)
 
 ---
 
@@ -72,7 +73,7 @@ where they are made (`tucker.wales`).
 ### App names
 
 - **Seren + one word**, where the word is the shortest thing someone would type into a search to
-  find the app: **Seren SSH**, **Seren Edit**, **Seren Auth**, then for example Seren Files, Seren Notes.
+  find the app: **Seren SSH**, **Seren Edit**, **Seren Auth**, **Seren Files**, then for example Seren Notes.
 - The word is always capitalised (or an acronym in caps), never a pun, never a version number.
 - The **launcher label is the full name** ("Seren SSH"). Keep it to 12 characters or fewer so it
   never truncates under the icon.
@@ -86,13 +87,14 @@ where they are made (`tucker.wales`).
 | Seren SSH | Seren SSH | `wales.tucker.seren.ssh` | `ssh` |
 | Seren Edit | Seren Edit | `wales.tucker.seren.edit` | `edit` |
 | Seren Auth | Seren Auth | `wales.tucker.seren.auth` | `auth` |
+| Seren Files | Seren Files | `wales.tucker.seren.files` | `files` |
 | (shared library) | | `wales.tucker.seren.core` | `core` |
 
 - **Package ids** (application id, namespace and Kotlin package) are `wales.tucker.seren.<word>`
   in lower case. Once an app is published its id never changes: a new id is a different app, and
   existing installs stop getting updates.
 - All the apps live in one repository, `tuckerwales/seren`, each in a Gradle module named after its
-  word (`ssh`, `edit`, `auth`), next to the shared `core` module.
+  word (`ssh`, `edit`, `auth`, `files`), next to the shared `core` module.
 - The Application class is `SerenApp`, the Compose theme function `SerenTheme` and the XML theme
   `Theme.Seren`.
 
@@ -353,7 +355,7 @@ Material components in an app.
 | **Extended FAB** | Icon plus verb label ("New host", "Upload"). One per screen. |
 | **Dialogs** | `AlertDialog`, optional top icon, title as a question for confirmations ("Delete web-01?"), body explaining the consequence, confirm button names the action ("Delete", "Trust and connect"), dismiss is "Cancel". Technical detail (fingerprints) goes in a `surfaceContainerHighest` block with mono text. |
 | **Bottom sheets** | `ModalBottomSheet` for pickers and lists of actions tied to the current screen (snippets over the terminal). |
-| **Snackbars** | Short, transient confirmations and non-blocking errors ("Wait for the current transfer to finish"). Offer an action only if it is useful ("Undo"). |
+| **Snackbars** | Short, transient confirmations and non-blocking errors ("Wait for the current transfer to finish"). Offer an action only if it is useful ("Undo"). One per app, through `Messenger` in Seren Core, so a message survives navigating back. |
 | **Menus** | `DropdownMenu` from a three dot overflow on tiles and top bars; icon plus label per item; destructive item last. |
 | **Cards over dark canvases** | Keep the canvas color; use a 10 dp rounded key or button with a subtle lighter tint, labels in mono caps (extra keys bar: 46 dp tall, keys 36 dp tall, min 42 dp wide, 4 dp gaps). |
 
@@ -431,6 +433,14 @@ The apps sound like a calm, competent friend: plain words, short sentences, no h
 | Code | OTP, token, PIN (the one-time number) |
 | Setup key | Secret, seed (the key a site gives to set up codes) |
 | Backup | Vault, archive (an exported file of accounts) |
+| Storage | Drive, disk, SD (internal storage, an SD card or a USB drive) |
+| Trash | Bin, recycle bin (where deleted items wait for 30 days) |
+| Move to trash | Delete (when the item can still be restored) |
+| Delete permanently | Erase, destroy (when it can't) |
+| Restore | Undelete, recover (putting an item back from the trash) |
+| Bookmark | Favorite, pin, shortcut (a folder kept on the Browse tab) |
+| Compress, Extract | Zip, unzip, archive (the actions) |
+| Paste | Drop (finishing a copy or move) |
 
 New apps should add their own nouns to this table rather than reuse ambiguous ones.
 
@@ -554,3 +564,33 @@ The third app, Seren Auth (the `auth` module):
   `SecretBox`; screenshots are blocked by default; with app lock on, showing a setup key or its QR
   code and exporting ask for the user's identity again. Exported plain text files get a warning,
   and encrypted backups use a documented format (scrypt and AES-256-GCM) so nobody is locked in.
+
+## 18. Applying this to the file manager
+
+The fourth app, Seren Files (the `files` module):
+
+- **Name:** Seren Files (package `wales.tucker.seren.files`).
+- **Icon:** the shared gradient; the frame becomes a folder with a tab; the periwinkle glyph is a
+  small file tree (a folder line with two branches); the mint accent is the cursor, standing in as
+  the second item in the folder.
+- **Tabs:** Browse, Recent, Trash, Settings.
+- **Hero card:** each storage volume is a hero card with a round icon badge, "38.4 GB free of
+  128.0 GB" and a rounded bar of how full it is.
+- **Lists:** files and folders as grouped tiles in two groups, Folders then Files. Each kind of file
+  keeps one accent from the palette (folders indigo, images teal, video and PDF red, documents
+  amber, archives violet, text and apps cyan, audio pink, anything else slate), and photos and
+  videos show a thumbnail in the same squircle. The meta line is "2.4 MB · 3 d ago" or "12 items ·
+  5 min ago"; paths (search results, recent files, the trash) are the mono subtitle.
+- **Picking:** long press picks an item; picked tiles turn `secondaryContainer` with a tick in place
+  of the avatar. The top bar says "3 selected" and the bottom bar offers Copy, Move, Share, Delete
+  and More. `GroupedTile` in Seren Core takes `onLongClick` and `selected` for this.
+- **Paths:** breadcrumbs under the top bar, one outlined chip per folder in mono, starting with the
+  volume name.
+- **Long jobs:** copies, moves, compressing and extracting show a `secondaryContainer` card with the
+  name, "12.4 MB of 48.0 MB" and Cancel; they keep going while people move around the app. Files
+  waiting to be pasted show a pill shaped bar with Paste.
+- **Words:** Storage, Trash, Move to trash, Delete permanently, Restore, Bookmark, Compress, Extract,
+  Paste (see section 11). Clashing names ask "Replace notes.txt?" with Replace, Keep both and Skip.
+- **Trust:** Seren Files has no network permission at all. Its one permission, all files access, is
+  asked for only from an explained empty state ("Allow access to your files"). Deleting goes to the
+  trash with Undo by default, and turning the trash off makes every delete say it's permanent.

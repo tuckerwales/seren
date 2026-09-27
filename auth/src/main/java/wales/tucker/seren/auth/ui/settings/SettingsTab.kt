@@ -51,7 +51,7 @@ import wales.tucker.seren.auth.backup.SerenBackup
 import wales.tucker.seren.auth.data.Settings
 import wales.tucker.seren.auth.otp.OtpAuthUri
 import wales.tucker.seren.auth.ui.appContainer
-import wales.tucker.seren.auth.ui.common.LocalMessenger
+import wales.tucker.seren.core.ui.LocalMessenger
 import wales.tucker.seren.auth.ui.common.PasswordField
 import wales.tucker.seren.auth.ui.containerViewModel
 import wales.tucker.seren.auth.ui.rememberIdentityCheck

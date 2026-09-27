@@ -69,9 +69,9 @@ import wales.tucker.seren.auth.ui.accounts.DeleteAccountDialog
 import wales.tucker.seren.auth.ui.accounts.ShowQrDialog
 import wales.tucker.seren.auth.ui.appContainer
 import wales.tucker.seren.auth.ui.common.AccentPicker
-import wales.tucker.seren.auth.ui.common.LocalMessenger
+import wales.tucker.seren.core.ui.LocalMessenger
 import wales.tucker.seren.auth.ui.common.PasswordField
-import wales.tucker.seren.auth.ui.common.launch
+import wales.tucker.seren.core.ui.launch
 import wales.tucker.seren.auth.ui.containerViewModel
 import wales.tucker.seren.auth.ui.rememberIdentityCheck
 import wales.tucker.seren.core.ui.SectionHeader

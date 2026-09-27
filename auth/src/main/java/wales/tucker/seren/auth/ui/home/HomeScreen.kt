@@ -29,7 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import wales.tucker.seren.auth.data.Settings
 import wales.tucker.seren.auth.ui.AddActions
 import wales.tucker.seren.auth.ui.accounts.AccountsTab
-import wales.tucker.seren.auth.ui.common.LocalMessenger
+import wales.tucker.seren.core.ui.LocalMessenger
 import wales.tucker.seren.auth.ui.settings.SettingsTab
 
 enum class HomeTab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {

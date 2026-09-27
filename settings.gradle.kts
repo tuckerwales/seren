@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Terminal"
+rootProject.name = "SerenSSH"
 include(":app")

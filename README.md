@@ -1,6 +1,8 @@
-# Terminal
+# Seren SSH
 
 A modern, fast and easy to use SSH client for Android, built with Kotlin and Jetpack Compose.
+
+Seren is Welsh for star. Seren apps are free, open source, and have no ads and no tracking.
 
 <p>
   <img src="docs/screenshots/02_hosts.png" width="200" alt="Hosts">
@@ -87,6 +89,11 @@ SSH_TEST_AUTHORIZED_KEYS=/home/testuser/.ssh/authorized_keys ./gradlew testDebug
 
 SSH is provided by the maintained [mwiede fork of JSch](https://github.com/mwiede/jsch) with
 Bouncy Castle for modern algorithms (curve25519, Ed25519, ChaCha20-Poly1305).
+
+## Design
+
+Colors, type, components, copy and icon rules shared by all the apps in the suite are in
+[docs/BRAND.md](docs/BRAND.md).
 
 ## Licenses
 

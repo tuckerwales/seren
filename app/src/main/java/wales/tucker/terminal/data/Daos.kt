@@ -12,7 +12,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface HostDao {
-    @Query("SELECT * FROM hosts ORDER BY lastConnectedAt DESC, nickname COLLATE NOCASE ASC")
+    /**
+     * All hosts by display name (the nickname, or the hostname when there is none), so the list
+     * keeps its order instead of reshuffling after every connection.
+     */
+    @Query(
+        "SELECT * FROM hosts ORDER BY CASE WHEN trim(nickname) = '' THEN hostname ELSE trim(nickname) END COLLATE NOCASE, " +
+            "hostname COLLATE NOCASE, id",
+    )
     fun observeAll(): Flow<List<Host>>
 
     @Query("SELECT * FROM hosts WHERE id = :id")

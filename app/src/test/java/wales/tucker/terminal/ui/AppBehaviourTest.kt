@@ -31,6 +31,7 @@ import wales.tucker.terminal.TerminalApp
 import wales.tucker.terminal.TestApp
 import wales.tucker.terminal.data.Host
 import wales.tucker.terminal.ssh.JschAndroidConfig
+import wales.tucker.terminal.ui.terminal.TerminalView
 
 /** Drives the real UI through flows that do not need an SSH server. */
 @RunWith(AndroidJUnit4::class)
@@ -153,5 +154,35 @@ class AppBehaviourTest {
         assertFalse(exists("Couldn't connect"))
         compose.activity.sessionLinks.trySend(session.id)
         pollUntil("terminal") { exists("Couldn't connect") }
+    }
+
+    private fun findTerminalView(v: android.view.View): TerminalView? {
+        if (v is TerminalView) return v
+        if (v is android.view.ViewGroup) for (i in 0 until v.childCount) findTerminalView(v.getChildAt(i))?.let { return it }
+        return null
+    }
+
+    @Test
+    fun scrollingBackShowsAJumpToBottomButton() {
+        openFailingSession()
+        val session = container.sessionManager.sessions.value.single()
+        synchronized(session.emulator) { repeat(200) { session.emulator.append("line $it\r\n") } }
+        val view = findTerminalView(compose.activity.window.decorView)!!
+        assertFalse(compose.onAllNodesWithContentDescription("Scroll to bottom").fetchSemanticsNodes().isNotEmpty())
+
+        // Drag down, as a finger scrolling back through the history does.
+        val x = view.width / 2f
+        var y = view.height / 4f
+        val start = android.os.SystemClock.uptimeMillis()
+        view.dispatchTouchEvent(android.view.MotionEvent.obtain(start, start, android.view.MotionEvent.ACTION_DOWN, x, y, 0))
+        repeat(10) { i ->
+            y += view.height / 20f
+            view.dispatchTouchEvent(android.view.MotionEvent.obtain(start, start + 10L * (i + 1), android.view.MotionEvent.ACTION_MOVE, x, y, 0))
+        }
+        view.dispatchTouchEvent(android.view.MotionEvent.obtain(start, start + 200, android.view.MotionEvent.ACTION_UP, x, y, 0))
+        pollUntil("jump button") { compose.onAllNodesWithContentDescription("Scroll to bottom").fetchSemanticsNodes().isNotEmpty() }
+
+        compose.onNodeWithContentDescription("Scroll to bottom").performClick()
+        pollUntil("button hidden") { compose.onAllNodesWithContentDescription("Scroll to bottom").fetchSemanticsNodes().isEmpty() }
     }
 }

@@ -66,6 +66,9 @@ class TerminalView @JvmOverloads constructor(
         fun onFontSizeChanged(sizeSp: Float) {}
 
         fun onTap() {}
+
+        /** Called when the view scrolls into the history or back to the bottom. */
+        fun onScrolledBackChanged(scrolledBack: Boolean) {}
     }
 
     var listener: Listener? = null
@@ -121,6 +124,11 @@ class TerminalView @JvmOverloads constructor(
 
     // Scrollback.
     private var scrollOffset = 0
+        set(value) {
+            val wasBack = field > 0
+            field = value
+            if (wasBack != value > 0) listener?.onScrolledBackChanged(value > 0)
+        }
     private var lastScrolledCount = 0L
     private var scrollRemainder = 0f
     private val scroller = OverScroller(context)

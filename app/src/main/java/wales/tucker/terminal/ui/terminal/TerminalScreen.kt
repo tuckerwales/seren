@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GppMaybe
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
@@ -75,6 +76,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -169,6 +171,7 @@ private fun TerminalContent(
     var snippetsOpen by remember { mutableStateOf(false) }
     var confirmClose by remember { mutableStateOf(false) }
     var keyboardShownOnce by remember { mutableStateOf(false) }
+    var scrolledBackInHistory by remember { mutableStateOf(false) }
 
     val scheme = remember(session.spec.colorSchemeId, settings.colorSchemeId) {
         ColorSchemes.byId(session.spec.colorSchemeId ?: settings.colorSchemeId)
@@ -359,6 +362,10 @@ private fun TerminalContent(
                                 override fun onFontSizeChanged(sizeSp: Float) {
                                     scope.launch { container.settings.setFontSize(sizeSp) }
                                 }
+
+                                override fun onScrolledBackChanged(scrolledBack: Boolean) {
+                                    scrolledBackInHistory = scrolledBack
+                                }
                             }
                             view.session = session
                             terminalView = view
@@ -385,6 +392,22 @@ private fun TerminalContent(
                     onRetry = { session.reconnect() },
                     onClose = { container.sessionManager.close(session) },
                 )
+
+                // Qualified, so the enclosing Column's scoped overload is not picked.
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = scrolledBackInHistory,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                ) {
+                    SmallFloatingActionButton(
+                        onClick = { terminalView?.scrollToBottom() },
+                        containerColor = lerpColor(bg, fg, 0.16f),
+                        contentColor = fg,
+                    ) {
+                        Icon(Icons.Rounded.KeyboardDoubleArrowDown, contentDescription = "Scroll to bottom")
+                    }
+                }
 
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
             }

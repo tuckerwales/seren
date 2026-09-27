@@ -478,7 +478,7 @@ private fun TerminalContent(
             onRun = { snippet ->
                 snippetsOpen = false
                 terminalView?.scrollToBottom()
-                session.writeText(snippet.command + if (snippet.autoRun) "\r" else "")
+                session.sendSnippet(snippet.command, snippet.autoRun)
             },
         )
     }

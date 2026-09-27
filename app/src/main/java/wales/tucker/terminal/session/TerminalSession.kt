@@ -288,6 +288,12 @@ class TerminalSession(
 
     fun writeText(text: String) = write(text.toByteArray(Charsets.UTF_8))
 
+    /**
+     * Types a snippet. Line breaks are sent as Enter (CR), as a keyboard would, rather than raw
+     * line feeds, and [autoRun] presses Enter after the last line.
+     */
+    fun sendSnippet(command: String, autoRun: Boolean) = writeText(snippetInput(command, autoRun))
+
     fun sendKey(key: TerminalKey, modifiers: Int = 0) {
         val bytes = synchronized(emulator) {
             KeyEncoder.encode(key, modifiers, emulator.applicationCursorKeys, emulator.newLineMode)
@@ -410,6 +416,12 @@ class TerminalSession(
             screenListener?.invoke()
         }
     }
+}
+
+/** What typing a snippet sends: see [TerminalSession.sendSnippet]. */
+internal fun snippetInput(command: String, autoRun: Boolean): String {
+    val text = command.replace("\r\n", "\n").replace('\r', '\n').trimEnd('\n')
+    return text.replace('\n', '\r') + if (autoRun) "\r" else ""
 }
 
 sealed interface SessionEvent {

@@ -106,6 +106,7 @@ import wales.tucker.seren.ssh.ssh.RemoteFile
 import wales.tucker.seren.ssh.ssh.SftpClient
 import wales.tucker.seren.ssh.ui.common.appContainer
 import wales.tucker.seren.ssh.ui.common.containerViewModel
+import java.io.IOException
 import java.text.DateFormat
 import java.util.Date
 import wales.tucker.seren.core.suite.Suite
@@ -146,6 +147,27 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     val pendingReplace = _pendingReplace.asStateFlow()
 
     init {
+        start()
+        // Once a dropped connection is back, show the folder again on a fresh channel.
+        session?.let { s ->
+            viewModelScope.launch {
+                var dropped = false
+                s.state.collect { state ->
+                    when (state) {
+                        SessionState.Connected -> if (dropped) {
+                            dropped = false
+                            val p = _path.value
+                            if (client == null || p == null) start() else open(p, record = false)
+                        }
+                        is SessionState.Disconnected, is SessionState.Failed -> dropped = true
+                        SessionState.Connecting -> Unit
+                    }
+                }
+            }
+        }
+    }
+
+    private fun start() {
         viewModelScope.launch {
             try {
                 val s = session ?: throw IllegalStateException("Session is not connected")
@@ -166,6 +188,27 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
         }
     }
 
+    /**
+     * The channel for browsing. It closes with the connection, so it is opened again once the
+     * session is connected, rather than failing every later request with "Pipe closed".
+     */
+    private suspend fun client(): SftpClient {
+        client?.takeIf { it.isConnected }?.let { return it }
+        val s = session?.takeIf { it.isConnected } ?: throw IOException("Connection lost")
+        return s.sftp().also { client = it }
+    }
+
+    /** Runs [block] on the browsing channel, and once more on a new one if the channel had closed. */
+    private suspend fun <T> browse(block: suspend (SftpClient) -> T): T {
+        val c = client()
+        return try {
+            block(c)
+        } catch (e: Exception) {
+            if (e is CancellationException || c.isConnected || session?.isConnected != true) throw e
+            block(client())
+        }
+    }
+
     /** Folders visited before the current one, for Back. */
     private val history = ArrayDeque<String>()
     private val _canGoBack = MutableStateFlow(false)
@@ -174,12 +217,15 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     fun navigate(target: String) = open(target, record = true)
 
     private fun open(target: String, record: Boolean) {
-        val c = client ?: return
+        if (client == null) return
         viewModelScope.launch {
             _loading.value = true
             try {
-                val resolved = runCatching { c.realPath(target) }.getOrDefault(target)
-                _files.value = c.list(resolved)
+                val (resolved, list) = browse { c ->
+                    val resolved = runCatching { c.realPath(target) }.getOrDefault(target)
+                    resolved to c.list(resolved)
+                }
+                _files.value = list
                 val previous = _path.value
                 if (record && previous != null && previous != resolved) history.addLast(previous)
                 _canGoBack.value = history.isNotEmpty()
@@ -206,10 +252,10 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     fun goHome() = navigate(home)
 
     private fun op(message: String, block: suspend (SftpClient) -> Unit) {
-        val c = client ?: return
+        if (client == null) return
         viewModelScope.launch {
             try {
-                block(c)
+                browse(block)
                 messages.tryEmit(message)
             } catch (e: Exception) {
                 messages.tryEmit("Failed: ${e.message}")
@@ -262,12 +308,12 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
 
     /** Uploads [uri] into the current folder, asking first if that would replace a file. */
     fun requestUpload(uri: Uri, context: android.content.Context) {
-        val c = client ?: return
+        if (client == null) return
         if (transferBusy()) return
         val dir = _path.value ?: return
         viewModelScope.launch {
             val name = withContext(Dispatchers.IO) { displayName(context, uri) }
-            val exists = name != null && runCatching { c.stat(SftpClient.join(dir, name)) }.isSuccess
+            val exists = name != null && runCatching { browse { it.stat(SftpClient.join(dir, name)) } }.isSuccess
             if (exists) _pendingReplace.value = PendingReplace(uri, name!!) else upload(uri, context)
         }
     }
@@ -414,6 +460,11 @@ fun SftpScreen(
     // The connection may still be asking for a password when this screen opens it for a share.
     val prompt = vm.session?.prompt?.collectAsStateWithLifecycle()?.value
     SessionPromptDialog(prompt)
+    val lost = when (val state = vm.session?.state?.collectAsStateWithLifecycle()?.value) {
+        is SessionState.Disconnected -> state.reason
+        is SessionState.Failed -> state.error
+        else -> null
+    }
 
     val downloadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
         val file = pendingDownload
@@ -469,7 +520,7 @@ fun SftpScreen(
         },
         floatingActionButton = {
             // One transfer at a time: the progress card takes the button's place.
-            if (path != null && transfer == null && incoming == null) {
+            if (path != null && transfer == null && incoming == null && lost == null) {
                 ExtendedFloatingActionButton(
                     onClick = { uploadLauncher.launch(arrayOf("*/*")) },
                     icon = { Icon(Icons.Rounded.Upload, null) },
@@ -522,7 +573,13 @@ fun SftpScreen(
             AnimatedVisibility(transfer != null, modifier = Modifier.align(Alignment.BottomCenter)) {
                 transfer?.let { TransferCard(it, onCancel = { vm.cancelTransfer() }) }
             }
-            if (incoming != null && path != null && transfer == null) {
+            if (lost != null && path != null && transfer == null) {
+                ConnectionLostCard(
+                    reason = lost,
+                    onReconnect = { vm.session?.reconnect() },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            } else if (incoming != null && path != null && transfer == null) {
                 IncomingCard(
                     files = incoming,
                     folder = path.orEmpty(),
@@ -676,6 +733,19 @@ private fun IncomingCard(files: SharedFiles, folder: String, onCancel: () -> Uni
                     Spacer(Modifier.width(8.dp))
                     Text("Upload here")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionLostCard(reason: String, onReconnect: () -> Unit, modifier: Modifier = Modifier) {
+    ElevatedCard(modifier.fillMaxWidth().padding(16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Connection lost", style = MaterialTheme.typography.titleMedium)
+            Text(reason, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(onClick = onReconnect) { Text("Reconnect") }
             }
         }
     }

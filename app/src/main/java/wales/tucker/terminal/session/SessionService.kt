@@ -36,7 +36,7 @@ class SessionService : LifecycleService() {
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             manager.sessions.flatMapLatest { sessions ->
                 if (sessions.isEmpty()) flowOf(emptyList())
-                else combine(sessions.map { s -> s.state }) { sessions.zip(it.toList()) }
+                else combine(sessions.map { s -> combine(s.state, s.prompt) { st, p -> SessionStatus(s, st, p != null) } }) { it.toList() }
             }.collectLatest { list ->
                 if (list.isEmpty()) {
                     ServiceCompat.stopForeground(this@SessionService, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -53,7 +53,7 @@ class SessionService : LifecycleService() {
         if (intent?.action == ACTION_DISCONNECT_ALL) {
             manager.closeAll()
         } else {
-            startInForeground(buildNotification(manager.sessions.value.map { it to it.state.value }))
+            startInForeground(buildNotification(manager.sessions.value.map { SessionStatus(it, it.state.value, it.prompt.value != null) }))
         }
         return START_NOT_STICKY
     }
@@ -75,7 +75,9 @@ class SessionService : LifecycleService() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    private fun buildNotification(sessions: List<Pair<TerminalSession, SessionState>>): Notification {
+    private data class SessionStatus(val session: TerminalSession, val state: SessionState, val waitingForUser: Boolean)
+
+    private fun buildNotification(sessions: List<SessionStatus>): Notification {
         val open = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -86,27 +88,31 @@ class SessionService : LifecycleService() {
             Intent(this, SessionService::class.java).setAction(ACTION_DISCONNECT_ALL),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val connected = sessions.count { it.second == SessionState.Connected }
+        val connected = sessions.count { it.state == SessionState.Connected }
+        val waiting = sessions.count { it.waitingForUser }
         val title = when (sessions.size) {
             0 -> getString(R.string.app_name)
-            1 -> sessions[0].first.spec.title
+            1 -> sessions[0].session.spec.title
             else -> resources.getQuantityString(R.plurals.notification_sessions, sessions.size, sessions.size)
         }
         val text = when {
             sessions.isEmpty() -> ""
-            sessions.size == 1 -> when (val s = sessions[0].second) {
-                SessionState.Connected -> getString(R.string.state_connected_to, sessions[0].first.spec.subtitle)
+            sessions[0].waitingForUser && sessions.size == 1 -> getString(R.string.state_waiting_for_input)
+            sessions.size == 1 -> when (val s = sessions[0].state) {
+                SessionState.Connected -> getString(R.string.state_connected_to, sessions[0].session.spec.subtitle)
                 SessionState.Connecting -> getString(R.string.state_connecting)
                 is SessionState.Disconnected -> s.reason
                 is SessionState.Failed -> s.error
             }
+            waiting > 0 -> resources.getQuantityString(R.plurals.notification_waiting_count, waiting, waiting)
             else -> resources.getQuantityString(R.plurals.notification_connected_count, connected, connected)
         }
         val style = NotificationCompat.InboxStyle()
-        sessions.forEach { (s, st) ->
-            val label = when (st) {
-                SessionState.Connected -> "●"
-                SessionState.Connecting -> "…"
+        sessions.forEach { (s, st, waitingForUser) ->
+            val label = when {
+                waitingForUser -> "!"
+                st == SessionState.Connected -> "●"
+                st == SessionState.Connecting -> "…"
                 else -> "○"
             }
             style.addLine("$label ${s.spec.title} · ${s.spec.subtitle}")

@@ -364,6 +364,7 @@ private fun pillFieldColors(container: Color) = TextFieldDefaults.colors(
 private fun SessionCard(session: TerminalSession, onClick: () -> Unit, onClose: () -> Unit) {
     val state by session.state.collectAsState()
     val title by session.title.collectAsState()
+    val waitingForUser = session.prompt.collectAsState().value != null
     Card(
         onClick = onClick,
         modifier = Modifier.width(220.dp),
@@ -371,14 +372,14 @@ private fun SessionCard(session: TerminalSession, onClick: () -> Unit, onClose: 
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            StatusDot(stateColor(state))
+            StatusDot(stateColor(state, waitingForUser))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    stateLabel(state),
+                    stateLabel(state, waitingForUser),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (waitingForUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -389,14 +390,16 @@ private fun SessionCard(session: TerminalSession, onClick: () -> Unit, onClose: 
 }
 
 @Composable
-fun stateColor(state: SessionState): Color = when (state) {
+fun stateColor(state: SessionState, waitingForUser: Boolean = false): Color = when (state) {
+    SessionState.Connecting if waitingForUser -> MaterialTheme.colorScheme.primary
     SessionState.Connected -> Color(0xFF2FBF71)
     SessionState.Connecting -> Color(0xFFF5A524)
     is SessionState.Disconnected -> MaterialTheme.colorScheme.outline
     is SessionState.Failed -> MaterialTheme.colorScheme.error
 }
 
-fun stateLabel(state: SessionState): String = when (state) {
+fun stateLabel(state: SessionState, waitingForUser: Boolean = false): String = when (state) {
+    SessionState.Connecting if waitingForUser -> "Waiting for your input"
     SessionState.Connected -> "Connected"
     SessionState.Connecting -> "Connecting…"
     is SessionState.Disconnected -> state.reason

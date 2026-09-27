@@ -12,6 +12,11 @@
         <item quantity="one">%d connected</item>
         <item quantity="other">%d connected</item>
     </plurals>
+    <plurals name="notification_waiting_count">
+        <item quantity="one">%d waiting for your input</item>
+        <item quantity="other">%d waiting for your input</item>
+    </plurals>
+    <string name="state_waiting_for_input">Waiting for your input</string>
     <string name="state_connected_to">Connected to %s</string>
     <string name="state_connecting">Connecting…</string>
     <string name="action_disconnect_all">Disconnect all</string>

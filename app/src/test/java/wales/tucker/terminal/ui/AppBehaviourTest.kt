@@ -17,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,6 +27,7 @@ import wales.tucker.terminal.MainActivity
 import wales.tucker.terminal.TerminalApp
 import wales.tucker.terminal.TestApp
 import wales.tucker.terminal.data.Host
+import wales.tucker.terminal.ssh.JschAndroidConfig
 
 /** Drives the real UI through flows that do not need an SSH server. */
 @RunWith(AndroidJUnit4::class)
@@ -113,5 +115,18 @@ class AppBehaviourTest {
         compose.onNodeWithContentDescription("Back").performClick()
         pollUntil("hosts screen") { exists("Quick connect") }
         assertTrue(compose.onAllNodesWithContentDescription("Connected").fetchSemanticsNodes().isEmpty())
+    }
+
+    private val sshHost: String? = System.getenv("SSH_TEST_HOST")
+    private val sshPort get() = System.getenv("SSH_TEST_PORT")?.toInt() ?: 22
+    private val sshUser get() = System.getenv("SSH_TEST_USER") ?: "testuser"
+
+    @Test
+    fun sessionCardsShowWhenTheyAreWaitingForInput() {
+        assumeTrue("SSH_TEST_HOST not set", sshHost != null)
+        JschAndroidConfig.apply()
+        // Opened without visiting the terminal, so nothing answers the host key prompt.
+        runBlocking { container.sessionManager.openQuick(sshUser, sshHost!!, sshPort) }
+        pollUntil("waiting for input") { exists("Waiting for your input") }
     }
 }

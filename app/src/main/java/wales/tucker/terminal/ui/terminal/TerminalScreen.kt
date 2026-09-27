@@ -271,14 +271,15 @@ private fun TerminalContent(
                         sessions.forEach { s ->
                             val st by s.state.collectAsState()
                             val t by s.title.collectAsState()
+                            val waiting = s.prompt.collectAsState().value != null
                             DropdownMenuItem(
                                 text = {
                                     Column {
                                         Text(t, fontWeight = if (s.id == session.id) FontWeight.Bold else FontWeight.Normal)
-                                        Text(stateLabel(st), style = MaterialTheme.typography.bodySmall)
+                                        Text(stateLabel(st, waiting), style = MaterialTheme.typography.bodySmall)
                                     }
                                 },
-                                leadingIcon = { StatusDot(stateColor(st)) },
+                                leadingIcon = { StatusDot(stateColor(st, waiting)) },
                                 onClick = {
                                     switcherOpen = false
                                     if (s.id != session.id) onSwitchSession(s.id)

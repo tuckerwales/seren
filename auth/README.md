@@ -29,7 +29,8 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 
 **Adding accounts**
 - Scan the QR code a site shows, with the camera or from a screenshot or photo
-- Enter or paste a setup key, with a live preview of the code to check against the site
+- Enter or paste a setup key, or paste a whole otpauth link to fill in every field, with a live preview
+  of the code to check against the site
 - Open `otpauth://` links from a browser or another app
 - Scan Google Authenticator's "Transfer accounts" QR codes to bring every account over
 - Duplicates are spotted by their setup key and never added twice

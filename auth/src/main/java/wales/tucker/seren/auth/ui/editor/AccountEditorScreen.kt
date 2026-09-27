@@ -185,7 +185,7 @@ fun AccountEditorScreen(id: Long?, link: String?, onClose: () -> Unit) {
                 }
                 PasswordField(
                     value = form.secret,
-                    onValueChange = { v -> vm.update { it.copy(secret = v) } },
+                    onValueChange = { v -> vm.update { it.withSecret(v) } },
                     label = "Setup key",
                     error = keyError,
                     supporting = "Stored encrypted with a hardware-backed key on this device",

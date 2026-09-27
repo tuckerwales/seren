@@ -86,6 +86,25 @@ class AppBehaviourTest {
     }
 
     @Test
+    fun pastingAnOtpauthLinkAsTheSetupKeyFillsInTheAccount() {
+        waitFor("No accounts yet")
+        compose.onNodeWithText("Add account").performClick()
+        compose.onNodeWithText("Enter setup key").performClick()
+        waitFor("Setup key")
+
+        field("Setup key").performTextInput(
+            "otpauth://totp/alice?issuer=Example&secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&algorithm=SHA1&digits=6&period=30",
+        )
+        waitFor("Current code")
+        compose.onNodeWithText("Example").assertExists()
+        compose.onNodeWithText("alice").assertExists()
+
+        compose.onNodeWithText("Save").performClick()
+        waitFor("Added Example")
+        assertEquals(OtpToken("Example", "alice", "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"), runBlocking { repo.all() }.single().token)
+    }
+
+    @Test
     fun badSetupKeysAndDuplicatesAreExplained() {
         runBlocking { repo.add(github) }
         waitFor("GitHub")

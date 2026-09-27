@@ -35,6 +35,13 @@ data class AccountForm(
     val secretError: String?
         get() = when {
             secret.isBlank() -> "Enter the setup key"
+            // Only a link that didn't parse stays in the field; withSecret expands the rest.
+            OtpAuthUri.isOtpAuth(secret) -> try {
+                OtpAuthUri.parse(secret)
+                null
+            } catch (e: OtpFormatException) {
+                "Couldn't read the link. ${e.message}"
+            }
             !Base32.isValid(secret) -> "Setup keys use only the letters A to Z and the digits 2 to 7"
             else -> null
         }
@@ -47,6 +54,20 @@ data class AccountForm(
 
     val counterError: String?
         get() = if (type == OtpType.HOTP && (counter.toLongOrNull() ?: -1) < 0) "Enter a whole number, 0 or more" else null
+
+    /**
+     * These fields with the setup key set to [value]. Sites that offer a link to copy instead of
+     * a QR code give a whole otpauth link, and pasting one here fills in every field from it.
+     */
+    fun withSecret(value: String): AccountForm {
+        if (!OtpAuthUri.isOtpAuth(value)) return copy(secret = value)
+        val token = try {
+            OtpAuthUri.parse(value)
+        } catch (e: OtpFormatException) {
+            return copy(secret = value)
+        }
+        return of(token, color)
+    }
 
     /** Whether the advanced settings differ from what almost every site uses. */
     val hasAdvanced: Boolean

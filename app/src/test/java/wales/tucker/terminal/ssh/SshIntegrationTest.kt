@@ -43,6 +43,7 @@ class SshIntegrationTest {
     ) : ConnectionUi {
         val hostKeyRequests = mutableListOf<HostKeyRequest>()
         var passwordPrompts = 0
+        val passwordErrors = mutableListOf<String?>()
         val logs = mutableListOf<String>()
 
         override fun verifyHostKey(request: HostKeyRequest): Boolean {
@@ -50,8 +51,9 @@ class SshIntegrationTest {
             return acceptHostKey
         }
 
-        override fun promptPassword(target: String, message: String): PasswordResponse? {
+        override fun promptPassword(target: String, message: String, error: String?): PasswordResponse? {
             passwordPrompts++
+            passwordErrors += error
             return passwordAnswer?.let { PasswordResponse(it, remember = true) }
         }
 
@@ -143,6 +145,23 @@ class SshIntegrationTest {
         c.connect(target(pw = null))
         assertTrue(ui.passwordPrompts >= 1 || c.isConnected)
         assertEquals(password, c.passwordToRemember ?: password)
+        c.disconnect()
+    }
+
+    @Test
+    fun passwordPromptsSayWhyTheyAskAgain() {
+        val answers = ArrayDeque(listOf("wrong", password))
+        val ui = object : ConnectionUi by TestUi() {
+            val errors = mutableListOf<String?>()
+            override fun promptPassword(target: String, message: String, error: String?): PasswordResponse? {
+                errors += error
+                return PasswordResponse(answers.removeFirst(), remember = false)
+            }
+        }
+        val c = SshConnection(dao, ui)
+        c.connect(target(pw = "stale"))
+        assertTrue(c.isConnected)
+        assertEquals(listOf("The saved password was not accepted", "Incorrect password, try again"), ui.errors)
         c.disconnect()
     }
 

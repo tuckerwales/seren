@@ -36,6 +36,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -95,16 +96,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import wales.tucker.terminal.data.Settings
@@ -589,7 +594,9 @@ private fun DisconnectedBar(reason: String, fg: Color, accent: Color, onReconnec
 private fun HostKeyDialog(prompt: SessionPrompt.HostKey) {
     val r = prompt.request
     AlertDialog(
-        onDismissRequest = {},
+        // Back declines; a stray tap outside does not.
+        onDismissRequest = { prompt.respond(false) },
+        properties = DialogProperties(dismissOnClickOutside = false),
         icon = {
             Icon(
                 if (r.changed) Icons.Rounded.GppMaybe else Icons.Rounded.Shield,
@@ -653,27 +660,37 @@ private fun PasswordDialog(prompt: SessionPrompt.Password) {
     var password by remember(prompt) { mutableStateOf("") }
     var remember by remember(prompt) { mutableStateOf(false) }
     var visible by remember(prompt) { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(prompt) { focus.requestFocus() }
+    val submit: () -> Unit = { prompt.respond(PasswordResponse(password, remember)) }
     AlertDialog(
-        onDismissRequest = {},
+        onDismissRequest = { prompt.respond(null) },
+        properties = DialogProperties(dismissOnClickOutside = false),
         icon = { Icon(Icons.Rounded.Key, null) },
         title = { Text("Password") },
         text = {
             Column {
                 Text(prompt.target, style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                prompt.error?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                }
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Password") },
                     singleLine = true,
+                    isError = prompt.error != null,
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { submit() }),
                     trailingIcon = {
                         IconButton(onClick = { visible = !visible }) {
-                            Icon(if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = "Toggle visibility")
+                            Icon(if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = if (visible) "Hide password" else "Show password")
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
                 if (prompt.canRemember) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { remember = !remember }) {
@@ -684,7 +701,7 @@ private fun PasswordDialog(prompt: SessionPrompt.Password) {
             }
         },
         confirmButton = {
-            Button(onClick = { prompt.respond(PasswordResponse(password, remember)) }) { Text("Connect") }
+            Button(onClick = submit) { Text("Connect") }
         },
         dismissButton = { TextButton(onClick = { prompt.respond(null) }) { Text("Cancel") } },
     )
@@ -693,15 +710,20 @@ private fun PasswordDialog(prompt: SessionPrompt.Password) {
 @Composable
 private fun KeyboardInteractiveDialog(prompt: SessionPrompt.KeyboardInteractive) {
     val answers = remember(prompt) { prompt.prompts.map { mutableStateOf("") } }
+    val focus = remember(prompt) { prompt.prompts.map { FocusRequester() } }
+    LaunchedEffect(prompt) { focus.firstOrNull()?.requestFocus() }
+    val submit: () -> Unit = { prompt.respond(answers.map { it.value }) }
     AlertDialog(
-        onDismissRequest = {},
+        onDismissRequest = { prompt.respond(null) },
+        properties = DialogProperties(dismissOnClickOutside = false),
         icon = { Icon(Icons.Rounded.Key, null) },
         title = { Text(prompt.name.ifBlank { "Authentication" }) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(prompt.target, style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (prompt.instruction.isNotBlank()) Text(prompt.instruction)
                 prompt.prompts.forEachIndexed { i, p ->
+                    val last = i == prompt.prompts.lastIndex
                     OutlinedTextField(
                         value = answers[i].value,
                         onValueChange = { answers[i].value = it },
@@ -711,13 +733,18 @@ private fun KeyboardInteractiveDialog(prompt: SessionPrompt.KeyboardInteractive)
                         keyboardOptions = KeyboardOptions(
                             keyboardType = if (p.echo) KeyboardType.Text else KeyboardType.Password,
                             autoCorrectEnabled = false,
+                            imeAction = if (last) ImeAction.Done else ImeAction.Next,
                         ),
-                        modifier = Modifier.fillMaxWidth(),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focus.getOrNull(i + 1)?.requestFocus() },
+                            onDone = { submit() },
+                        ),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus[i]),
                     )
                 }
             }
         },
-        confirmButton = { Button(onClick = { prompt.respond(answers.map { it.value }) }) { Text("Continue") } },
+        confirmButton = { Button(onClick = submit) { Text("Continue") } },
         dismissButton = { TextButton(onClick = { prompt.respond(null) }) { Text("Cancel") } },
     )
 }

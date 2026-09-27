@@ -53,6 +53,8 @@ sealed class SessionPrompt {
     class Password(
         val target: String,
         val message: String,
+        /** Why the password is asked for again, such as a rejected saved password. */
+        val error: String?,
         val canRemember: Boolean,
         private val answer: CompletableDeferred<PasswordResponse?>,
     ) : SessionPrompt() {
@@ -362,9 +364,9 @@ class TerminalSession(
             return ask(SessionPrompt.HostKey(request, d), d)
         }
 
-        override fun promptPassword(target: String, message: String): PasswordResponse? {
+        override fun promptPassword(target: String, message: String, error: String?): PasswordResponse? {
             val d = CompletableDeferred<PasswordResponse?>()
-            return ask(SessionPrompt.Password(target, message, spec.hostId > 0, d), d)
+            return ask(SessionPrompt.Password(target, message, error, spec.hostId > 0, d), d)
         }
 
         override fun promptKeyboardInteractive(

@@ -55,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -126,6 +127,8 @@ class KeysViewModel(private val container: AppContainer) : ViewModel() {
         container.database.hostDao().clearKey(key.id)
         container.database.keyDao().delete(key)
     }
+
+    suspend fun hostsUsing(key: SshKey): Int = container.database.hostDao().countUsingKey(key.id)
 
     /** Decrypts the private key for export. */
     suspend fun privateKey(key: SshKey): String = withContext(Dispatchers.Default) {
@@ -243,11 +246,21 @@ fun KeysTab(onImportKey: () -> Unit) {
     }
 
     deleting?.let { key ->
+        val users by produceState<Int?>(null, key) { value = vm.hostsUsing(key) }
         AlertDialog(
             onDismissRequest = { deleting = null },
             icon = { Icon(Icons.Rounded.Delete, null) },
             title = { Text("Delete ${key.name}?") },
-            text = { Text("Hosts using this key will fall back to password authentication. This cannot be undone.") },
+            text = {
+                Text(
+                    when (users) {
+                        null -> "This cannot be undone."
+                        0 -> "No saved hosts use this key. This cannot be undone."
+                        1 -> "1 host uses this key and will fall back to password authentication. This cannot be undone."
+                        else -> "$users hosts use this key and will fall back to password authentication. This cannot be undone."
+                    },
+                )
+            },
             confirmButton = { TextButton(onClick = { vm.delete(key); deleting = null }) { Text("Delete") } },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )

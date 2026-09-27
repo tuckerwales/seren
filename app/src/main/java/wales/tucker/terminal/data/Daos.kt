@@ -43,6 +43,9 @@ interface HostDao {
     @Query("UPDATE hosts SET jumpHostId = NULL WHERE jumpHostId = :id")
     suspend fun clearJumpHost(id: Long)
 
+    @Query("SELECT COUNT(*) FROM hosts WHERE keyId = :keyId")
+    suspend fun countUsingKey(keyId: Long): Int
+
     @Query("UPDATE hosts SET keyId = NULL, authType = 'PASSWORD' WHERE keyId = :keyId")
     suspend fun clearKey(keyId: Long)
 }

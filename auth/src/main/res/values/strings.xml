@@ -34,6 +34,10 @@
         <item quantity="one">Its %d account uses a kind of code Seren Auth doesn\'t support.</item>
         <item quantity="other">All %d of its accounts use kinds of code Seren Auth doesn\'t support.</item>
     </plurals>
+    <plurals name="import_accounts">
+        <item quantity="one">Import %d account</item>
+        <item quantity="other">Import %d accounts</item>
+    </plurals>
     <plurals name="exported_accounts">
         <item quantity="one">Exported %d account</item>
         <item quantity="other">Exported %d accounts</item>

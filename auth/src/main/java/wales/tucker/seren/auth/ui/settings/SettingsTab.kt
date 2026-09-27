@@ -151,6 +151,13 @@ fun SettingsTab(settings: Settings, onImport: () -> Unit) {
                 scope.launch { repo.setShowNextCode(it) }
             }
 
+            SectionHeader("Adding accounts")
+            SwitchRow(
+                "Offer copied setup links",
+                "When you come back to Seren Auth, offer to add a setup link or key you copied",
+                settings.offerCopied,
+            ) { scope.launch { repo.setOfferCopied(it) } }
+
             SectionHeader("Security")
             SwitchRow(
                 "App lock",

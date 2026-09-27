@@ -1,6 +1,7 @@
 package wales.tucker.seren.auth.ui
 
 import android.app.Activity
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
@@ -253,6 +254,79 @@ class AppBehaviourTest {
         compose.onNodeWithText("Import").performClick()
         waitFor("Added 2 accounts")
         compose.onNodeWithText("alice").assertExists()
+    }
+
+    /** Leaves Seren Auth for another app and comes back, after [whileAway]. */
+    private fun leaveAndReturn(whileAway: () -> Unit = {}) {
+        compose.runOnUiThread { compose.activity.window.decorView.dispatchWindowFocusChanged(false) }
+        compose.waitForIdle()
+        whileAway()
+        compose.runOnUiThread { compose.activity.window.decorView.dispatchWindowFocusChanged(true) }
+        compose.waitForIdle()
+    }
+
+    /** Copies [text] in another app, then comes back to Seren Auth. */
+    private fun copyAndReturn(text: String) = leaveAndReturn {
+        compose.runOnUiThread { app.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("", text)) }
+    }
+
+    @Test
+    fun offersASetupLinkCopiedInAnotherApp() {
+        waitFor("No accounts yet")
+        copyAndReturn("Can't scan the code? Use this link: ${OtpAuthUri.format(github)}")
+        waitFor("Copied setup link")
+        compose.onNodeWithText("Add").performClick()
+        waitFor("Current code")
+        compose.onNodeWithText("octocat").assertExists()
+        compose.onNodeWithText("Save").performClick()
+        waitFor("Added GitHub")
+        assertEquals(github, runBlocking { repo.all() }.single().token)
+        // The same copy isn't offered again, and it's already here anyway.
+        copyAndReturn(OtpAuthUri.format(github))
+        compose.waitForIdle()
+        assertTrue(!exists("Copied setup link"))
+    }
+
+    @Test
+    fun aCopiedSetupKeyOpensTheEditorToNameIt() {
+        waitFor("No accounts yet")
+        copyAndReturn("jbsw y3dp ehpk 3pxp")
+        waitFor("Copied setup key")
+        compose.onNodeWithText("Add").performClick()
+        waitFor("Current code")
+        field("Service").performTextInput("GitHub")
+        field("Account").performTextInput("octocat")
+        compose.onNodeWithText("Save").performClick()
+        waitFor("Added GitHub")
+        assertEquals(github, runBlocking { repo.all() }.single().token)
+    }
+
+    @Test
+    fun copiedSetupLinksCanBeWavedAwayOrTurnedOff() {
+        runBlocking { repo.add(github) }
+        waitFor("octocat")
+        val aws = OtpToken("AWS", "admin", "GEZDGNBVGY3TQOJQ")
+        copyAndReturn(OtpAuthUri.format(aws))
+        waitFor("Copied setup link")
+        compose.onNodeWithText("Not now").performClick()
+        compose.waitUntil(5_000) { !exists("Copied setup link") }
+        // Coming back again doesn't bring back a copy that was waved away.
+        leaveAndReturn()
+        assertTrue(!exists("Copied setup link"))
+
+        // Links for accounts already here aren't offered.
+        copyAndReturn(OtpAuthUri.format(github))
+        compose.waitForIdle()
+        assertTrue(!exists("Copied setup link"))
+
+        runBlocking { app.container.settings.setOfferCopied(false) }
+        try {
+            copyAndReturn("Here: " + OtpAuthUri.format(aws))
+            compose.waitForIdle()
+            assertTrue(!exists("Copied setup link"))
+        } finally {
+            runBlocking { app.container.settings.setOfferCopied(true) }
+        }
     }
 
     @Test

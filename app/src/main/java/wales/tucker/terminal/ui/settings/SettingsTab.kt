@@ -294,7 +294,7 @@ private fun FontSizeRow(size: Float, scheme: ColorScheme, onChange: (Float) -> U
     Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Text size", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text("${value.toInt()} sp", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text("${formatFontSize(value)} sp", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
         Slider(
             value = value,
@@ -324,4 +324,10 @@ private fun FontSizeRow(size: Float, scheme: ColorScheme, onChange: (Float) -> U
             modifier = Modifier.padding(top = 6.dp),
         )
     }
+}
+
+/** "13" or "13.5": pinch to zoom stores half steps, which the slider alone never produces. */
+internal fun formatFontSize(size: Float): String {
+    val halves = Math.round(size * 2)
+    return if (halves % 2 == 0) (halves / 2).toString() else "${halves / 2}.5"
 }

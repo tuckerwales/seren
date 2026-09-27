@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -118,6 +119,21 @@ class SshIntegrationTest {
         }
         assertEquals(1, ui.hostKeyRequests.size)
         assertTrue(ui.hostKeyRequests[0].changed)
+    }
+
+    @Test
+    fun newKeyTypeForAKnownHostIsReported() {
+        SshConnection(dao, TestUi()).apply { connect(target()); disconnect() }
+        val stored = dao.entries.value.single()
+        // Pretend only a key of another type was trusted before.
+        val other = stored.copy(keyType = "ssh-other", key = "b3RoZXI=", fingerprint = "SHA256:other")
+        dao.entries.value = listOf(other)
+        val ui = TestUi(acceptHostKey = false)
+        runCatching { SshConnection(dao, ui).connect(target()) }
+        val request = ui.hostKeyRequests.single()
+        assertFalse(request.changed)
+        assertTrue(request.newKeyType)
+        assertEquals(listOf(other), request.otherKnownKeys)
     }
 
     @Test

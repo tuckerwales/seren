@@ -574,20 +574,34 @@ private fun HostKeyDialog(prompt: SessionPrompt.HostKey) {
                 tint = if (r.changed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
             )
         },
-        title = { Text(if (r.changed) "Host key has changed!" else "Verify host") },
+        title = {
+            Text(
+                when {
+                    r.changed -> "Host key has changed!"
+                    r.newKeyType -> "New key type"
+                    else -> "Verify host"
+                },
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (r.changed) {
-                    Text(
-                        "The key presented by ${r.host} does not match the one saved earlier. " +
+            // JSch names non-standard ports "[host]:port".
+            val host = r.host.removePrefix("[").replace("]:", ":")
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                when {
+                    r.changed -> Text(
+                        "The key presented by $host does not match the one saved earlier. " +
                             "Someone could be intercepting your connection, or the server was reinstalled.",
                         color = MaterialTheme.colorScheme.error,
                     )
-                } else {
-                    Text("This is the first time connecting to ${r.host}. Check that the fingerprint matches the server's before trusting it.")
+                    r.newKeyType -> Text(
+                        "$host is already trusted, but it presented a ${r.keyType} key it hasn't used before. " +
+                            "Servers do this after an upgrade or configuration change. Check the new fingerprint before trusting it.",
+                    )
+                    else -> Text("This is the first time connecting to $host. Check that the fingerprint matches the server's before trusting it.")
                 }
                 FingerprintCard(label = "${r.keyType} fingerprint", value = r.fingerprint)
                 r.previousFingerprint?.let { FingerprintCard(label = "Previously saved", value = it) }
+                r.otherKnownKeys.forEach { FingerprintCard(label = "Already trusted ${it.keyType}", value = it.fingerprint) }
             }
         },
         confirmButton = {

@@ -38,8 +38,14 @@ data class HostKeyRequest(
     val fingerprint: String,
     /** Fingerprint previously stored for this host and key type, when the key changed. */
     val previousFingerprint: String?,
+    /**
+     * Keys of other types already trusted for this host, when the server presents a key type it
+     * has not used before. Not a first connection, but not a changed key either.
+     */
+    val otherKnownKeys: List<KnownHost> = emptyList(),
 ) {
     val changed: Boolean get() = previousFingerprint != null
+    val newKeyType: Boolean get() = !changed && otherKnownKeys.isNotEmpty()
 }
 
 data class PasswordResponse(val password: String, val remember: Boolean)
@@ -338,7 +344,8 @@ class DatabaseHostKeyRepository(
         if (sameType == null && entries.any { it.key == encoded }) return HostKeyRepository.OK
 
         val fingerprint = SshKeys.fingerprint(key)
-        val accepted = ui.verifyHostKey(HostKeyRequest(host, type, fingerprint, sameType?.fingerprint))
+        val others = if (sameType == null) entries else emptyList()
+        val accepted = ui.verifyHostKey(HostKeyRequest(host, type, fingerprint, sameType?.fingerprint, others))
         if (!accepted) {
             return if (sameType != null) HostKeyRepository.CHANGED else HostKeyRepository.NOT_INCLUDED
         }

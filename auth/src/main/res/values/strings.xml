@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Seren Auth</string>
+
+    <plurals name="accounts_count">
+        <item quantity="one">%d account</item>
+        <item quantity="other">%d accounts</item>
+    </plurals>
+    <plurals name="added_accounts">
+        <item quantity="one">Added %d account</item>
+        <item quantity="other">Added %d accounts</item>
+    </plurals>
+    <plurals name="skipped_existing">
+        <item quantity="one">skipped %d already here</item>
+        <item quantity="other">skipped %d already here</item>
+    </plurals>
+    <plurals name="import_question">
+        <item quantity="one">Import %1$d account from %2$s?</item>
+        <item quantity="other">Import %1$d accounts from %2$s?</item>
+    </plurals>
+    <plurals name="all_existing">
+        <item quantity="one">The account in %2$s is already in Seren Auth.</item>
+        <item quantity="other">All %1$d accounts in %2$s are already in Seren Auth.</item>
+    </plurals>
+    <plurals name="existing_skipped">
+        <item quantity="one">%d account is already in Seren Auth and will be skipped.</item>
+        <item quantity="other">%d accounts are already in Seren Auth and will be skipped.</item>
+    </plurals>
+    <plurals name="unsupported_skipped">
+        <item quantity="one">%d account uses a kind of code Seren Auth doesn\'t support and will be skipped.</item>
+        <item quantity="other">%d accounts use a kind of code Seren Auth doesn\'t support and will be skipped.</item>
+    </plurals>
+    <plurals name="none_supported">
+        <item quantity="one">Its %d account uses a kind of code Seren Auth doesn\'t support.</item>
+        <item quantity="other">All %d of its accounts use kinds of code Seren Auth doesn\'t support.</item>
+    </plurals>
+    <plurals name="exported_accounts">
+        <item quantity="one">Exported %d account</item>
+        <item quantity="other">Exported %d accounts</item>
+    </plurals>
+</resources>

@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Seren"
-include(":core", ":ssh", ":edit")
+include(":core", ":ssh", ":edit", ":auth")

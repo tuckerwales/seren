@@ -2,7 +2,7 @@
 
 **Seren** (Welsh for "star", said *SEH-ren*) is a suite of free, open source Android apps with no
 ads and no tracking. This guide describes how the apps look, feel and speak. Seren SSH was the
-first app and Seren Edit the second; what they share lives in **Seren Core** (the `core` module),
+first app, Seren Edit the second and Seren Auth the third; what they share lives in **Seren Core** (the `core` module),
 so when in doubt, open
 `core/src/main/java/wales/tucker/seren/core/ui/theme/Theme.kt` and
 `core/src/main/java/wales/tucker/seren/core/ui/Components.kt`.
@@ -28,6 +28,7 @@ Contents
 14. [Repository, README and store listing](#14-repository-readme-and-store-listing)
 15. [Starting a new app](#15-starting-a-new-app)
 16. [Applying this to the text editor](#16-applying-this-to-the-text-editor)
+17. [Applying this to the authenticator](#17-applying-this-to-the-authenticator)
 
 ---
 
@@ -71,7 +72,7 @@ where they are made (`tucker.wales`).
 ### App names
 
 - **Seren + one word**, where the word is the shortest thing someone would type into a search to
-  find the app: **Seren SSH**, **Seren Edit**, then for example Seren Files, Seren Notes.
+  find the app: **Seren SSH**, **Seren Edit**, **Seren Auth**, then for example Seren Files, Seren Notes.
 - The word is always capitalised (or an acronym in caps), never a pun, never a version number.
 - The **launcher label is the full name** ("Seren SSH"). Keep it to 12 characters or fewer so it
   never truncates under the icon.
@@ -84,13 +85,14 @@ where they are made (`tucker.wales`).
 | --- | --- | --- | --- |
 | Seren SSH | Seren SSH | `wales.tucker.seren.ssh` | `ssh` |
 | Seren Edit | Seren Edit | `wales.tucker.seren.edit` | `edit` |
+| Seren Auth | Seren Auth | `wales.tucker.seren.auth` | `auth` |
 | (shared library) | | `wales.tucker.seren.core` | `core` |
 
 - **Package ids** (application id, namespace and Kotlin package) are `wales.tucker.seren.<word>`
   in lower case. Once an app is published its id never changes: a new id is a different app, and
   existing installs stop getting updates.
 - All the apps live in one repository, `tuckerwales/seren`, each in a Gradle module named after its
-  word (`ssh`, `edit`), next to the shared `core` module.
+  word (`ssh`, `edit`, `auth`), next to the shared `core` module.
 - The Application class is `SerenApp`, the Compose theme function `SerenTheme` and the XML theme
   `Theme.Seren`.
 
@@ -424,6 +426,11 @@ The apps sound like a calm, competent friend: plain words, short sentences, no h
 | Discard changes | Revert, lose edits |
 | Forget (a folder) | Remove, revoke access |
 | Remove from recent | Delete (the file stays where it is) |
+| Account | Token, entry (for something that makes codes) |
+| Service | Issuer (the site or app an account is for) |
+| Code | OTP, token, PIN (the one-time number) |
+| Setup key | Secret, seed (the key a site gives to set up codes) |
+| Backup | Vault, archive (an exported file of accounts) |
 
 New apps should add their own nouns to this table rather than reuse ambiguous ones.
 
@@ -523,3 +530,26 @@ How the guide maps onto the second app, Seren Edit (the `edit` module), to show 
 - **Words:** File, Folder, Save, Discard changes ("Discard changes to notes.txt?").
 - **Trust:** Seren Edit asks for no storage or network permission. It reaches only the files and
   folders the user picks, and "Forget" hands a folder's access back.
+
+## 17. Applying this to the authenticator
+
+The third app, Seren Auth (the `auth` module):
+
+- **Name:** Seren Auth (package `wales.tucker.seren.auth`).
+- **Icon:** the shared gradient; the frame becomes a shield; the periwinkle glyph is a countdown
+  dial three quarters round; the mint accent is the cursor, upright in the middle of the dial.
+- **Tabs:** Accounts, Settings.
+- **Lists:** accounts as grouped tiles with an accent avatar (the same service always gets the same
+  accent until the user picks another), the account name in `MonoSmall` and the code in large mono
+  digits in `primary`, grouped in two halves ("123 456") so it can be read out. A countdown ring with
+  the seconds left sits on the right; in the last five seconds the code and ring turn to
+  `colorScheme.error`, and the seconds are always shown so color is never the only signal.
+- **Primary action:** the extended FAB "Add account" opens a bottom sheet: scan a QR code, scan one
+  from an image, enter a setup key, or import a file.
+- **Canvas:** none. Codes are data, so they are mono, but they sit on ordinary Material surfaces.
+- **Words:** Account, Service, Code, Setup key, Backup (see section 11). "Delete GitHub?" says to
+  turn off two-factor authentication there first.
+- **Trust:** Seren Auth has no network permission at all. Setup keys are encrypted with
+  `SecretBox`; screenshots are blocked by default; with app lock on, showing a setup key or its QR
+  code and exporting ask for the user's identity again. Exported plain text files get a warning,
+  and encrypted backups use a documented format (scrypt and AES-256-GCM) so nobody is locked in.

@@ -9,6 +9,7 @@ behave the same.
 | --- | --- | --- |
 | [`ssh`](ssh) | **Seren SSH**, a modern, fast and easy to use SSH client | `wales.tucker.seren.ssh` |
 | [`edit`](edit) | **Seren Edit**, a text and code editor (early days) | `wales.tucker.seren.edit` |
+| [`auth`](auth) | **Seren Auth**, an authenticator for two-factor sign in codes | `wales.tucker.seren.auth` |
 | [`core`](core) | **Seren Core**, the shared theme, components, fonts and security helpers | `wales.tucker.seren.core` |
 
 <p>
@@ -16,6 +17,10 @@ behave the same.
   <img src="ssh/docs/screenshots/09_terminal.png" width="200" alt="Seren SSH terminal">
   <img src="edit/docs/screenshots/01_files.png" width="200" alt="Seren Edit files">
   <img src="edit/docs/screenshots/03_editor.png" width="200" alt="Seren Edit editor">
+</p>
+<p>
+  <img src="auth/docs/screenshots/01_accounts.png" width="200" alt="Seren Auth accounts">
+  <img src="auth/docs/screenshots/03_editor.png" width="200" alt="Seren Auth account editor">
 </p>
 
 ## Building

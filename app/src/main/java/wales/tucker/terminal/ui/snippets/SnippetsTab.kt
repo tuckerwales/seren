@@ -18,9 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.automirrored.rounded.KeyboardReturn
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -52,12 +55,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import wales.tucker.terminal.AppContainer
 import wales.tucker.terminal.data.Snippet
+import wales.tucker.terminal.session.SessionState
+import wales.tucker.terminal.session.TerminalSession
 import wales.tucker.terminal.ui.common.Avatar
 import wales.tucker.terminal.ui.common.EmptyState
 import wales.tucker.terminal.ui.common.containerViewModel
@@ -70,14 +80,28 @@ class SnippetsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun save(snippet: Snippet) = viewModelScope.launch { container.database.snippetDao().upsert(snippet) }
     fun delete(snippet: Snippet) = viewModelScope.launch { container.database.snippetDao().delete(snippet) }
+
+    /** Sessions a snippet can be sent to. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val connectedSessions: StateFlow<List<TerminalSession>> = container.sessionManager.sessions
+        .flatMapLatest { list ->
+            if (list.isEmpty()) flowOf(emptyList())
+            else combine(list.map { s -> s.state.map { st -> s.takeIf { st == SessionState.Connected } } }) { it.filterNotNull() }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SnippetsTab() {
+fun SnippetsTab(onOpenSession: (Int) -> Unit) {
     val vm = containerViewModel { SnippetsViewModel(it) }
     val snippets by vm.snippets.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Snippet?>(null) }
+    val connected by vm.connectedSessions.collectAsStateWithLifecycle()
+    fun sendTo(session: TerminalSession, snippet: Snippet) {
+        session.sendSnippet(snippet.command, snippet.autoRun)
+        onOpenSession(session.id)
+    }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -121,6 +145,22 @@ fun SnippetsTab() {
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (s.autoRun) Icon(Icons.AutoMirrored.Rounded.KeyboardReturn, contentDescription = "Runs immediately", tint = MaterialTheme.colorScheme.outline)
+                                if (connected.isNotEmpty()) {
+                                    var pick by remember { mutableStateOf(false) }
+                                    IconButton(onClick = { val only = connected.singleOrNull()
+                                        if (only != null) sendTo(only, s) else pick = true }) {
+                                        Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = "Send ${s.name} to a session")
+                                        DropdownMenu(expanded = pick, onDismissRequest = { pick = false }) {
+                                            connected.forEach { session ->
+                                                val title by session.title.collectAsStateWithLifecycle()
+                                                DropdownMenuItem(
+                                                    text = { Text(title) },
+                                                    onClick = { pick = false; sendTo(session, s) },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                                 IconButton(onClick = { delete(s) }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete ${s.name}") }
                             }
                         },

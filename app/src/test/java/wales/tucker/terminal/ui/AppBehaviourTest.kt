@@ -325,4 +325,33 @@ class AppBehaviourTest {
         compose.waitUntil(5_000) { exists("df -h") }
         assertEquals(1, runBlocking { container.database.snippetDao().observeAll().first() }.size)
     }
+
+    @Test
+    fun snippetsCanBeSentToASessionFromTheirTab() {
+        assumeTrue("SSH_TEST_HOST not set", sshHost != null)
+        JschAndroidConfig.apply()
+        runBlocking {
+            // A blinking cursor keeps Compose from going idle once the terminal is on screen.
+            container.settings.setCursorBlink(false)
+            container.database.snippetDao().upsert(wales.tucker.terminal.data.Snippet(name = "Marker", command = "echo snippet-\$((40+2))"))
+        }
+        val password = System.getenv("SSH_TEST_PASSWORD") ?: "testpass"
+        val session = runBlocking { container.sessionManager.openQuick(sshUser, sshHost!!, sshPort) }
+        pollUntil("connected", 20_000) {
+            when (val p = session.prompt.value) {
+                is wales.tucker.terminal.session.SessionPrompt.HostKey -> p.respond(true)
+                is wales.tucker.terminal.session.SessionPrompt.Password -> p.respond(wales.tucker.terminal.ssh.PasswordResponse(password, false))
+                is wales.tucker.terminal.session.SessionPrompt.KeyboardInteractive -> p.respond(p.prompts.map { password })
+                null -> Unit
+            }
+            session.state.value == wales.tucker.terminal.session.SessionState.Connected
+        }
+        compose.onNodeWithText("Snippets").performClick()
+        pollUntil("send button") { compose.onAllNodesWithContentDescription("Send Marker to a session").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Send Marker to a session").performClick()
+        pollUntil("output", 20_000) {
+            synchronized(session.emulator) { session.emulator.screenText().lines().any { it.trim() == "snippet-42" } }
+        }
+        runBlocking { container.settings.setCursorBlink(true) }
+    }
 }

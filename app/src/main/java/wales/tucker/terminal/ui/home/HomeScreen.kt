@@ -86,7 +86,7 @@ fun HomeScreen(
                         onEditHost = onEditHost,
                     )
                     HomeTab.KEYS -> KeysTab(onImportKey = onImportKey)
-                    HomeTab.SNIPPETS -> SnippetsTab()
+                    HomeTab.SNIPPETS -> SnippetsTab(onOpenSession = onOpenSession)
                     HomeTab.SETTINGS -> SettingsTab(settings = settings, onKnownHosts = onKnownHosts, onExtraKeys = onExtraKeys)
                 }
             }

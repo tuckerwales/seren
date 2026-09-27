@@ -15,7 +15,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,16 +51,6 @@ class PickTest {
         // The picker browses the device's volumes; here, shared storage is the only one.
         app.storage.let { it.volumeRoot = shared }
         return ActivityScenario.launchActivityForResult<PickActivity>(intent.setClass(app, PickActivity::class.java)).also { scenario = it }
-    }
-
-    /**
-     * FileProvider keeps each authority's roots for the life of the process, but every Robolectric
-     * test has its own storage folder, so forget the last test's.
-     */
-    @Before
-    fun forgetFileProviderRoots() {
-        val cache = androidx.core.content.FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }
-        synchronized(cache.get(null)!!) { (cache.get(null) as MutableMap<*, *>).clear() }
     }
 
     @After

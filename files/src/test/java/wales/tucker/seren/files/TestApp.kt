@@ -23,6 +23,16 @@ class TestStorage(val root: File) : Storage {
 }
 
 class TestApp : SerenApp() {
+    /**
+     * FileProvider keeps each authority's roots for the life of the process, but every Robolectric
+     * test has its own storage folder, so forget the last test's before this one starts.
+     */
+    override fun onCreate() {
+        val cache = androidx.core.content.FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }.get(null)!!
+        synchronized(cache) { (cache as MutableMap<*, *>).clear() }
+        super.onCreate()
+    }
+
     val root: File by lazy { Files.createTempDirectory("storage").toFile() }
     val storage by lazy { TestStorage(root) }
     override fun createContainer(): AppContainer = AppContainer(this, storage)

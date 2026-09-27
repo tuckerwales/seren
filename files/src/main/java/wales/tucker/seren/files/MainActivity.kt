@@ -26,6 +26,8 @@ import wales.tucker.seren.core.suite.Suite
 import wales.tucker.seren.core.ui.theme.SerenTheme
 import wales.tucker.seren.files.ops.Incoming
 import wales.tucker.seren.files.ui.FilesAppUi
+import wales.tucker.seren.files.ui.common.Shortcuts
+import java.io.File
 
 class MainActivity : FragmentActivity() {
 
@@ -33,6 +35,9 @@ class MainActivity : FragmentActivity() {
 
     /** Files other Seren apps asked to show, waiting for the UI (and the app lock). */
     val reveals = Channel<RevealRequest>(Channel.CONFLATED)
+
+    /** Folders to open, from a shortcut on the home screen. */
+    val folders = Channel<File>(Channel.CONFLATED)
 
     @VisibleForTesting
     internal var locked by mutableStateOf(false)
@@ -71,7 +76,7 @@ class MainActivity : FragmentActivity() {
             // known, rather than flashing the default theme or the lock screen on every launch.
             if (settings == null || !lockChecked) return@setContent
             SerenTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
-                FilesAppUi(settings = settings, locked = locked, onUnlock = { authenticate() }, reveals = reveals)
+                FilesAppUi(settings = settings, locked = locked, onUnlock = { authenticate() }, reveals = reveals, folders = folders)
             }
         }
     }
@@ -88,6 +93,7 @@ class MainActivity : FragmentActivity() {
                 val uri = intent.data ?: return
                 reveals.trySend(RevealRequest(uri, intent.getStringExtra(Suite.EXTRA_DISPLAY_NAME)))
             }
+            Shortcuts.ACTION_OPEN_FOLDER -> intent.getStringExtra(Shortcuts.EXTRA_PATH)?.let { folders.trySend(File(it)) }
             // "Save to Seren Files" from the share sheet: people then open a folder and save there.
             Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> lifecycleScope.launch {
                 val files = withContext(Dispatchers.IO) { Incoming.fromIntent(this@MainActivity, intent, container.storage.volumes()) }

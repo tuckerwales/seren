@@ -35,7 +35,7 @@ Every app makes the same promises:
 | **[Seren SSH](ssh)** | [`ssh`](ssh) | `wales.tucker.seren.ssh` | Ready for daily use |
 | **[Seren Edit](edit)** | [`edit`](edit) | `wales.tucker.seren.edit` | Early days — edits well; no syntax highlighting or search yet |
 | **[Seren Auth](auth)** | [`auth`](auth) | `wales.tucker.seren.auth` | New: codes, scanning, backup and import all work |
-| **[Seren Files](files)** | [`files`](files) | `wales.tucker.seren.files` | New: browsing, copy and move, trash, zip and search all work |
+| **[Seren Files](files)** | [`files`](files) | `wales.tucker.seren.files` | New: browsing, copy and move, trash, archives, categories and search all work |
 | **[Seren Core](core)** | [`core`](core) | `wales.tucker.seren.core` | Shared theme, components, fonts and security helpers |
 
 ### Seren SSH
@@ -67,8 +67,9 @@ encrypted with the Android Keystore.
 ### Seren Files
 
 A modern, fast and easy to use file manager for Android. Internal storage, SD cards and bookmarks,
-copy and move with clear choices when names clash, a 30 day trash with Undo, zip, search, recent files
-and photo thumbnails. It has no network permission at all; its one permission is all files access,
+copy and move with clear choices when names clash, a 30 day trash with Undo, zip and tar, search,
+categories, a grid of photo thumbnails, Save to Seren Files from the share sheet, and choosing files
+for other apps. It has no network permission at all; its one permission is all files access,
 asked for with a plain explanation.
 
 → Full features, architecture and tests: [`files/README.md`](files/README.md)

@@ -6,11 +6,14 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -212,6 +215,36 @@ class AppScreenshotTest {
         } finally {
             // Settings outlive the test, so put them back for the others.
             runBlocking { app.container.settings.setThemeMode(ThemeMode.SYSTEM) }
+        }
+    }
+
+    @Test
+    fun newerScreens() {
+        seed()
+        waitFor("Bookmarks")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Large files"))
+        waitFor("Large files")
+        shot("09_categories")
+
+        compose.onNodeWithText("Images").performClick()
+        waitFor("IMG_")
+        Thread.sleep(1_500)
+        compose.waitForIdle()
+        shot("10_images")
+        back()
+
+        runBlocking { app.container.settings.setGridView(true) }
+        try {
+            compose.onNode(hasScrollAction()).performScrollToNode(hasText("Camera"))
+            compose.onNodeWithText("Camera").performClick()
+            waitFor("DCIM")
+            compose.onNodeWithText("Camera").performClick()
+            waitFor("IMG_")
+            Thread.sleep(1_500)
+            compose.waitForIdle()
+            shot("11_grid")
+        } finally {
+            runBlocking { app.container.settings.setGridView(false) }
         }
     }
 }

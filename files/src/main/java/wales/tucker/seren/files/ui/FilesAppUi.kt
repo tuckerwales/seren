@@ -41,6 +41,7 @@ import wales.tucker.seren.files.data.Settings
 import wales.tucker.seren.files.fs.AndroidStorage
 import wales.tucker.seren.files.fs.Category
 import wales.tucker.seren.files.fs.Reveal
+import wales.tucker.seren.files.fs.volumeFor
 import wales.tucker.seren.files.ui.category.CategoryScreen
 import wales.tucker.seren.files.ui.folder.FolderScreen
 import wales.tucker.seren.files.ui.home.HomeScreen
@@ -74,7 +75,13 @@ class Navigator(
 )
 
 @Composable
-fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveals: Channel<RevealRequest> = Channel()) {
+fun FilesAppUi(
+    settings: Settings,
+    locked: Boolean,
+    onUnlock: () -> Unit,
+    reveals: Channel<RevealRequest> = Channel(),
+    folders: Channel<File> = Channel(),
+) {
     // The nav controller and the screens' saveable state live above the lock check, so unlocking
     // returns to the screen that was open.
     val navController = rememberNavController()
@@ -144,6 +151,19 @@ fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveal
                 withContext(Dispatchers.Main) {
                     navController.navigate(Routes.folder(folder.path, highlight = file.name))
                     if (!there) messenger.show("$name isn't in ${folder.name} any more")
+                }
+            }
+        }
+        // A folder pinned to the home screen: open it, if it's still there and on this device's storage.
+        LaunchedEffect(Unit) {
+            for (folder in folders) {
+                val usable = withContext(Dispatchers.IO) { folder.isDirectory && volumeFor(folder, container.storage.volumes()) != null }
+                withContext(Dispatchers.Main) {
+                    if (usable) {
+                        navController.navigate(Routes.folder(folder.path)) { popUpTo(Routes.HOME) }
+                    } else {
+                        messenger.show("${folder.name.ifEmpty { folder.path }} was moved or deleted")
+                    }
                 }
             }
         }

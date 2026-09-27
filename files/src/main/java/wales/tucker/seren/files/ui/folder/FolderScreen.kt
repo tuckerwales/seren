@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.rounded.NoteAdd
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.automirrored.rounded.ViewList
+import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Check
@@ -131,6 +132,7 @@ import wales.tucker.seren.files.ui.common.Opener
 import wales.tucker.seren.files.ui.common.OperationCard
 import wales.tucker.seren.files.ui.common.PasteBar
 import wales.tucker.seren.files.ui.common.SaveBar
+import wales.tucker.seren.files.ui.common.Shortcuts
 import wales.tucker.seren.files.ui.common.displayPath
 import wales.tucker.seren.files.ui.common.folderTitle
 import wales.tucker.seren.files.ui.containerViewModel
@@ -227,6 +229,10 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
         }
     }
 
+    fun pinToHome(dir: File, name: String) {
+        if (!Shortcuts.pinFolder(context, dir, name)) messenger.show("Your home screen app can't add shortcuts")
+    }
+
     fun pick(entries: List<FileEntry>, move: Boolean) {
         ops.setClipboard(entries.map { it.file }, move)
         vm.clearSelection()
@@ -288,6 +294,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                                 onShowHidden = { scope.launch { container.settings.setShowHidden(!settings.showHidden) } },
                                 onBookmark = { vm.toggleBookmark(vm.folder, title) },
                                 onSelectAll = vm::selectAll,
+                                onPinToHome = { pinToHome(vm.folder, title) },
                                 onCopyPath = {
                                     copyToClipboard(context, "Path", vm.folder.path)
                                     messenger.show("Copied the path")
@@ -330,6 +337,12 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                             entries.singleOrNull()?.let { entry ->
                                 vm.clearSelection()
                                 vm.toggleBookmark(entry.file, entry.name)
+                            }
+                        },
+                        onPinToHome = {
+                            entries.singleOrNull()?.let { entry ->
+                                vm.clearSelection()
+                                pinToHome(entry.file, entry.name)
                             }
                         },
                         onUpload = {
@@ -440,6 +453,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
                                         onCompress = { dialog = FolderDialog.Compress(listOf(entry)) },
                                         onExtract = { ops.extract(entry.file) },
                                         onBookmark = { vm.toggleBookmark(entry.file, entry.name) },
+                                        onPinToHome = { pinToHome(entry.file, entry.name) },
                                         onDetails = { dialog = FolderDialog.Details(entry) },
                                         onDelete = { dialog = FolderDialog.Delete(listOf(entry)) },
                                     )
@@ -749,6 +763,7 @@ private fun FolderMenu(
     onShowHidden: () -> Unit,
     onBookmark: () -> Unit,
     onSelectAll: () -> Unit,
+    onPinToHome: () -> Unit,
     onCopyPath: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -769,6 +784,7 @@ private fun FolderMenu(
             item("Show hidden files", Icons.Rounded.Visibility, trailing = if (showHidden) Icons.Rounded.Check else null, action = onShowHidden)
             item(if (bookmarked) "Remove bookmark" else "Add to bookmarks", if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, action = onBookmark)
             item("Select all", Icons.Rounded.SelectAll, action = onSelectAll)
+            item("Add to home screen", Icons.Rounded.AddToHomeScreen, action = onPinToHome)
             item("Copy path", Icons.Rounded.ContentCopy, action = onCopyPath)
         }
     }
@@ -787,6 +803,7 @@ private fun EntryMenu(
     onCompress: () -> Unit,
     onExtract: () -> Unit,
     onBookmark: () -> Unit,
+    onPinToHome: () -> Unit,
     onDetails: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -805,6 +822,7 @@ private fun EntryMenu(
     item("Compress", Icons.Rounded.FolderZip, onCompress)
     if (!entry.isDirectory && Archives.canExtract(entry.name)) item("Extract", Icons.Rounded.Unarchive, onExtract)
     if (entry.isDirectory) item("Add to bookmarks", Icons.Rounded.BookmarkBorder, onBookmark)
+    if (entry.isDirectory) item("Add to home screen", Icons.Rounded.AddToHomeScreen, onPinToHome)
     item("Details", Icons.Rounded.Info, onDetails)
     HorizontalDivider()
     item("Delete", Icons.Rounded.Delete, onDelete)
@@ -824,6 +842,7 @@ private fun SelectionBar(
     onOpenWith: () -> Unit,
     onExtract: () -> Unit,
     onBookmark: () -> Unit,
+    onPinToHome: () -> Unit,
     onUpload: () -> Unit,
 ) {
     val ssh = rememberInstalled(SuiteApp.SSH)
@@ -858,6 +877,11 @@ private fun SelectionBar(
                             text = { Text("Add to bookmarks") },
                             leadingIcon = { Icon(Icons.Rounded.BookmarkBorder, null) },
                             onClick = { more = false; onBookmark() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to home screen") },
+                            leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) },
+                            onClick = { more = false; onPinToHome() },
                         )
                     }
                     DropdownMenuItem(

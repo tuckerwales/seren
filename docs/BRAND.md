@@ -539,7 +539,8 @@ The third app, Seren Auth (the `auth` module):
 - **Icon:** the shared gradient; the frame becomes a shield; the periwinkle glyph is a countdown
   dial three quarters round; the mint accent is the cursor, upright in the middle of the dial.
 - **Tabs:** Accounts, Settings.
-- **Lists:** accounts as grouped tiles with an accent avatar (the same service always gets the same
+- **Lists:** accounts as standalone cards (20 dp corners, 12 dp apart) rather than grouped tiles,
+  because each is tall and led by a large code that needs space around it; each has an accent avatar (the same service always gets the same
   accent until the user picks another), the account name in `MonoSmall` and the code in large mono
   digits in `primary`, grouped in two halves ("123 456") so it can be read out. A countdown ring with
   the seconds left sits on the right; in the last five seconds the code and ring turn to

@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -71,7 +71,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -104,7 +103,6 @@ import wales.tucker.seren.core.ui.Avatar
 import wales.tucker.seren.core.ui.EmptyState
 import wales.tucker.seren.core.ui.SectionHeader
 import wales.tucker.seren.core.ui.copyToClipboard
-import wales.tucker.seren.core.ui.groupedShape
 import wales.tucker.seren.core.ui.pillFieldColors
 import wales.tucker.seren.core.ui.theme.MonoFamily
 import wales.tucker.seren.core.ui.theme.MonoSmall
@@ -224,11 +222,10 @@ fun AccountsTab(settings: Settings, actions: AddActions, onEdit: (Long) -> Unit)
                         }
                     } else {
                         item { SectionHeader("Accounts", trailing = shown.size.toString()) }
-                        itemsIndexed(shown, key = { _, a -> a.id }) { index, account ->
+                        items(shown, key = { it.id }) { account ->
                             AccountTile(
                                 account = account,
                                 now = now,
-                                shape = groupedShape(index, shown.size),
                                 hidden = settings.hideCodes && revealedId != account.id,
                                 showNextCode = settings.showNextCode,
                                 onClick = { copy(account) },
@@ -297,7 +294,6 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onClose: () -> U
 fun AccountTile(
     account: Account,
     now: Long,
-    shape: Shape,
     hidden: Boolean,
     showNextCode: Boolean,
     onClick: () -> Unit,
@@ -317,12 +313,12 @@ fun AccountTile(
 
     Row(
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 1.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .fillMaxWidth()
-            .clip(shape)
+            .clip(TileShape)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClickLabel = "Copy code", onClick = onClick)
-            .padding(start = 14.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 16.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Avatar(token.title, accentColor(account.color))
@@ -344,7 +340,7 @@ fun AccountTile(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 if (hidden) hiddenCode(token.digits) else formatCode(code),
                 fontFamily = MonoFamily,
@@ -387,6 +383,12 @@ fun AccountTile(
         }
     }
 }
+
+/**
+ * Accounts are standalone cards 12 dp apart rather than a grouped list: each one is tall and led by
+ * a large code, and tight 2 dp gaps made neighbouring codes run together.
+ */
+private val TileShape = RoundedCornerShape(20.dp)
 
 /** The next code appears under the current one once this little time is left. */
 const val NEXT_CODE_MILLIS = 7_000L

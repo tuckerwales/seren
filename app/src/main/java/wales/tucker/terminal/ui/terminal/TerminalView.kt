@@ -29,6 +29,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.OverScroller
+import androidx.annotation.VisibleForTesting
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.withClip
 import wales.tucker.terminal.R
@@ -146,12 +147,25 @@ class TerminalView @JvmOverloads constructor(
 
     // Cursor blink.
     private var cursorBlinkOn = true
+
+    /** Whether the blink timer is running; it only runs while a focused, visible cursor blinks. */
+    @VisibleForTesting
+    internal var blinkScheduled = false
+        private set
+
     private val blinkRunnable = object : Runnable {
         override fun run() {
             cursorBlinkOn = !cursorBlinkOn
-            invalidate()
+            // Only redraw when the change is visible: the emulator can turn blinking or the
+            // cursor off, and the cursor is not drawn while scrolled back.
+            if (cursorVisiblyBlinks()) invalidate()
             postDelayed(this, BLINK_INTERVAL)
         }
+    }
+
+    private fun cursorVisiblyBlinks(): Boolean {
+        val emu = session?.emulator ?: return false
+        return scrollOffset == 0 && synchronized(emu) { emu.cursorBlink && emu.cursorVisible }
     }
 
     // Held hardware modifiers from volume keys.
@@ -871,20 +885,30 @@ class TerminalView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         removeCallbacks(blinkRunnable)
+        blinkScheduled = false
         actionMode?.finish()
     }
 
+    /**
+     * Restarts the blink timer from the "on" phase. It runs only while the view is attached and
+     * focused in a focused window: an unfocused cursor is drawn as a steady outline, so blinking
+     * then would only redraw the terminal for nothing.
+     */
     private fun restartBlink() {
         removeCallbacks(blinkRunnable)
         cursorBlinkOn = true
-        if (cursorBlinkEnabled && isAttachedToWindow) postDelayed(blinkRunnable, BLINK_INTERVAL)
+        blinkScheduled = cursorBlinkEnabled && isAttachedToWindow && hasFocus() && hasWindowFocus()
+        if (blinkScheduled) postDelayed(blinkRunnable, BLINK_INTERVAL)
     }
 
     private fun resetBlinkPhase() {
-        if (!cursorBlinkEnabled) return
-        removeCallbacks(blinkRunnable)
-        cursorBlinkOn = true
-        postDelayed(blinkRunnable, BLINK_INTERVAL)
+        if (blinkScheduled) restartBlink()
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        restartBlink()
+        invalidate()
     }
 
     // endregion

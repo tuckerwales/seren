@@ -72,6 +72,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -192,6 +193,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
 
     fun download(file: RemoteFile, uri: Uri, context: android.content.Context) {
         val s = session ?: return
+        if (transferBusy()) return
         transferJob = viewModelScope.launch {
             _transfer.value = Transfer(file.name, upload = false, done = 0, total = file.size)
             var c: SftpClient? = null
@@ -226,6 +228,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     /** Uploads [uri] into the current folder, asking first if that would replace a file. */
     fun requestUpload(uri: Uri, context: android.content.Context) {
         val c = client ?: return
+        if (transferBusy()) return
         val dir = _path.value ?: return
         viewModelScope.launch {
             val name = withContext(Dispatchers.IO) { displayName(context, uri) }
@@ -299,6 +302,12 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
         }
     }
 
+    private fun transferBusy(): Boolean {
+        val busy = transferJob?.isActive == true
+        if (busy) messages.tryEmit("Wait for the current transfer to finish")
+        return busy
+    }
+
     fun cancelTransfer() {
         transferJob?.cancel()
     }
@@ -319,6 +328,7 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
     val pendingReplace by vm.pendingReplace.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var showHidden by remember { mutableStateOf(false) }
     var newFolder by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<RemoteFile?>(null) }
@@ -331,6 +341,14 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
         val file = pendingDownload
         pendingDownload = null
         if (uri != null && file != null) vm.download(file, uri, context)
+    }
+    fun startDownload(file: RemoteFile) {
+        if (transfer != null) {
+            scope.launch { snackbar.showSnackbar("Wait for the current transfer to finish") }
+        } else {
+            pendingDownload = file
+            downloadLauncher.launch(file.name)
+        }
     }
     val uploadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.requestUpload(uri, context)
@@ -371,12 +389,12 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
             }
         },
         floatingActionButton = {
-            if (path != null) {
+            // One transfer at a time: the progress card takes the button's place.
+            if (path != null && transfer == null) {
                 ExtendedFloatingActionButton(
                     onClick = { uploadLauncher.launch(arrayOf("*/*")) },
                     icon = { Icon(Icons.Rounded.Upload, null) },
                     text = { Text("Upload") },
-                    expanded = transfer == null,
                 )
             }
         },
@@ -409,8 +427,8 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
                         items(visible, key = { it.path }) { file ->
                             FileRow(
                                 file = file,
-                                onOpen = { if (file.isDirectory) vm.navigate(file.path) else { pendingDownload = file; downloadLauncher.launch(file.name) } },
-                                onDownload = { pendingDownload = file; downloadLauncher.launch(file.name) },
+                                onOpen = { if (file.isDirectory) vm.navigate(file.path) else startDownload(file) },
+                                onDownload = { startDownload(file) },
                                 onRename = { renaming = file },
                                 onDelete = { deleting = file },
                                 onCopyPath = {

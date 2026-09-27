@@ -115,4 +115,17 @@ class SftpViewModelTest {
         assertEquals(null, vm.pendingReplace.value)
         assertNotNull(vm.files.value)
     }
+
+    @Test
+    fun onlyOneTransferRunsAtATime() {
+        val vm = viewModel()
+        val folder = File(app.cacheDir, "big-${System.nanoTime()}").apply { mkdirs() }
+        val big = Uri.fromFile(File(folder, "big.bin").apply { writeBytes(ByteArray(16 * 1024 * 1024)) })
+        vm.requestUpload(big, app)
+        pollUntil("transfer started") { vm.transfer.value != null }
+        vm.requestUpload(localFile("other.txt", "second"), app)
+        pollUntil("transfer finished") { vm.transfer.value == null }
+        ShadowLooper.idleMainLooper()
+        assertEquals(null, runCatching { remoteText("other.txt") }.getOrNull())
+    }
 }

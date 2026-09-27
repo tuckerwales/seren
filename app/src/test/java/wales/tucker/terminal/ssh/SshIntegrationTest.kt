@@ -2,6 +2,8 @@ package wales.tucker.terminal.ssh
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -321,6 +323,30 @@ class SshIntegrationTest {
         browse.delete(browse.stat(file))
         transfer.close()
         browse.close()
+        c.disconnect()
+    }
+
+    @Test
+    fun cancellingATransferStopsIt() = runBlocking {
+        val c = SshConnection(dao, TestUi())
+        c.connect(target())
+        val sftp = SftpClient(c.openSftp())
+        val file = SftpClient.join(sftp.home(), "cancel-${System.nanoTime()}.bin")
+        val data = ByteArray(8 * 1024 * 1024) { it.toByte() }
+        sftp.upload(data.inputStream(), file, data.size.toLong()) { _, _ -> }
+
+        val out = ByteArrayOutputStream()
+        val job = launch(Dispatchers.IO) {
+            sftp.download(file, out) { done, _ -> if (done > 0) coroutineContext.job.cancel() }
+        }
+        job.join()
+        assertTrue(job.isCancelled)
+        assertTrue("stopped early, got ${out.size()} bytes", out.size() < data.size)
+
+        // The channel is still usable afterwards.
+        assertEquals(data.size.toLong(), sftp.stat(file).size)
+        sftp.delete(sftp.stat(file))
+        sftp.close()
         c.disconnect()
     }
 }

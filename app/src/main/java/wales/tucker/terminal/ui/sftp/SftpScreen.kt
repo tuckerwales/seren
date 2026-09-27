@@ -3,6 +3,7 @@ package wales.tucker.terminal.ui.sftp
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.text.format.Formatter
 import android.widget.Toast
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
@@ -79,7 +81,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -114,6 +119,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     val transfer = _transfer.asStateFlow()
     val messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     private var home: String = "/"
+    private var transferJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -180,9 +186,10 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
 
     fun download(file: RemoteFile, uri: Uri, context: android.content.Context) {
         val s = session ?: return
-        viewModelScope.launch {
+        transferJob = viewModelScope.launch {
             _transfer.value = Transfer(file.name, upload = false, done = 0, total = file.size)
             var c: SftpClient? = null
+            var complete = false
             try {
                 val channel = s.openSftpChannel().also { c = it }
                 withContext(Dispatchers.IO) {
@@ -192,10 +199,18 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                         }
                     } ?: throw IllegalStateException("Cannot write to destination")
                 }
+                complete = true
                 messages.tryEmit("Downloaded ${file.name}")
+            } catch (e: CancellationException) {
+                messages.tryEmit("Download cancelled")
+                throw e
             } catch (e: Exception) {
                 messages.tryEmit("Download failed: ${e.message}")
             } finally {
+                // Don't leave a truncated file behind in the destination folder.
+                if (!complete) withContext(NonCancellable + Dispatchers.IO) {
+                    runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                }
                 c?.close()
                 _transfer.value = null
             }
@@ -205,9 +220,12 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     fun upload(uri: Uri, context: android.content.Context) {
         val s = session ?: return
         val dir = _path.value ?: return
-        viewModelScope.launch {
+        transferJob = viewModelScope.launch {
             var name = "upload"
             var c: SftpClient? = null
+            var target: String? = null
+            var written = false
+            var complete = false
             try {
                 val channel = s.openSftpChannel().also { c = it }
                 var size = -1L
@@ -222,20 +240,35 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                 _transfer.value = Transfer(name, upload = true, done = 0, total = size)
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openInputStream(uri)?.use { input ->
-                        channel.upload(input, SftpClient.join(dir, name), size) { done, _ ->
+                        channel.upload(input, SftpClient.join(dir, name).also { target = it }, size) { done, _ ->
+                            if (done > 0) written = true
                             _transfer.value = Transfer(name, true, done, size)
                         }
                     } ?: throw IllegalStateException("Cannot read file")
                 }
+                complete = true
                 messages.tryEmit("Uploaded $name")
+            } catch (e: CancellationException) {
+                messages.tryEmit("Upload cancelled")
+                throw e
             } catch (e: Exception) {
                 messages.tryEmit("Upload failed: ${e.message}")
             } finally {
+                val partial = target
+                val ch = c
+                // Only remove a file this upload started writing, never one it failed to open.
+                if (!complete && written && partial != null && ch != null) withContext(NonCancellable) {
+                    runCatching { ch.delete(ch.stat(partial)) }
+                }
                 c?.close()
                 _transfer.value = null
                 refresh()
             }
         }
+    }
+
+    fun cancelTransfer() {
+        transferJob?.cancel()
     }
 }
 
@@ -270,7 +303,11 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
         if (uri != null) vm.upload(uri, context)
     }
 
+    var confirmLeave by remember { mutableStateOf(false) }
+    val leave = { if (transfer != null) confirmLeave = true else onBack() }
     BackHandler(enabled = path != null && path != "/") { vm.up() }
+    // Declared last so it takes precedence while a transfer is running.
+    BackHandler(enabled = transfer != null) { confirmLeave = true }
 
     val visible = if (showHidden) files else files.filterNot { it.name.startsWith(".") }
 
@@ -286,7 +323,7 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
                             }
                         }
                     },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
+                    navigationIcon = { IconButton(onClick = leave) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") } },
                     actions = {
                         IconButton(onClick = { vm.goHome() }) { Icon(Icons.Rounded.Home, contentDescription = "Home") }
                         IconButton(onClick = { showHidden = !showHidden }) {
@@ -353,7 +390,7 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
                 }
             }
             AnimatedVisibility(transfer != null, modifier = Modifier.align(Alignment.BottomCenter)) {
-                transfer?.let { TransferCard(it) }
+                transfer?.let { TransferCard(it, onCancel = { vm.cancelTransfer() }) }
             }
         }
     }
@@ -367,6 +404,21 @@ fun SftpScreen(sessionId: Int, onBack: () -> Unit) {
         NameDialog(title = "Rename", initial = f.name, confirm = "Rename", onDismiss = { renaming = null }) { name ->
             vm.rename(f, name); renaming = null
         }
+    }
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            title = { Text("Cancel transfer?") },
+            text = { Text("Leaving this screen stops the ${if (transfer?.upload == true) "upload" else "download"} in progress.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmLeave = false
+                    vm.cancelTransfer()
+                    onBack()
+                }) { Text("Cancel transfer") }
+            },
+            dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Keep going") } },
+        )
     }
     deleting?.let { f ->
         AlertDialog(
@@ -454,7 +506,7 @@ private fun FileRow(
 }
 
 @Composable
-private fun TransferCard(t: Transfer) {
+private fun TransferCard(t: Transfer, onCancel: () -> Unit) {
     val context = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -476,6 +528,7 @@ private fun TransferCard(t: Transfer) {
                     Formatter.formatShortFileSize(context, t.done) + if (t.total > 0) " / " + Formatter.formatShortFileSize(context, t.total) else "",
                     style = MaterialTheme.typography.labelMedium,
                 )
+                IconButton(onClick = onCancel) { Icon(Icons.Rounded.Close, contentDescription = "Cancel transfer") }
             }
             Spacer(Modifier.size(12.dp))
             if (t.total > 0) {

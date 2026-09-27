@@ -16,6 +16,8 @@ jsch = "2.28.7"
 bouncycastle = "1.86"
 zxing = "3.5.4"
 camerax = "1.5.3"
+commonsCompress = "1.28.0"
+xz = "1.12"
 junit = "4.13.2"
 robolectric = "4.16.1"
 roborazzi = "1.75.0"
@@ -50,6 +52,8 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" 
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
+commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
+xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }

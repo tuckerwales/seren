@@ -122,6 +122,7 @@ import wales.tucker.seren.files.fs.SortOrder
 import wales.tucker.seren.files.fs.Volume
 import wales.tucker.seren.files.ui.appContainer
 import wales.tucker.seren.files.ui.common.AccessGate
+import wales.tucker.seren.files.ui.common.ArchivePasswordDialog
 import wales.tucker.seren.files.ui.common.ConflictDialog
 import wales.tucker.seren.files.ui.common.DeleteDialog
 import wales.tucker.seren.files.ui.common.DetailsDialog
@@ -165,6 +166,7 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
     val scope = rememberCoroutineScope()
     val clipboard by ops.clipboard.collectAsStateWithLifecycle()
     val incoming by ops.incoming.collectAsStateWithLifecycle()
+    val passwordNeeded by ops.passwordNeeded.collectAsStateWithLifecycle()
     val operation by ops.current.collectAsStateWithLifecycle()
     val itemsText: (Int) -> String = ops::items
 
@@ -532,7 +534,15 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
             onDismissRequest = { dialog = null },
             icon = { Icon(Icons.Rounded.Unarchive, null) },
             title = { Text("Extract ${d.entry.name}?") },
-            text = { Text("Its contents go into a new folder beside it. To open it in another app instead, use Open with.") },
+            text = {
+                Text(
+                    if (Archives.extractsToFile(d.entry.file)) {
+                        "It's decompressed into a new file beside it. To open it in another app instead, use Open with."
+                    } else {
+                        "Its contents go into a new folder beside it. To open it in another app instead, use Open with."
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     dialog = null
@@ -541,6 +551,10 @@ fun FolderScreen(start: File, startSearching: Boolean, settings: Settings, onClo
             },
             dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancel") } },
         )
+    }
+
+    passwordNeeded?.let { request ->
+        ArchivePasswordDialog(request, onDismiss = ops::clearPasswordNeeded) { password -> ops.extract(request.archive, password) }
     }
 
     vm.pendingPlan?.let { plan ->

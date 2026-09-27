@@ -23,6 +23,7 @@ import wales.tucker.seren.files.data.TrashItem
 import wales.tucker.seren.files.fs.Archives
 import wales.tucker.seren.files.fs.ConflictPolicy
 import wales.tucker.seren.files.fs.FileOps
+import wales.tucker.seren.files.fs.PasswordNeededException
 import wales.tucker.seren.files.fs.Storage
 import wales.tucker.seren.files.fs.volumeFor
 import wales.tucker.seren.files.fs.TransferPlan
@@ -60,6 +61,15 @@ class Operations(
 
     /** Files another app shared, waiting for the user to open a folder and save them there. */
     val incoming: StateFlow<List<IncomingFile>?> = _incoming.asStateFlow()
+
+    private val _passwordNeeded = MutableStateFlow<PasswordNeededException?>(null)
+
+    /** An archive that needs a password to extract, waiting for people to enter it. */
+    val passwordNeeded: StateFlow<PasswordNeededException?> = _passwordNeeded.asStateFlow()
+
+    fun clearPasswordNeeded() {
+        _passwordNeeded.value = null
+    }
 
     private val _current = MutableStateFlow<Operation?>(null)
     val current: StateFlow<Operation?> = _current.asStateFlow()
@@ -284,13 +294,21 @@ class Operations(
         }
     }
 
-    fun extract(archive: File) {
+    /** Extracts [archive] beside it; a [password] opens a protected 7z file. */
+    fun extract(archive: File, password: String? = null) {
+        _passwordNeeded.value = null
         val folder = archive.parentFile ?: return
         val toFile = Archives.extractsToFile(archive)
         val target = File(folder, FileOps.uniqueName(folder, Archives.extractedName(archive), isDirectory = !toFile))
         runLong("Extracting ${archive.name}") { progress ->
             val total = Archives.progressTotal(archive)
-            Archives.extract(archive, target) { bytes -> progress(bytes, total, archive.name) }
+            try {
+                Archives.extract(archive, target, password) { bytes -> progress(bytes, total, archive.name) }
+            } catch (e: PasswordNeededException) {
+                // Asked for on screen, rather than said in the snackbar.
+                _passwordNeeded.value = e
+                return@runLong
+            }
             say(if (toFile) "Extracted ${target.name}" else "Extracted to ${target.name}")
         }
     }

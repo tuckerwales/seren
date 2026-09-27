@@ -133,4 +133,26 @@ class OperationsTest {
         assertFalse(File(root, "Old").exists())
         assertTrue(runBlocking { app.container.bookmarks.observe().first() }.isEmpty())
     }
+
+    @Test
+    fun aProtected7zAsksForItsPassword() {
+        val archive = File(root, "locked.7z")
+        javaClass.getResourceAsStream("/archives/locked.7z")!!.use { input -> archive.outputStream().use { input.copyTo(it) } }
+
+        run { ops.extract(archive) }
+        val asked = ops.passwordNeeded.value!!
+        assertEquals(archive, asked.archive)
+        assertFalse(asked.wrong)
+        assertFalse(File(root, "locked").exists())
+        // Asked on screen, not said in the snackbar.
+        assertTrue(said.isEmpty())
+
+        run { ops.extract(archive, "wrong") }
+        assertTrue(ops.passwordNeeded.value!!.wrong)
+
+        run { ops.extract(archive, "hunter2") }
+        assertNull(ops.passwordNeeded.value)
+        assertEquals("Extracted to locked", said.last())
+        assertEquals("hello from gnu tar\n", File(root, "locked/readme.txt").readText())
+    }
 }

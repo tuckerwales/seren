@@ -11,24 +11,39 @@ import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
+import org.tukaani.xz.XZInputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
-/** The archives Seren Files can extract. */
-enum class ArchiveFormat {
-    ZIP,
-    TAR,
-    TAR_GZ,
+/** The archives Seren Files can extract, with the name people know each by. */
+enum class ArchiveFormat(val label: String, internal val suffixes: List<String>) {
+    ZIP("zip", emptyList()),
+    SEVEN_Z("7z", listOf(".7z")),
+    TAR("tar", listOf(".tar")),
+    TAR_GZ("tar.gz", listOf(".tar.gz", ".tgz")),
+    TAR_XZ("tar.xz", listOf(".tar.xz", ".txz")),
+    TAR_BZ2("tar.bz2", listOf(".tar.bz2", ".tbz2", ".tbz")),
 
     /** One compressed file, such as "notes.txt.gz", which becomes "notes.txt" rather than a folder. */
-    GZIP,
+    GZIP("gz", listOf(".gz")),
+    XZ("xz", listOf(".xz")),
+    BZIP2("bz2", listOf(".bz2")),
+    ;
+
+    /** Whether this is one compressed file rather than an archive of several. */
+    val single: Boolean get() = this == GZIP || this == XZ || this == BZIP2
 }
 
+/** Extracting an archive that needs a password, when none or the wrong one was given. */
+class PasswordNeededException(val archive: File, val wrong: Boolean) :
+    IOException(if (wrong) "That password doesn't open ${archive.name}" else "${archive.name} needs a password")
+
 /**
- * Compressing to zip, the one archive format every device can open, and extracting zip, tar,
- * tar.gz and gz files.
+ * Compressing to zip, the one archive format every device can open, and extracting zip, 7z, tar
+ * (plain, gz, xz and bz2) and single gz, xz and bz2 files.
  */
 object Archives {
     private const val BUFFER = 64 * 1024
@@ -36,13 +51,13 @@ object Archives {
     /** Which kind of archive [name] is, going by its name, or null when it isn't one. */
     fun format(name: String): ArchiveFormat? {
         val lower = name.lowercase(java.util.Locale.ROOT)
-        return when {
-            lower.endsWith(".tar.gz") || lower.endsWith(".tgz") -> ArchiveFormat.TAR_GZ
-            lower.endsWith(".tar") -> ArchiveFormat.TAR
-            lower.endsWith(".gz") && lower.length > 3 -> ArchiveFormat.GZIP
-            FileTypes.extension(name) in setOf("zip", "jar", "apks", "xapk") -> ArchiveFormat.ZIP
-            else -> null
-        }
+        // Longest suffix first, so "backup.tar.gz" is a tar.gz rather than one gzipped file.
+        val bySuffix = ArchiveFormat.entries
+            .flatMap { f -> f.suffixes.map { it to f } }
+            .sortedByDescending { it.first.length }
+            .firstOrNull { (suffix, _) -> lower.endsWith(suffix) && lower.length > suffix.length }
+            ?.second
+        return bySuffix ?: ArchiveFormat.ZIP.takeIf { FileTypes.extension(name) in setOf("zip", "jar", "apks", "xapk") }
     }
 
     fun canExtract(name: String): Boolean = format(name) != null
@@ -95,24 +110,46 @@ object Archives {
         ArchiveFormat.ZIP -> runCatching {
             ZipFile(archive).use { z -> z.entries().asSequence().sumOf { it.size.coerceAtLeast(0) } }
         }.getOrDefault(0L)
+        // 7z lists its files' sizes up front, unless the list itself is encrypted.
+        ArchiveFormat.SEVEN_Z -> runCatching {
+            SevenZ.open(archive, null).use { z -> z.entries.sumOf { if (it.isDirectory || it.isAntiItem || SevenZ.isLink(it)) 0L else it.size.coerceAtLeast(0) } }
+        }.getOrDefault(0L)
         null -> 0L
         else -> archive.length()
     }
 
     /**
      * Extracts [archive] to [target]: a new folder for zip and tar files, or a new file for a
-     * single gzipped file. Entries that would land outside the folder (a "zip slip") are refused,
-     * and links inside tar files are skipped. A cancelled or failed extraction removes what it made.
+     * single compressed file. Entries that would land outside the folder (a "zip slip") are
+     * refused, and links inside archives are skipped. A cancelled or failed extraction removes
+     * what it made. A 7z file protected with a [password] throws [PasswordNeededException] when
+     * it's missing or wrong.
      */
-    suspend fun extract(archive: File, target: File, onProgress: (Long) -> Unit = {}) {
-        when (format(archive.name)) {
-            ArchiveFormat.TAR -> extractTar(archive, target, gzipped = false, onProgress)
-            ArchiveFormat.TAR_GZ -> extractTar(archive, target, gzipped = true, onProgress)
-            ArchiveFormat.GZIP -> gunzip(archive, target, onProgress)
+    suspend fun extract(archive: File, target: File, password: String? = null, onProgress: (Long) -> Unit = {}) {
+        when (val format = format(archive.name)) {
+            ArchiveFormat.SEVEN_Z -> SevenZ.extract(archive, target, password, onProgress)
+            ArchiveFormat.TAR, ArchiveFormat.TAR_GZ, ArchiveFormat.TAR_XZ, ArchiveFormat.TAR_BZ2 -> extractTar(archive, target, format, onProgress)
+            ArchiveFormat.GZIP, ArchiveFormat.XZ, ArchiveFormat.BZIP2 -> decompress(archive, target, format, onProgress)
             // Zip files don't always have the right name (an .apk is one), so try anything else as a zip.
-            else -> extractZip(archive, target, onProgress)
+            ArchiveFormat.ZIP, null -> extractZip(archive, target, onProgress)
         }
     }
+
+    /** Reads what's compressed inside [input], for the tar formats and single compressed files. */
+    private fun decompressing(input: InputStream, format: ArchiveFormat): InputStream = when (format) {
+        ArchiveFormat.TAR_GZ, ArchiveFormat.GZIP -> GZIPInputStream(input, BUFFER)
+        ArchiveFormat.TAR_XZ, ArchiveFormat.XZ -> XZInputStream(input, memoryLimitKb())
+        ArchiveFormat.TAR_BZ2, ArchiveFormat.BZIP2 -> BZip2CompressorInputStream(input, true)
+        else -> input
+    }
+
+    /** Whether [e] means the data didn't decompress: a damaged or mislabelled file. */
+    private fun isBadData(e: Throwable) = e is java.util.zip.ZipException || e is java.io.EOFException || e is TarReader.BadTar ||
+        e is org.tukaani.xz.XZIOException || e is org.tukaani.xz.CorruptedInputException ||
+        (e is IOException && e.message?.let { it.contains("Stream is not in the BZip2 format") || it.contains("crc error", ignoreCase = true) } == true)
+
+    /** Half of what the app may use, the most a decoder may ask for before it's refused rather than crashing. */
+    internal fun memoryLimitKb(): Int = (Runtime.getRuntime().maxMemory() / 2 / 1024).coerceIn(16L * 1024, Int.MAX_VALUE.toLong()).toInt()
 
     private suspend fun extractZip(zip: File, target: File, onProgress: (Long) -> Unit) {
         if (target.exists()) throw IOException("${target.name} already exists")
@@ -158,14 +195,13 @@ object Archives {
         }
     }
 
-    private suspend fun extractTar(archive: File, target: File, gzipped: Boolean, onProgress: (Long) -> Unit) {
+    private suspend fun extractTar(archive: File, target: File, format: ArchiveFormat, onProgress: (Long) -> Unit) {
         if (target.exists()) throw IOException("${target.name} already exists")
         if (!target.mkdirs()) throw IOException("Couldn't create ${target.name}")
         val root = target.canonicalPath
         try {
             val counted = CountingInputStream(BufferedInputStream(FileInputStream(archive), BUFFER), onProgress)
-            val input: InputStream = if (gzipped) GZIPInputStream(counted, BUFFER) else counted
-            input.use {
+            decompressing(counted, format).use {
                 val tar = TarReader(it)
                 var entries = 0
                 while (true) {
@@ -200,17 +236,16 @@ object Archives {
             }
         } catch (e: Throwable) {
             FileOps.deleteRecursively(target)
-            if (e is java.util.zip.ZipException || e is TarReader.BadTar || e is java.io.EOFException) {
-                throw IOException("${archive.name} is damaged or isn't a ${if (gzipped) "tar.gz" else "tar"} file")
-            }
+            if (e is org.tukaani.xz.MemoryLimitException) throw tooBig(archive)
+            if (isBadData(e)) throw IOException("${archive.name} is damaged or isn't a ${format.label} file")
             throw e
         }
     }
 
-    private suspend fun gunzip(archive: File, target: File, onProgress: (Long) -> Unit) {
+    private suspend fun decompress(archive: File, target: File, format: ArchiveFormat, onProgress: (Long) -> Unit) {
         if (target.exists()) throw IOException("${target.name} already exists")
         try {
-            GZIPInputStream(CountingInputStream(BufferedInputStream(FileInputStream(archive), BUFFER), onProgress), BUFFER).use { input ->
+            decompressing(CountingInputStream(BufferedInputStream(FileInputStream(archive), BUFFER), onProgress), format).use { input ->
                 FileOutputStream(target).use { output ->
                     val buffer = ByteArray(BUFFER)
                     while (true) {
@@ -223,7 +258,8 @@ object Archives {
             }
         } catch (e: Throwable) {
             target.delete()
-            if (e is java.util.zip.ZipException || e is java.io.EOFException) throw IOException("${archive.name} is damaged or isn't a gz file")
+            if (e is org.tukaani.xz.MemoryLimitException) throw tooBig(archive)
+            if (isBadData(e)) throw IOException("${archive.name} is damaged or isn't a ${format.label} file")
             throw e
         }
     }
@@ -235,17 +271,28 @@ object Archives {
     fun extractedName(archive: File): String {
         val name = archive.name
         val lower = name.lowercase(java.util.Locale.ROOT)
-        val suffix = listOf(".tar.gz", ".tgz", ".tar", ".gz").firstOrNull { lower.endsWith(it) && name.length > it.length }
+        val suffix = ArchiveFormat.entries.flatMap { it.suffixes }.sortedByDescending { it.length }
+            .firstOrNull { lower.endsWith(it) && name.length > it.length }
         if (suffix != null) return name.dropLast(suffix.length)
         val dot = name.lastIndexOf('.')
         return if (dot > 0) name.substring(0, dot) else "$name contents"
     }
 
     /** Whether extracting [archive] makes a single file rather than a folder. */
-    fun extractsToFile(archive: File): Boolean = format(archive.name) == ArchiveFormat.GZIP
+    fun extractsToFile(archive: File): Boolean = format(archive.name)?.single == true
+
+    internal fun tooBig(archive: File) = IOException("${archive.name} needs more memory to extract than this device can give it")
+
+    /** Refuses [out] if it's outside [root], the folder being extracted into. */
+    internal fun checkInside(out: File, root: String, archive: File) {
+        val path = out.canonicalPath
+        if (path != root && !path.startsWith("$root/")) {
+            throw IOException("${archive.name} tries to put files outside the folder, so it wasn't extracted")
+        }
+    }
 
     /** Passes on how many bytes have been read so far, for progress through compressed archives. */
-    private class CountingInputStream(input: InputStream, private val onProgress: (Long) -> Unit) : FilterInputStream(input) {
+    internal class CountingInputStream(input: InputStream, private val onProgress: (Long) -> Unit) : FilterInputStream(input) {
         private var count = 0L
 
         override fun read(): Int = super.read().also { if (it >= 0) onProgress(++count) }

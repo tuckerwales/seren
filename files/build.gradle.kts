@@ -71,6 +71,9 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
+    // 7z, and tar.xz and tar.bz2; XZ for Java does the LZMA inside 7z and xz files.
+    implementation(libs.commons.compress)
+    implementation(libs.xz)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

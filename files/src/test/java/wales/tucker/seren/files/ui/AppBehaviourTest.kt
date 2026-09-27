@@ -373,4 +373,17 @@ class AppBehaviourTest {
         assertEquals(2, compose.onAllNodesWithText("Camera").fetchSemanticsNodes().size)
         compose.onNodeWithText("beach.jpg").assertExists()
     }
+
+    @Test
+    fun extracts7zFiles() {
+        // The password dialog holds a text field, which Robolectric can't idle with, so
+        // OperationsTest covers protected 7z files.
+        javaClass.getResourceAsStream("/archives/project.7z")!!.use { input -> File(root, "project.7z").outputStream().use { input.copyTo(it) } }
+        openStorage()
+        compose.onNodeWithText("project.7z").performClick()
+        waitFor("Extract project.7z?")
+        dialogButton("Extract").performClick()
+        waitFor("Extracted to project")
+        assertEquals("deep\n", File(root, "project/project/src/deeply/nested/folder/with/a/name/long/enough/to/need/more/than/one/hundred/characters/file.txt").readText())
+    }
 }

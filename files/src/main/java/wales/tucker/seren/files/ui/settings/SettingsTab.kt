@@ -107,7 +107,7 @@ fun SettingsTab(settings: Settings) {
             appName = "Seren Files",
             version = BuildConfig.VERSION_NAME,
             description = "A file manager for Android.",
-            licenses = CORE_LICENSES,
+            licenses = CORE_LICENSES + listOf("Apache Commons Compress, Apache 2.0", "XZ for Java, public domain"),
             onDismiss = { showAbout = false },
         )
     }

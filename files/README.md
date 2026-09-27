@@ -45,8 +45,9 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 - Moves on the same volume are instant renames; copies show progress, can be cancelled, keep dates,
   and never leave half-written files or lose the file they replace
 - New folder, New file, and Rename, which starts with the name before the extension selected
-- Compress to zip, and extract zip, tar, tar.gz and gz files, refusing archives that try to write
-  outside their folder and leaving out links inside tar files
+- Compress to zip, and extract zip, 7z (including password protected ones), tar, tar.gz, tar.xz
+  and tar.bz2 archives and single gz, xz and bz2 files, refusing archives that try to write outside
+  their folder and leaving out links inside them
 - A copy that won't fit is refused before it starts, saying how much it needs and how much is free
 - Long jobs keep going after you leave the app, with a notification showing progress and Cancel,
   and one saying how it ended if you're elsewhere by then
@@ -113,8 +114,10 @@ From the repository root:
 
 This runs JVM tests of sorting, file types, copying and moving (conflicts, merging, keeping both,
 moving into itself, cancelling, progress, links, free space), saving streams, zip compression and
-extraction (including zip slip), tar, tar.gz and gz extraction (against archives made by GNU tar,
-with long names, pax headers and links), categories, and search; Robolectric tests of the trash, the
+extraction (including zip slip), 7z extraction (against archives made by py7zr: long and non-ASCII
+names, links, passwords, slips and a compression method it can't read), tar, tar.gz, tar.xz,
+tar.bz2, gz, xz and bz2 extraction (against archives made by GNU tar, xz and bzip2, with long names,
+pax headers and links), categories, and search; Robolectric tests of the trash, the
 progress notification and Cancel, and the operations behind each action and what they report; and UI
 tests that browse, copy and paste, pick and move several files, delete with Undo, restore or delete
 several from the trash, search, extract and bookmark, switch to the grid, browse categories, save
@@ -122,14 +125,14 @@ files and text shared from other apps, choose files for another app, pin folders
 offer the other Seren apps and show files they ask about, then render the main screens to
 `files/build/screenshots`.
 
-Robolectric can't settle a dialog that holds a focused text field, so New folder, New file, Rename
-and Compress are tested through `Operations` rather than by typing into their dialogs.
+Robolectric can't settle a dialog that holds a text field, so New folder, New file, Rename, Compress
+and a 7z file's password are tested through `Operations` rather than by typing into their dialogs.
 
 ## Architecture
 
 | Package | Contents |
 | --- | --- |
-| `fs` | Plain `java.io` file work: `Listing` and `NaturalOrder`, `FileTypes`, `FileOps` (names, copy, move, save, delete, measure, SHA-256), `Archives` and `TarReader` (zip, tar, tar.gz, gz), `Categories`, `Search`, `Storage` (volumes, access, and recent and all files from the media store) and `Reveal` (which file another app's link points at) |
+| `fs` | Plain `java.io` file work: `Listing` and `NaturalOrder`, `FileTypes`, `FileOps` (names, copy, move, save, delete, measure, SHA-256), `Archives`, `TarReader` and `SevenZ` (zip, 7z, tar and its compressed kinds, gz, xz, bz2), `Categories`, `Search`, `Storage` (volumes, access, and recent and all files from the media store) and `Reveal` (which file another app's link points at) |
 | `data` | Room database of bookmarks and trash items, `TrashBin`, and DataStore settings |
 | `ops` | `Operations`: every change to files, run in an app-wide scope with progress, cancelling, the copy and move clipboard, files shared in to save (`Incoming`) and snackbar messages; `OperationService` keeps long jobs running with a notification |
 | `pick` | `PickActivity`: choosing files for another app, with `PickRequest` reading what it asked for |
@@ -145,5 +148,5 @@ Colors, type, components, copy and icon rules shared by all the apps in the suit
 
 ## Licenses
 
-JetBrains Mono (SIL Open Font License 1.1, see `core/src/main/assets/licenses`), AndroidX and Jetpack
-Compose (Apache 2.0).
+JetBrains Mono (SIL Open Font License 1.1, see `core/src/main/assets/licenses`), AndroidX, Jetpack
+Compose and Apache Commons Compress (Apache 2.0), and XZ for Java (public domain).

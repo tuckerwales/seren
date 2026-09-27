@@ -67,7 +67,7 @@ encrypted with the Android Keystore.
 ### Seren Files
 
 A modern, fast and easy to use file manager for Android. Internal storage, SD cards and bookmarks,
-copy and move with clear choices when names clash, a 30 day trash with Undo, zip and tar, search,
+copy and move with clear choices when names clash, a 30 day trash with Undo, zip, 7z and tar, search,
 categories, a grid of photo thumbnails, Save to Seren Files from the share sheet, and choosing files
 for other apps. It has no network permission at all; its one permission is all files access,
 asked for with a plain explanation.

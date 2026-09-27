@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.FileCopy
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import wales.tucker.seren.core.ui.PasswordField
 import wales.tucker.seren.core.ui.copyToClipboard
 import wales.tucker.seren.core.ui.formatSize
 import wales.tucker.seren.core.ui.theme.MonoSmall
@@ -61,6 +63,7 @@ import wales.tucker.seren.files.fs.FileEntry
 import wales.tucker.seren.files.fs.FileKind
 import wales.tucker.seren.files.fs.FileOps
 import wales.tucker.seren.files.fs.FileTypes
+import wales.tucker.seren.files.fs.PasswordNeededException
 import wales.tucker.seren.files.fs.TransferPlan
 import java.io.File
 import java.text.DateFormat
@@ -107,6 +110,32 @@ fun NameDialog(
             )
         },
         confirmButton = { TextButton(onClick = submit, enabled = name.isNotEmpty() && problem == null) { Text(confirm) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Asks for the password to a protected archive, saying so when the last one didn't open it. */
+@Composable
+fun ArchivePasswordDialog(request: PasswordNeededException, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var password by remember { mutableStateOf("") }
+    val submit = { if (password.isNotEmpty()) onConfirm(password) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.Lock, null) },
+        title = { Text("Password for ${request.archive.name}") },
+        text = {
+            PasswordField(
+                value = password,
+                onValueChange = { password = it },
+                label = "Password",
+                error = if (request.wrong && password.isEmpty()) "That password didn't open it. Try again." else null,
+                supporting = if (request.wrong) null else "It's protected, so its contents need a password to extract.",
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = { TextButton(onClick = submit, enabled = password.isNotEmpty()) { Text("Extract") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

@@ -36,7 +36,9 @@ import wales.tucker.seren.core.ui.Messenger
 import wales.tucker.seren.files.RevealRequest
 import wales.tucker.seren.files.data.Settings
 import wales.tucker.seren.files.fs.AndroidStorage
+import wales.tucker.seren.files.fs.Category
 import wales.tucker.seren.files.fs.Reveal
+import wales.tucker.seren.files.ui.category.CategoryScreen
 import wales.tucker.seren.files.ui.folder.FolderScreen
 import wales.tucker.seren.files.ui.home.HomeScreen
 import java.io.File
@@ -44,6 +46,9 @@ import java.io.File
 object Routes {
     const val HOME = "home"
     const val FOLDER = "folder?path={path}&search={search}&highlight={highlight}"
+    const val CATEGORY = "category/{category}"
+
+    fun category(category: Category) = "category/${category.name}"
 
     /** [highlight] names an item to scroll to and pick out, for "Show in Seren Files". */
     fun folder(path: String, search: Boolean = false, highlight: String? = null) =
@@ -56,7 +61,14 @@ class StorageAccessState(val granted: Boolean, val request: () -> Unit)
 val LocalStorageAccess = staticCompositionLocalOf { StorageAccessState(granted = true, request = {}) }
 
 /** Opens folders and files from anywhere in the app. */
-class Navigator(val openFolder: (File) -> Unit, val search: (File) -> Unit, val back: () -> Unit)
+class Navigator(
+    val openFolder: (File) -> Unit,
+    val search: (File) -> Unit,
+    val back: () -> Unit,
+    /** Opens the folder [file] is in, scrolled to it and picked out for a moment. */
+    val reveal: (File) -> Unit = {},
+    val openCategory: (Category) -> Unit = {},
+)
 
 @Composable
 fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveals: Channel<RevealRequest> = Channel()) {
@@ -134,6 +146,10 @@ private fun AppNavHost(navController: NavHostController, settings: Settings) {
             openFolder = { folder -> navController.navigate(Routes.folder(folder.path)) },
             search = { folder -> navController.navigate(Routes.folder(folder.path, search = true)) },
             back = { navController.popBackStack() },
+            reveal = { file ->
+                file.parentFile?.let { navController.navigate(Routes.folder(it.path, highlight = file.name)) }
+            },
+            openCategory = { navController.navigate(Routes.category(it)) },
         )
     }
     NavHost(
@@ -146,6 +162,10 @@ private fun AppNavHost(navController: NavHostController, settings: Settings) {
     ) {
         composable(Routes.HOME) {
             HomeScreen(settings = settings, navigator = navigator)
+        }
+        composable(Routes.CATEGORY, arguments = listOf(navArgument("category") { type = NavType.StringType })) { entry ->
+            val category = entry.arguments?.getString("category")?.let { name -> Category.entries.firstOrNull { it.name == name } }
+            if (category != null) CategoryScreen(category = category, settings = settings, navigator = navigator)
         }
         composable(
             Routes.FOLDER,

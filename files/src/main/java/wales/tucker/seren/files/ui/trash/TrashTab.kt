@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.RestoreFromTrash
+import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,7 +25,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,20 +79,43 @@ fun TrashTab() {
     val vm = containerViewModel { TrashViewModel(it) }
     val items = vm.items.collectAsStateWithLifecycle().value
     var confirmEmpty by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf<TrashItem?>(null) }
+    var confirmDelete by remember { mutableStateOf<List<TrashItem>?>(null) }
     var confirmRestore by remember { mutableStateOf<TrashItem?>(null) }
+    // Ids of the picked items; picking mode is on while this isn't empty.
+    var selected by remember { mutableStateOf<Set<Long>>(emptySet()) }
     val volumes = remember { container.storage.volumes() }
+    val picked = items.orEmpty().filter { it.id in selected }
+
+    // Items restored or deleted elsewhere drop out of the selection.
+    LaunchedEffect(items) { selected = selected intersect items.orEmpty().map { it.id }.toSet() }
+    BackHandler(enabled = selected.isNotEmpty()) { selected = emptySet() }
 
     Column(Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("Trash", fontWeight = FontWeight.SemiBold) },
-            actions = {
-                if (!items.isNullOrEmpty()) {
-                    IconButton(onClick = { confirmEmpty = true }) { Icon(Icons.Rounded.DeleteSweep, "Empty trash") }
-                }
-            },
-            windowInsets = WindowInsets.statusBars,
-        )
+        if (selected.isNotEmpty()) {
+            TopAppBar(
+                title = { Text("${selected.size} selected") },
+                navigationIcon = { IconButton(onClick = { selected = emptySet() }) { Icon(Icons.Rounded.Close, "Clear selection") } },
+                actions = {
+                    IconButton(onClick = { selected = items.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, "Select all") }
+                    IconButton(onClick = {
+                        ops.restore(picked)
+                        selected = emptySet()
+                    }) { Icon(Icons.Rounded.RestoreFromTrash, "Restore") }
+                    IconButton(onClick = { confirmDelete = picked }) { Icon(Icons.Rounded.DeleteForever, "Delete permanently") }
+                },
+                windowInsets = WindowInsets.statusBars,
+            )
+        } else {
+            TopAppBar(
+                title = { Text("Trash", fontWeight = FontWeight.SemiBold) },
+                actions = {
+                    if (!items.isNullOrEmpty()) {
+                        IconButton(onClick = { confirmEmpty = true }) { Icon(Icons.Rounded.DeleteSweep, "Empty trash") }
+                    }
+                },
+                windowInsets = WindowInsets.statusBars,
+            )
+        }
         AccessGate {
             when {
                 items == null -> Unit
@@ -100,7 +127,7 @@ fun TrashTab() {
                 else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
                     item {
                         Text(
-                            "Items are deleted for good after ${TrashBin.KEEP_DAYS} days.",
+                            "Items are deleted for good after ${TrashBin.KEEP_DAYS} days. Long press to pick several.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -119,9 +146,14 @@ fun TrashTab() {
                                 "Deleted ${relativeTime(item.deletedAt, container.now(), midSentence = true)}",
                                 if (left <= 1) "last day" else "$left days left",
                             ).joinToString("  ·  "),
-                            onClick = { confirmRestore = item },
-                            leading = { FileAvatar(entry, thumbnails = false) },
-                            menu = { close ->
+                            onClick = {
+                                if (selected.isEmpty()) confirmRestore = item
+                                else selected = if (item.id in selected) selected - item.id else selected + item.id
+                            },
+                            onLongClick = { selected = if (item.id in selected) selected - item.id else selected + item.id },
+                            selected = item.id in selected,
+                            leading = { FileAvatar(entry, selected = item.id in selected, thumbnails = false) },
+                            menu = if (selected.isNotEmpty()) null else { close ->
                                 DropdownMenuItem(
                                     text = { Text("Restore") },
                                     leadingIcon = { Icon(Icons.Rounded.RestoreFromTrash, null) },
@@ -131,7 +163,7 @@ fun TrashTab() {
                                 DropdownMenuItem(
                                     text = { Text("Delete permanently") },
                                     leadingIcon = { Icon(Icons.Rounded.DeleteForever, null) },
-                                    onClick = { close(); confirmDelete = item },
+                                    onClick = { close(); confirmDelete = listOf(item) },
                                 )
                             },
                         )
@@ -161,13 +193,21 @@ fun TrashTab() {
             dismissButton = { TextButton(onClick = { confirmRestore = null }) { Text("Cancel") } },
         )
     }
-    confirmDelete?.let { item ->
+    confirmDelete?.let { doomed ->
+        val single = doomed.singleOrNull()
+        val inside = if (doomed.any { it.isDirectory }) ", with everything inside" else ""
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
             icon = { Icon(Icons.Rounded.DeleteForever, null) },
-            title = { Text("Delete ${item.name} permanently?") },
-            text = { Text("It will be deleted for good${if (item.isDirectory) ", with everything inside" else ""}. This can't be undone.") },
-            confirmButton = { TextButton(onClick = { confirmDelete = null; ops.deleteForever(listOf(item)) }) { Text("Delete") } },
+            title = { Text("Delete ${single?.name ?: ops.items(doomed.size)} permanently?") },
+            text = { Text("${if (single != null) "It" else "They"} will be deleted for good$inside. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = null
+                    selected = emptySet()
+                    ops.deleteForever(doomed)
+                }) { Text("Delete") }
+            },
             dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
         )
     }

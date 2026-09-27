@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Seren Files</string>
+    <string name="save_to_files">Save to Seren Files</string>
 
     <plurals name="items">
         <item quantity="one">%d item</item>

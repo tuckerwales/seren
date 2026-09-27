@@ -237,4 +237,68 @@ class FileOpsTest {
         assertTrue(FileOps.isInside(File("/storage/emulated/0"), File("/storage/emulated/0/")))
         assertFalse(FileOps.isInside(File("/storage/emulated/01/x"), File("/storage/emulated/0")))
     }
+
+    @Test
+    fun copyingNeedsRoomForItAll() = runBlocking {
+        val big = temp.file("Download/film.mp4", "x".repeat(3 * 1024 * 1024))
+        val small = temp.file("Download/notes.txt", "x".repeat(1000))
+        val card = temp.dir("SD card")
+        try {
+            FileOps.plan(listOf(big, small), card, move = false, freeBytes = 2 * 1024 * 1024)
+            fail()
+        } catch (e: IOException) {
+            assertEquals("Not enough space in SD card. It needs 3.0 MB, and 2.0 MB is free.", e.message)
+        }
+        // Moving between volumes copies, so it needs the room too.
+        try {
+            FileOps.plan(listOf(big), card, move = true, freeBytes = 1024 * 1024)
+            fail()
+        } catch (e: IOException) {
+            assertTrue(e.message!!.startsWith("Not enough space"))
+        }
+        // Moves on the same volume are renames, and only what leaves the volume is counted.
+        assertEquals(3 * 1024 * 1024 + 1000L, FileOps.plan(listOf(big, small), card, move = true, freeBytes = 1, sameVolume = { true }).totalBytes)
+        FileOps.plan(listOf(big, small), card, move = true, freeBytes = 2000, sameVolume = { it == big })
+        // Free space that can't be told doesn't stop anything.
+        FileOps.plan(listOf(big), card, move = false, freeBytes = 0)
+        Unit
+    }
+
+    @Test
+    fun namesFromOtherAppsAreMadeSafe() {
+        assertEquals("Shared file", FileOps.safeName(null))
+        assertEquals("Shared file", FileOps.safeName(" .. "))
+        assertEquals("a_b.txt", FileOps.safeName("a/b.txt"))
+        val long = FileOps.safeName("x".repeat(300) + ".jpeg")
+        assertEquals(255, long.toByteArray().size)
+        assertTrue(long.endsWith("x.jpeg"))
+        // Cut at whole characters, never in the middle of one.
+        val welsh = FileOps.safeName("ŵ".repeat(200) + ".txt")
+        assertTrue(welsh.toByteArray().size <= 255)
+        assertTrue(welsh.endsWith("ŵ.txt"))
+    }
+
+    @Test
+    fun savingNeverReplacesAndLeavesNothingWhenItFails() = runBlocking {
+        val dir = temp.dir("Download")
+        temp.file("Download/notes.txt", "old")
+        var progress = 0L
+        val saved = FileOps.save("new".byteInputStream(), dir, "notes.txt") { progress = it }
+        assertEquals("notes (1).txt", saved.name)
+        assertEquals("new", saved.readText())
+        assertEquals("old", File(dir, "notes.txt").readText())
+        assertEquals(3L, progress)
+
+        val failing = object : java.io.InputStream() {
+            var sent = 0
+            override fun read(): Int = if (sent++ < 10) 'x'.code else throw IOException("The other app stopped")
+        }
+        try {
+            FileOps.save(failing, dir, "broken.bin")
+            fail()
+        } catch (e: IOException) {
+            assertEquals("The other app stopped", e.message)
+        }
+        assertEquals(listOf("Download/", "Download/notes (1).txt", "Download/notes.txt"), temp.tree())
+    }
 }

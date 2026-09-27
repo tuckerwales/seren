@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import wales.tucker.seren.core.ui.Avatar
 import wales.tucker.seren.core.ui.theme.accentColor
+import wales.tucker.seren.files.fs.Category
 import wales.tucker.seren.files.fs.FileEntry
 import wales.tucker.seren.files.fs.FileKind
 import wales.tucker.seren.files.fs.FileTypes
@@ -51,6 +53,29 @@ val FileKind.icon: ImageVector
         FileKind.ARCHIVE -> Icons.Rounded.FolderZip
         FileKind.APP -> Icons.Rounded.Android
         FileKind.OTHER -> Icons.AutoMirrored.Rounded.InsertDriveFile
+    }
+
+/** Each category looks like the kind of file it gathers; large files get a storage icon. */
+val Category.icon: ImageVector
+    get() = when (this) {
+        Category.IMAGES -> FileKind.IMAGE.icon
+        Category.VIDEOS -> FileKind.VIDEO.icon
+        Category.AUDIO -> FileKind.AUDIO.icon
+        Category.DOCUMENTS -> FileKind.DOCUMENT.icon
+        Category.ARCHIVES -> FileKind.ARCHIVE.icon
+        Category.APPS -> FileKind.APP.icon
+        Category.LARGE -> Icons.Rounded.Storage
+    }
+
+val Category.accent: Color
+    get() = when (this) {
+        Category.IMAGES -> FileKind.IMAGE.accent
+        Category.VIDEOS -> FileKind.VIDEO.accent
+        Category.AUDIO -> FileKind.AUDIO.accent
+        Category.DOCUMENTS -> FileKind.DOCUMENT.accent
+        Category.ARCHIVES -> FileKind.ARCHIVE.accent
+        Category.APPS -> FileKind.APP.accent
+        Category.LARGE -> FileKind.OTHER.accent
     }
 
 /** Each kind keeps one accent from the suite palette, so a kind of file always looks the same. */

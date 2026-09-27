@@ -19,6 +19,8 @@ data class Settings(
     val sortOrder: SortOrder = SortOrder(),
     val showHidden: Boolean = false,
     val showThumbnails: Boolean = true,
+    /** Folders show a grid of large thumbnails and icons instead of a list. */
+    val gridView: Boolean = false,
     /** Deleting moves things to the trash for 30 days rather than deleting them straight away. */
     val useTrash: Boolean = true,
     val appLock: Boolean = false,
@@ -35,6 +37,7 @@ class SettingsRepository(private val context: Context) {
         val SORT_DESCENDING = booleanPreferencesKey("sort_descending")
         val SHOW_HIDDEN = booleanPreferencesKey("show_hidden")
         val SHOW_THUMBNAILS = booleanPreferencesKey("show_thumbnails")
+        val GRID_VIEW = booleanPreferencesKey("grid_view")
         val USE_TRASH = booleanPreferencesKey("use_trash")
         val APP_LOCK = booleanPreferencesKey("app_lock")
     }
@@ -50,6 +53,7 @@ class SettingsRepository(private val context: Context) {
             ),
             showHidden = p[Keys.SHOW_HIDDEN] ?: d.showHidden,
             showThumbnails = p[Keys.SHOW_THUMBNAILS] ?: d.showThumbnails,
+            gridView = p[Keys.GRID_VIEW] ?: d.gridView,
             useTrash = p[Keys.USE_TRASH] ?: d.useTrash,
             appLock = p[Keys.APP_LOCK] ?: d.appLock,
         )
@@ -63,6 +67,7 @@ class SettingsRepository(private val context: Context) {
     }
     suspend fun setShowHidden(v: Boolean) = context.dataStore.edit { it[Keys.SHOW_HIDDEN] = v }
     suspend fun setShowThumbnails(v: Boolean) = context.dataStore.edit { it[Keys.SHOW_THUMBNAILS] = v }
+    suspend fun setGridView(v: Boolean) = context.dataStore.edit { it[Keys.GRID_VIEW] = v }
     suspend fun setUseTrash(v: Boolean) = context.dataStore.edit { it[Keys.USE_TRASH] = v }
     suspend fun setAppLock(v: Boolean) = context.dataStore.edit { it[Keys.APP_LOCK] = v }
 }

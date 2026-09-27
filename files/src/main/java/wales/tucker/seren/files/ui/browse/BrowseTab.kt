@@ -53,7 +53,9 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -69,10 +71,16 @@ import wales.tucker.seren.core.ui.theme.accentColor
 import wales.tucker.seren.files.AppContainer
 import wales.tucker.seren.files.data.Bookmark
 import wales.tucker.seren.files.data.Settings
+import wales.tucker.seren.files.fs.Categories
+import wales.tucker.seren.files.fs.CategorySummary
 import wales.tucker.seren.files.fs.QuickFolders
 import wales.tucker.seren.files.fs.Volume
 import wales.tucker.seren.files.ui.Navigator
+import wales.tucker.seren.files.ui.appContainer
 import wales.tucker.seren.files.ui.common.AccessGate
+import wales.tucker.seren.files.ui.common.SaveBar
+import wales.tucker.seren.files.ui.common.accent
+import wales.tucker.seren.files.ui.common.icon
 import wales.tucker.seren.files.ui.common.displayPath
 import wales.tucker.seren.files.ui.containerViewModel
 import java.io.File
@@ -84,12 +92,20 @@ data class BrowseState(
     val volumes: List<Volume> = emptyList(),
     val folders: List<QuickFolder> = emptyList(),
     val bookmarks: List<Bookmark> = emptyList(),
+    /** Null while the device's files are still being gathered. */
+    val categories: List<CategorySummary>? = null,
 )
 
 class BrowseViewModel(private val container: AppContainer) : ViewModel() {
     private val volumes = MutableStateFlow<List<Volume>>(emptyList())
+    private val categories = MutableStateFlow<List<CategorySummary>?>(null)
+    private var categoriesJob: Job? = null
 
-    val state: StateFlow<BrowseState?> = combine(volumes, container.bookmarks.observe(), container.operations.changes) { vols, marks, _ ->
+    init {
+        viewModelScope.launch { container.operations.changes.drop(1).collect { loadCategories() } }
+    }
+
+    val state: StateFlow<BrowseState?> = combine(volumes, container.bookmarks.observe(), container.operations.changes, categories) { vols, marks, _, cats ->
         val primary = vols.firstOrNull { it.primary }
         val folders = primary?.let { v ->
             QuickFolders.mapNotNull { (name, label) ->
@@ -98,11 +114,20 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
             }
         }.orEmpty()
         // Bookmarks to folders that are gone (deleted, or in the trash) are hidden until they're back.
-        BrowseState(vols, folders, marks.filter { File(it.path).isDirectory })
+        BrowseState(vols, folders, marks.filter { File(it.path).isDirectory }, cats)
     }.flowOn(Dispatchers.IO).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun refresh() {
         viewModelScope.launch(Dispatchers.IO) { volumes.value = container.storage.volumes() }
+        loadCategories()
+    }
+
+    private fun loadCategories() {
+        if (!container.storage.hasAccess()) return
+        categoriesJob?.cancel()
+        categoriesJob = viewModelScope.launch(Dispatchers.IO) {
+            categories.value = runCatching { Categories.summarize(container.storage.allFiles()) }.getOrNull() ?: categories.value
+        }
     }
 
     fun removeBookmark(bookmark: Bookmark) {
@@ -118,6 +143,9 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
 fun BrowseTab(settings: Settings, navigator: Navigator) {
     val vm = containerViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val ops = appContainer().operations
+    val itemsText: (Int) -> String = ops::items
+    val incoming by ops.incoming.collectAsStateWithLifecycle()
     // Space and cards change while the app is away (an SD card goes in, a download finishes).
     LifecycleResumeEffect(Unit) {
         vm.refresh()
@@ -136,6 +164,9 @@ fun BrowseTab(settings: Settings, navigator: Navigator) {
         AccessGate {
             val s = state ?: return@AccessGate
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 32.dp)) {
+                incoming?.let { files ->
+                    item(key = "incoming") { SaveBar(files, itemsText, enabled = false, onSave = null, onCancel = ops::clearIncoming) }
+                }
                 item { SectionHeader("Storage") }
                 s.volumes.forEach { volume ->
                     item(key = "volume:${volume.root.path}") {
@@ -171,6 +202,19 @@ fun BrowseTab(settings: Settings, navigator: Navigator) {
                                     onClick = { close(); vm.removeBookmark(bookmark) },
                                 )
                             },
+                        )
+                    }
+                }
+                val cats = s.categories.orEmpty()
+                if (cats.isNotEmpty()) {
+                    item { SectionHeader("Categories") }
+                    itemsIndexed(cats, key = { _, c -> "category:${c.category.name}" }) { i, summary ->
+                        GroupedTile(
+                            shape = groupedShape(i, cats.size),
+                            title = summary.category.label,
+                            meta = "${itemsText(summary.count)}  ·  ${formatSize(summary.bytes)}",
+                            onClick = { navigator.openCategory(summary.category) },
+                            leading = { Avatar(summary.category.label, summary.category.accent, icon = summary.category.icon) },
                         )
                     }
                 }

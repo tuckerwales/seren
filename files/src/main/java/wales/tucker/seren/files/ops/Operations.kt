@@ -22,6 +22,8 @@ import wales.tucker.seren.files.data.TrashItem
 import wales.tucker.seren.files.fs.Archives
 import wales.tucker.seren.files.fs.ConflictPolicy
 import wales.tucker.seren.files.fs.FileOps
+import wales.tucker.seren.files.fs.Storage
+import wales.tucker.seren.files.fs.volumeFor
 import wales.tucker.seren.files.fs.TransferPlan
 import java.io.File
 import java.io.IOException
@@ -45,12 +47,18 @@ data class Message(val text: String, val action: String? = null, val onAction: (
  */
 class Operations(
     private val context: Context,
+    private val storage: Storage,
     private val trash: TrashBin,
     private val bookmarks: BookmarkDao,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
 ) {
     private val _clipboard = MutableStateFlow<FileClipboard?>(null)
     val clipboard: StateFlow<FileClipboard?> = _clipboard.asStateFlow()
+
+    private val _incoming = MutableStateFlow<List<IncomingFile>?>(null)
+
+    /** Files another app shared, waiting for the user to open a folder and save them there. */
+    val incoming: StateFlow<List<IncomingFile>?> = _incoming.asStateFlow()
 
     private val _current = MutableStateFlow<Operation?>(null)
     val current: StateFlow<Operation?> = _current.asStateFlow()
@@ -81,6 +89,44 @@ class Operations(
 
     fun clearClipboard() {
         _clipboard.value = null
+    }
+
+    fun receive(files: List<IncomingFile>) {
+        _incoming.value = files.ifEmpty { null }
+    }
+
+    fun clearIncoming() {
+        _incoming.value = null
+    }
+
+    /** Saves the files another app shared into [folder], never replacing what's there. */
+    fun saveIncoming(folder: File) {
+        val files = _incoming.value ?: return
+        runLong("Saving ${items(files.size)}") { progress ->
+            val total = files.sumOf { it.size.coerceAtLeast(0) }
+            var before = 0L
+            val saved = mutableListOf<File>()
+            var failed: Pair<String, String>? = null
+            for (file in files) {
+                try {
+                    val input = file.text?.byteInputStream()
+                        ?: file.uri?.let { context.contentResolver.openInputStream(it) }
+                        ?: throw IOException("It couldn't be read")
+                    input.use { saved += FileOps.save(it, folder, file.name) { bytes -> progress(before + bytes, total, file.name) } }
+                } catch (e: IOException) {
+                    if (failed == null) failed = file.name to (e.message ?: "It couldn't be read")
+                } catch (e: SecurityException) {
+                    if (failed == null) failed = file.name to "The app that shared it no longer allows reading it"
+                }
+                before += file.size.coerceAtLeast(0)
+            }
+            _incoming.value = null
+            val where = folder.name.ifEmpty { folder.path }
+            say(
+                failed?.let { (name, reason) -> "Couldn't save $name. $reason" }
+                    ?: "Saved ${saved.singleOrNull()?.name ?: items(saved.size)} to $where",
+            )
+        }
     }
 
     /** Runs a long job with a progress card, one at a time. */
@@ -116,7 +162,11 @@ class Operations(
 
     /** Works out a paste or drop before asking about conflicts; null (with a message) if it can't happen. */
     suspend fun plan(sources: List<File>, destination: File, move: Boolean): TransferPlan? = try {
-        withContext(Dispatchers.IO) { FileOps.plan(sources, destination, move) }
+        withContext(Dispatchers.IO) {
+            val volumes = storage.volumes()
+            val target = volumeFor(destination, volumes)
+            FileOps.plan(sources, destination, move, sameVolume = { target != null && volumeFor(it, volumes) == target })
+        }
     } catch (e: IOException) {
         say(e.message ?: "Couldn't ${if (move) "move" else "copy"} those items")
         null
@@ -232,13 +282,14 @@ class Operations(
         }
     }
 
-    fun extract(zip: File) {
-        val folder = zip.parentFile ?: return
-        val target = File(folder, FileOps.uniqueName(folder, Archives.folderNameFor(zip), isDirectory = true))
-        runLong("Extracting ${zip.name}") { progress ->
-            val total = Archives.uncompressedSize(zip)
-            Archives.extract(zip, target) { bytes -> progress(bytes, total, zip.name) }
-            say("Extracted to ${target.name}")
+    fun extract(archive: File) {
+        val folder = archive.parentFile ?: return
+        val toFile = Archives.extractsToFile(archive)
+        val target = File(folder, FileOps.uniqueName(folder, Archives.extractedName(archive), isDirectory = !toFile))
+        runLong("Extracting ${archive.name}") { progress ->
+            val total = Archives.progressTotal(archive)
+            Archives.extract(archive, target) { bytes -> progress(bytes, total, archive.name) }
+            say(if (toFile) "Extracted ${target.name}" else "Extracted to ${target.name}")
         }
     }
 

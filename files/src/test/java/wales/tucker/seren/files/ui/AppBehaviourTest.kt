@@ -3,6 +3,7 @@ package wales.tucker.seren.files.ui
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
@@ -270,5 +272,105 @@ class AppBehaviourTest {
         waitFor("Allow access to your files")
         compose.onNodeWithText("Allow access").assertExists()
         app.storage.access = true
+    }
+
+    @Test
+    fun theTrashRestoresOrDeletesSeveralAtOnce() {
+        val a = file("Documents/a.txt")
+        val b = file("Documents/b.txt")
+        val c = file("Documents/c.txt")
+        runBlocking { app.container.trash.moveToTrash(listOf(a, b, c)) }
+        waitFor("Trash")
+        compose.onNodeWithText("Trash").performClick()
+        waitFor("a.txt")
+
+        compose.onNodeWithText("a.txt").performTouchInput { longClick() }
+        waitFor("1 selected")
+        compose.onNodeWithText("b.txt").performClick()
+        waitFor("2 selected")
+        compose.onNodeWithContentDescription("Restore").performClick()
+        waitFor("Restored 2 items")
+        assertTrue(a.exists() && b.exists())
+        assertFalse(c.exists())
+
+        compose.onNodeWithText("c.txt").performTouchInput { longClick() }
+        waitFor("1 selected")
+        compose.onNodeWithContentDescription("Delete permanently").performClick()
+        waitFor("Delete c.txt permanently?")
+        dialogButton("Delete").performClick()
+        waitFor("Trash is empty")
+        assertTrue(runBlocking { app.container.trash.items.first() }.isEmpty())
+    }
+
+    @Test
+    fun gridViewShowsTilesAndPicksWithALongPress() {
+        file("Download/a.txt")
+        file("Download/b.zip")
+        File(root, "Download/Trip").mkdirs()
+        waitFor("Downloads")
+        compose.onNodeWithText("Downloads").performClick()
+        waitFor("a.txt")
+        try {
+            compose.onNodeWithContentDescription("Grid view").performClick()
+            waitUntil { runBlocking { app.container.settings.settings.first().gridView } }
+            waitUntil { compose.onAllNodes(hasContentDescription("List view")).fetchSemanticsNodes().isNotEmpty() }
+            // Tiles have no menu of their own: picking one offers everything instead.
+            assertFalse(compose.onAllNodes(hasContentDescription("More") and hasAnyAncestor(hasText("a.txt"))).fetchSemanticsNodes().isNotEmpty())
+            compose.onNodeWithText("Trip").performClick()
+            waitFor("Empty folder")
+            back()
+            waitFor("b.zip")
+            compose.onNodeWithText("b.zip").performTouchInput { longClick() }
+            waitFor("1 selected")
+            compose.onNodeWithText("More").performClick()
+            waitFor("Extract")
+            compose.onNodeWithText("Open with").assertExists()
+        } finally {
+            runBlocking { app.container.settings.setGridView(false) }
+        }
+    }
+
+    @Test
+    fun categoriesGatherFilesFromEveryFolder() {
+        file("DCIM/Camera/beach.jpg")
+        file("Download/meme.png")
+        file("Documents/cv.pdf")
+        java.io.RandomAccessFile(file("Movies/film.mkv"), "rw").use { it.setLength(wales.tucker.seren.files.fs.Categories.LARGE_BYTES * 2) }
+        waitFor("Categories")
+        waitFor("Images")
+        compose.onNodeWithText("Images").performClick()
+        waitFor("beach.jpg")
+        compose.onNodeWithText("meme.png").assertExists()
+        compose.onNodeWithText("/DCIM/Camera").assertExists()
+        assertFalse(exists("cv.pdf"))
+
+        // Deleting from a category goes to the trash like anywhere else.
+        rowMenu("meme.png").performClick()
+        compose.onNodeWithText("Delete").performClick()
+        dialogButton("Move to trash").performClick()
+        waitFor("Moved meme.png to the trash")
+        waitUntil { compose.onAllNodes(hasContentDescription("More") and hasAnyAncestor(hasText("meme.png"))).fetchSemanticsNodes().isEmpty() }
+        assertFalse(File(root, "Download/meme.png").exists())
+
+        back()
+        waitFor("Categories")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Large files"))
+        compose.onNodeWithText("Large files").performClick()
+        waitFor("film.mkv")
+        compose.onNodeWithText("Biggest first", substring = true).assertExists()
+    }
+
+    @Test
+    fun showInFolderPicksOutTheFile() {
+        file("DCIM/Camera/beach.jpg")
+        waitFor("Images")
+        compose.onNodeWithText("Images").performClick()
+        waitFor("beach.jpg")
+        rowMenu("beach.jpg").performClick()
+        compose.onNodeWithText("Show in folder").performClick()
+        waitFor("New folder")
+        // The folder's title and its breadcrumb.
+        assertEquals(2, compose.onAllNodesWithText("Camera").fetchSemanticsNodes().size)
+        compose.onNodeWithText("beach.jpg").assertExists()
     }
 }

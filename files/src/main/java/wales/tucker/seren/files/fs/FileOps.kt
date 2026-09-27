@@ -8,6 +8,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.security.MessageDigest
+import wales.tucker.seren.core.ui.formatSize
 
 /** What to do when something with the same name is already where files are going. */
 enum class ConflictPolicy {
@@ -109,9 +110,17 @@ object FileOps {
 
     /**
      * Works out copying or moving [sources] into [destination]: what will clash and how many bytes
-     * there are. Throws with a reason when it can't be done at all, such as a folder into itself.
+     * there are. Throws with a reason when it can't be done at all, such as a folder into itself,
+     * or when [destination] hasn't the [freeBytes] for what has to be written there. Moves that
+     * stay on [sameVolume] are renames, which need no space. A [freeBytes] of 0 means unknown.
      */
-    suspend fun plan(sources: List<File>, destination: File, move: Boolean): TransferPlan {
+    suspend fun plan(
+        sources: List<File>,
+        destination: File,
+        move: Boolean,
+        freeBytes: Long = destination.usableSpace,
+        sameVolume: (File) -> Boolean = { false },
+    ): TransferPlan {
         if (!destination.isDirectory) throw IOException("${destination.name} was moved or deleted")
         val destCanonical = destination.canonicalPath
         for (source in sources) {
@@ -123,7 +132,13 @@ object FileOps {
             }
         }
         val conflicts = sources.filter { it.parentFile?.canonicalPath != destCanonical && File(destination, it.name).exists() }
-        val total = sources.sumOf { measure(it).bytes }
+        val sizes = sources.associateWith { measure(it).bytes }
+        val total = sizes.values.sum()
+        val needed = sizes.filterKeys { !(move && sameVolume(it)) }.values.sum()
+        if (freeBytes in 1 until needed) {
+            val where = destination.name.ifEmpty { destination.path }
+            throw IOException("Not enough space in $where. It needs ${formatSize(needed)}, and ${formatSize(freeBytes)} is free.")
+        }
         return TransferPlan(sources, destination, move, conflicts, total)
     }
 
@@ -244,6 +259,54 @@ object FileOps {
             temp.setLastModified(source.lastModified())
             if (target.exists() && !target.delete()) throw IOException("Couldn't replace ${target.name}")
             if (!temp.renameTo(target)) throw IOException("Couldn't copy ${source.name}")
+        } catch (e: Throwable) {
+            temp.delete()
+            if (e is IOException && e.message?.contains("ENOSPC") == true) throw IOException("Not enough space")
+            throw e
+        }
+    }
+
+    /**
+     * A usable file name from one another app gave, which may be missing, have slashes in it or be
+     * too long: slashes become underscores, and a long name is cut short but keeps its extension.
+     */
+    fun safeName(raw: String?, fallback: String = "Shared file"): String {
+        var name = raw.orEmpty().replace('/', '_').replace("\u0000", "").trim()
+        if (name.isEmpty() || name == "." || name == "..") name = fallback
+        if (name.toByteArray().size <= 255) return name
+        val ext = FileTypes.extension(name).let { if (it.isEmpty() || it.length > 16) "" else ".$it" }
+        var stem = name.dropLast(ext.length)
+        while ((stem + ext).toByteArray().size > 255) stem = stem.dropLast(1)
+        return stem + ext
+    }
+
+    /**
+     * Saves what [input] holds as a new file in [dir] called [name], or "name (1)" and so on when
+     * that's taken. It's written to a hidden file first, so a failed or cancelled save leaves
+     * nothing behind. [onProgress] gets the bytes written so far.
+     */
+    suspend fun save(input: java.io.InputStream, dir: File, name: String, onProgress: (Long) -> Unit = {}): File {
+        validateName(name)?.let { throw IOException(it) }
+        if (!dir.isDirectory) throw IOException("${dir.name} was moved or deleted")
+        val temp = File(dir, uniqueName(dir, ".$name.part"))
+        try {
+            var bytes = 0L
+            FileOutputStream(temp).use { output ->
+                val buffer = ByteArray(BUFFER)
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                    bytes += read
+                    onProgress(bytes)
+                }
+                output.fd.sync()
+            }
+            // Chosen only now, so two saves of the same name can't both take it.
+            val target = File(dir, uniqueName(dir, name))
+            if (!temp.renameTo(target)) throw IOException("Couldn't save $name")
+            return target
         } catch (e: Throwable) {
             temp.delete()
             if (e is IOException && e.message?.contains("ENOSPC") == true) throw IOException("Not enough space")

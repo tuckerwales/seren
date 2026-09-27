@@ -18,10 +18,13 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.security.AppLock
 import wales.tucker.seren.core.suite.Suite
 import wales.tucker.seren.core.ui.theme.SerenTheme
+import wales.tucker.seren.files.ops.Incoming
 import wales.tucker.seren.files.ui.FilesAppUi
 
 class MainActivity : FragmentActivity() {
@@ -80,9 +83,21 @@ class MainActivity : FragmentActivity() {
 
     @VisibleForTesting
     internal fun handleIntent(intent: Intent?) {
-        if (intent?.action != Suite.ACTION_REVEAL) return
-        val uri = intent.data ?: return
-        reveals.trySend(RevealRequest(uri, intent.getStringExtra(Suite.EXTRA_DISPLAY_NAME)))
+        when (intent?.action) {
+            Suite.ACTION_REVEAL -> {
+                val uri = intent.data ?: return
+                reveals.trySend(RevealRequest(uri, intent.getStringExtra(Suite.EXTRA_DISPLAY_NAME)))
+            }
+            // "Save to Seren Files" from the share sheet: people then open a folder and save there.
+            Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> lifecycleScope.launch {
+                val files = withContext(Dispatchers.IO) { Incoming.fromIntent(this@MainActivity, intent, container.storage.volumes()) }
+                if (files.isEmpty()) {
+                    container.operations.tell("There's nothing Seren Files can save in what was shared")
+                } else {
+                    container.operations.receive(files)
+                }
+            }
+        }
     }
 
     override fun onStop() {

@@ -43,6 +43,18 @@ object Search {
         return found.sortedByDescending { it.modified }.take(limit)
     }
 
+    /** Every file under [roots], skipping hidden ones and apps' private Android folder. Used when the media store can't answer. */
+    suspend fun allFiles(roots: List<File>): List<FileEntry> {
+        val found = mutableListOf<FileEntry>()
+        for (root in roots) {
+            walk(root, showHidden = false) { file ->
+                if (!file.isDirectory) found += FileEntry.of(file)
+                true
+            }
+        }
+        return found
+    }
+
     /**
      * Visits everything under [root] breadth first, calling [visit] for each item until it returns
      * false. Links to folders are not followed, so a loop can't trap the walk.

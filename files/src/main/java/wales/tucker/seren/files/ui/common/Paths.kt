@@ -1,12 +1,8 @@
 package wales.tucker.seren.files.ui.common
 
-import wales.tucker.seren.files.fs.FileOps
 import wales.tucker.seren.files.fs.Volume
+import wales.tucker.seren.files.fs.volumeFor
 import java.io.File
-
-/** The volume [file] is on, or null if it's outside them all. */
-fun volumeFor(file: File, volumes: List<Volume>): Volume? =
-    volumes.filter { FileOps.isInside(file, it.root) }.maxByOrNull { it.root.path.length }
 
 /**
  * Where [file] is, the way people read it: "/Download/Photos" on internal storage, "SD card/Photos"

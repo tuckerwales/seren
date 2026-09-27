@@ -20,6 +20,6 @@ class AppContainer(
     val settings = SettingsRepository(context)
     val bookmarks = database.bookmarks()
     val trash = TrashBin(database.trash(), storage, now)
-    val operations = Operations(this.context, trash, bookmarks)
+    val operations = Operations(this.context, storage, trash, bookmarks)
     val thumbnails = Thumbnails()
 }

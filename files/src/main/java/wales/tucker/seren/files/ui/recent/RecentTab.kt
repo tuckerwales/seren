@@ -9,15 +9,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -27,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,7 +46,7 @@ import wales.tucker.seren.files.ui.common.AccessGate
 import wales.tucker.seren.files.ui.common.DetailsDialog
 import wales.tucker.seren.files.ui.common.FileRow
 import wales.tucker.seren.files.ui.common.Opener
-import wales.tucker.seren.files.ui.common.SerenFileMenuItems
+import wales.tucker.seren.files.ui.common.FoundFileMenuItems
 import wales.tucker.seren.files.ui.common.displayPath
 import wales.tucker.seren.files.ui.containerViewModel
 import java.util.Calendar
@@ -147,17 +140,7 @@ fun RecentTab(settings: Settings, navigator: Navigator) {
                                     if (!Opener.open(context, entry.file)) messenger.show("No app on this device can open ${entry.name}")
                                 },
                                 menu = { close ->
-                                    @Composable
-                                    fun item(text: String, icon: ImageVector, action: () -> Unit) {
-                                        DropdownMenuItem(text = { Text(text) }, leadingIcon = { Icon(icon, null) }, onClick = { close(); action() })
-                                    }
-                                    item("Open with", Icons.AutoMirrored.Rounded.OpenInNew) {
-                                        if (!Opener.open(context, entry.file, choose = true)) messenger.show("No app on this device can open ${entry.name}")
-                                    }
-                                    SerenFileMenuItems(entry, close)
-                                    item("Share", Icons.Rounded.Share) { Opener.share(context, listOf(entry.file)) }
-                                    item("Show in folder", Icons.Rounded.FolderOpen) { entry.file.parentFile?.let(navigator.openFolder) }
-                                    item("Details", Icons.Rounded.Info) { details = entry }
+                                    FoundFileMenuItems(entry, close, navigator, onDetails = { details = entry })
                                 },
                             )
                         }

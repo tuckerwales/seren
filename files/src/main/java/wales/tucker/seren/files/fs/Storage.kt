@@ -27,6 +27,10 @@ data class Volume(
     val usedBytes: Long get() = (totalBytes - freeBytes).coerceAtLeast(0)
 }
 
+/** The volume [file] is on, or null if it's outside them all. */
+fun volumeFor(file: File, volumes: List<Volume>): Volume? =
+    volumes.filter { FileOps.isInside(file, it.root) }.maxByOrNull { it.root.path.length }
+
 /** The device's storage, behind an interface so tests can point Seren Files at a folder. */
 interface Storage {
     /** Whether Seren Files may read and write shared storage. */
@@ -37,6 +41,9 @@ interface Storage {
 
     /** Files changed at or after [since], newest first. */
     suspend fun recent(since: Long, limit: Int): List<FileEntry>
+
+    /** Every file on every volume, except hidden ones, for finding them by category. */
+    suspend fun allFiles(): List<FileEntry> = Search.allFiles(volumes().map { it.root })
 }
 
 /** The folders people look for first, relative to internal storage, in the order they're shown. */
@@ -81,6 +88,40 @@ class AndroidStorage(private val context: Context) : Storage {
 
     override suspend fun recent(since: Long, limit: Int): List<FileEntry> = withContext(Dispatchers.IO) {
         fromMediaStore(since, limit) ?: Search.recentlyChanged(volumes().map { it.root }, since, limit)
+    }
+
+    override suspend fun allFiles(): List<FileEntry> = withContext(Dispatchers.IO) {
+        allFromMediaStore() ?: Search.allFiles(volumes().map { it.root })
+    }
+
+    /**
+     * Every file the media store knows, from its own record of each file's size and date, so
+     * nothing has to be read from storage. Files it lists that have since gone are dropped when a
+     * category is shown.
+     */
+    @Suppress("DEPRECATION") // DATA is the only way to get a path, and works with all files access.
+    private fun allFromMediaStore(): List<FileEntry>? {
+        val projection = arrayOf(MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.SIZE, MediaStore.MediaColumns.DATE_MODIFIED)
+        // Folders have no type; large files of a type Android doesn't know still count.
+        val selection = "${MediaStore.MediaColumns.MIME_TYPE} IS NOT NULL OR ${MediaStore.MediaColumns.SIZE} >= ?"
+        val cursor = runCatching {
+            context.contentResolver.query(
+                MediaStore.Files.getContentUri("external"),
+                projection,
+                selection,
+                arrayOf(Categories.LARGE_BYTES.toString()),
+                null,
+            )
+        }.getOrNull() ?: return null
+        val found = mutableListOf<FileEntry>()
+        cursor.use {
+            while (it.moveToNext()) {
+                val path = it.getString(0) ?: continue
+                if (path.contains("/.")) continue
+                found += FileEntry(path, path.substringAfterLast('/'), isDirectory = false, size = it.getLong(1), modified = it.getLong(2) * 1000)
+            }
+        }
+        return found
     }
 
     /** The media store indexes every file on shared storage, so asking it is far quicker than walking. */

@@ -224,7 +224,12 @@ class TerminalSession(
                 screenListener?.invoke()
             }
             val status = sh.exitStatus
-            if (status >= 0) reason = "Session ended (exit status $status)"
+            if (status >= 0) {
+                reason = "Session ended (exit status $status)"
+            } else {
+                // The shell only sees its stream end: say why the connection under it went.
+                connection?.lostBecause?.let { reason = "Connection lost: $it" }
+            }
         } catch (e: IOException) {
             reason = e.message?.let { "Connection lost: $it" } ?: "Connection lost"
         }

@@ -153,6 +153,7 @@ fun HostsTab(
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<Host?>(null) }
+    var alreadyOpen by remember { mutableStateOf<Pair<Host, TerminalSession>?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberLazyListState()
     LaunchedEffect(quickConnectPrefill) {
@@ -268,7 +269,14 @@ fun HostsTab(
                         host = host,
                         shape = groupedShape(index, list.size),
                         connected = host.id in connectedHostIds,
-                        onClick = { onConnect(host) },
+                        onClick = {
+                            // Offer the newest live session to this host rather than silently
+                            // opening a second one.
+                            val live = sessions.lastOrNull {
+                                it.spec.hostId == host.id && (it.state.value == SessionState.Connected || it.state.value == SessionState.Connecting)
+                            }
+                            if (live != null) alreadyOpen = host to live else onConnect(host)
+                        },
                         onEdit = { onEditHost(host.id, false) },
                         onDuplicate = { onEditHost(host.id, true) },
                         onDelete = { pendingDelete = host },
@@ -276,6 +284,20 @@ fun HostsTab(
                 }
             }
         }
+    }
+
+    alreadyOpen?.let { (host, session) ->
+        AlertDialog(
+            onDismissRequest = { alreadyOpen = null },
+            title = { Text("${host.displayName} is already open") },
+            text = { Text("Switch to the open session, or start another one alongside it.") },
+            confirmButton = {
+                TextButton(onClick = { alreadyOpen = null; onOpenSession(session.id) }) { Text("Switch to it") }
+            },
+            dismissButton = {
+                TextButton(onClick = { alreadyOpen = null; onConnect(host) }) { Text("New session") }
+            },
+        )
     }
 
     pendingDelete?.let { host ->

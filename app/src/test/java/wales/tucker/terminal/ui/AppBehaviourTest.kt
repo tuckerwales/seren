@@ -197,4 +197,24 @@ class AppBehaviourTest {
         compose.onNodeWithText("Show all").performClick()
         compose.waitUntil(5_000) { runBlocking { container.settings.settings.first().hiddenExtraKeys }.isEmpty() }
     }
+
+    @Test
+    fun tappingAnOpenHostOffersToSwitchToIt() {
+        assumeTrue("SSH_TEST_HOST not set", sshHost != null)
+        JschAndroidConfig.apply()
+        val host = runBlocking {
+            val id = container.database.hostDao().insert(Host(nickname = "test-server", hostname = sshHost!!, port = sshPort, username = sshUser))
+            container.database.hostDao().get(id)!!
+        }
+        // Left waiting at the host key prompt, so it stays connecting.
+        val session = runBlocking { container.sessionManager.open(host) }
+        pollUntil("host row") { exists("test-server") && exists("Waiting for your input") }
+
+        // The first match is the session card; the second is the host row.
+        compose.onAllNodesWithText("test-server")[1].performClick()
+        pollUntil("already open dialog") { exists("is already open") }
+        compose.onNodeWithText("Switch to it").performClick()
+        pollUntil("terminal") { exists("Trust and connect") }
+        assertEquals(listOf(session), container.sessionManager.sessions.value)
+    }
 }

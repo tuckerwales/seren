@@ -102,11 +102,13 @@ class MainActivity : FragmentActivity() {
 
     override fun onStop() {
         super.onStop()
+        container.appVisible = false
         stoppedAt = SystemClock.elapsedRealtime()
     }
 
     override fun onStart() {
         super.onStart()
+        container.appVisible = true
         if (stoppedAt > 0 && SystemClock.elapsedRealtime() - stoppedAt > AppLock.TIMEOUT_MS) {
             lifecycleScope.launch {
                 if (container.settings.settings.first().appLock && canAuthenticate()) {

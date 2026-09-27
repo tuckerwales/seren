@@ -22,4 +22,8 @@ class AppContainer(
     val trash = TrashBin(database.trash(), storage, now)
     val operations = Operations(this.context, storage, trash, bookmarks)
     val thumbnails = Thumbnails()
+
+    /** Whether Seren Files is on screen, so a finished job only notifies when people are elsewhere. */
+    @Volatile
+    var appVisible = false
 }

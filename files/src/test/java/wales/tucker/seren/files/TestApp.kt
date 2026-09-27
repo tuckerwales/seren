@@ -11,10 +11,13 @@ import java.nio.file.Files
 class TestStorage(val root: File) : Storage {
     var access = true
 
+    /** Where internal storage is, when a test needs it somewhere other than [root]. */
+    var volumeRoot: File? = null
+
     override fun hasAccess(): Boolean = access
 
     override fun volumes(): List<Volume> =
-        listOf(Volume("Internal storage", root, primary = true, totalBytes = 128L shl 30, freeBytes = 41_234_567_890L))
+        listOf(Volume("Internal storage", volumeRoot ?: root, primary = true, totalBytes = 128L shl 30, freeBytes = 41_234_567_890L))
 
     override suspend fun recent(since: Long, limit: Int): List<FileEntry> = Search.recentlyChanged(listOf(root), since, limit)
 }

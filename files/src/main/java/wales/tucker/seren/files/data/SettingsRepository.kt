@@ -24,6 +24,8 @@ data class Settings(
     /** Deleting moves things to the trash for 30 days rather than deleting them straight away. */
     val useTrash: Boolean = true,
     val appLock: Boolean = false,
+    /** Whether Seren Files has asked to show progress notifications, which it does only once. */
+    val askedNotifications: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -40,6 +42,7 @@ class SettingsRepository(private val context: Context) {
         val GRID_VIEW = booleanPreferencesKey("grid_view")
         val USE_TRASH = booleanPreferencesKey("use_trash")
         val APP_LOCK = booleanPreferencesKey("app_lock")
+        val ASKED_NOTIFICATIONS = booleanPreferencesKey("asked_notifications")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -56,6 +59,7 @@ class SettingsRepository(private val context: Context) {
             gridView = p[Keys.GRID_VIEW] ?: d.gridView,
             useTrash = p[Keys.USE_TRASH] ?: d.useTrash,
             appLock = p[Keys.APP_LOCK] ?: d.appLock,
+            askedNotifications = p[Keys.ASKED_NOTIFICATIONS] ?: d.askedNotifications,
         )
     }
 
@@ -70,4 +74,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGridView(v: Boolean) = context.dataStore.edit { it[Keys.GRID_VIEW] = v }
     suspend fun setUseTrash(v: Boolean) = context.dataStore.edit { it[Keys.USE_TRASH] = v }
     suspend fun setAppLock(v: Boolean) = context.dataStore.edit { it[Keys.APP_LOCK] = v }
+    suspend fun setAskedNotifications(v: Boolean) = context.dataStore.edit { it[Keys.ASKED_NOTIFICATIONS] = v }
 }

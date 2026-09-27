@@ -2,6 +2,7 @@ package wales.tucker.seren.files.ui
 
 import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,7 +21,9 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -89,6 +92,7 @@ fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveal
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         granted = container.storage.hasAccess()
     }
+    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val access = StorageAccessState(granted) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val intents = listOfNotNull(AndroidStorage.accessSettingsIntent(context), AndroidStorage.allAccessSettingsIntent())
@@ -113,6 +117,16 @@ fun FilesAppUi(settings: Settings, locked: Boolean, onUnlock: () -> Unit, reveal
         }
         LaunchedEffect(Unit) {
             container.operations.messages.collect { messenger.show(it.text, it.action, it.onAction) }
+        }
+        // The first long job is when a progress notification first matters, so ask then, once.
+        val busy = container.operations.current.collectAsStateWithLifecycle().value != null
+        LaunchedEffect(busy) {
+            if (busy && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !settings.askedNotifications &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                container.settings.setAskedNotifications(true)
+                notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
         // Another Seren app asked to show a file: open its folder with it picked out.
         LaunchedEffect(Unit) {

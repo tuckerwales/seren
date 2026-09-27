@@ -1,6 +1,7 @@
 package wales.tucker.seren.files.ops
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -130,7 +131,8 @@ class Operations(
     }
 
     /** Runs a long job with a progress card, one at a time. */
-    private fun runLong(
+    @VisibleForTesting
+    internal fun runLong(
         title: String,
         countsItems: Boolean = false,
         block: suspend (progress: (done: Long, total: Long, detail: String) -> Unit) -> Unit,

@@ -26,6 +26,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import wales.tucker.seren.ssh.SessionLink
 import wales.tucker.seren.ssh.MainActivity
 import wales.tucker.seren.ssh.SshLink
 import wales.tucker.seren.ssh.SerenApp
@@ -153,7 +154,7 @@ class AppBehaviourTest {
         val session = runBlocking { container.sessionManager.openQuick("user", "127.0.0.1", 1) }
         compose.waitForIdle()
         assertFalse(exists("Couldn't connect"))
-        compose.activity.sessionLinks.trySend(session.id)
+        compose.activity.sessionLinks.trySend(SessionLink(session.id))
         pollUntil("terminal") { exists("Couldn't connect") }
     }
 

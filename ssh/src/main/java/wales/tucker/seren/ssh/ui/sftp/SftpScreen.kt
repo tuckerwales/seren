@@ -7,6 +7,7 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.text.format.Formatter
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -73,6 +74,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,6 +88,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
@@ -101,11 +106,11 @@ import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.ui.EmptyState
 import wales.tucker.seren.core.ui.theme.MonoSmall
 import wales.tucker.seren.ssh.AppContainer
+import wales.tucker.seren.ssh.session.SftpTransferNotifier
 import wales.tucker.seren.ssh.session.TerminalSession
 import wales.tucker.seren.ssh.ssh.RemoteFile
 import wales.tucker.seren.ssh.ssh.SftpClient
 import wales.tucker.seren.ssh.ui.common.appContainer
-import wales.tucker.seren.ssh.ui.common.containerViewModel
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
@@ -123,8 +128,9 @@ data class Transfer(val name: String, val upload: Boolean, val done: Long, val t
 /** A finished download: where it was saved, for "Show in Seren Files". */
 data class Download(val uri: Uri, val name: String)
 
-class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
+class SftpViewModel(private val container: AppContainer, private val sessionId: Int) : ViewModel() {
     val session: TerminalSession? = container.sessionManager.get(sessionId)
+    private val notifier: SftpTransferNotifier = container.transferNotifier
     private var client: SftpClient? = null
 
     private val _path = MutableStateFlow<String?>(null)
@@ -279,32 +285,36 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
         val s = session ?: return
         if (transferBusy()) return
         transferJob = viewModelScope.launch {
-            _transfer.value = Transfer(file.name, upload = false, done = 0, total = file.size)
+            publishTransfer(Transfer(file.name, upload = false, done = 0, total = file.size))
             var c: SftpClient? = null
             var complete = false
+            var resultMessage: String? = null
             try {
                 val channel = s.openSftpChannel().also { c = it }
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { out ->
                         channel.download(file.path, out) { done, total ->
-                            _transfer.value = Transfer(file.name, false, done, if (total > 0) total else file.size)
+                            publishTransfer(Transfer(file.name, false, done, if (total > 0) total else file.size))
                         }
                     } ?: throw IllegalStateException("Cannot write to destination")
                 }
                 complete = true
+                resultMessage = "Downloaded ${file.name}"
                 downloads.tryEmit(Download(uri, file.name))
             } catch (e: CancellationException) {
-                messages.tryEmit("Download cancelled")
+                resultMessage = "Download cancelled"
+                messages.tryEmit(resultMessage)
                 throw e
             } catch (e: Exception) {
-                messages.tryEmit("Download failed: ${e.message}")
+                resultMessage = "Download failed: ${e.message}"
+                messages.tryEmit(resultMessage)
             } finally {
                 // Don't leave a truncated file behind in the destination folder.
                 if (!complete) withContext(NonCancellable + Dispatchers.IO) {
                     runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
                 }
                 c?.close()
-                _transfer.value = null
+                endTransfer(resultMessage)
             }
         }
     }
@@ -364,6 +374,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
             // Volatile-style flag: progress callbacks may run on the SFTP thread.
             val written = java.util.concurrent.atomic.AtomicBoolean(false)
             var complete = false
+            var resultMessage: String? = null
             try {
                 val channel = s.openSftpChannel().also { c = it }
                 var size = -1L
@@ -375,7 +386,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                         }
                     }
                 }
-                _transfer.value = Transfer(name, upload = true, done = 0, total = size)
+                publishTransfer(Transfer(name, upload = true, done = 0, total = size))
                 // ContentResolver streams are binder-backed and must be drained on the thread that
                 // opened them. JSch reads the upload on SftpClient's dedicated thread, so copy
                 // into memory (tiny/normal files) or a cache file first.
@@ -385,19 +396,22 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                     source.open().use { input ->
                         channel.upload(input, remotePath, source.size) { done, _ ->
                             if (done > 0) written.set(true)
-                            _transfer.value = Transfer(name, true, done, source.size)
+                            publishTransfer(Transfer(name, true, done, source.size))
                         }
                     }
                 } finally {
                     source.cleanup()
                 }
                 complete = true
-                messages.tryEmit("Uploaded $name")
+                resultMessage = "Uploaded $name"
+                messages.tryEmit(resultMessage)
             } catch (e: CancellationException) {
-                messages.tryEmit("Upload cancelled")
+                resultMessage = "Upload cancelled"
+                messages.tryEmit(resultMessage)
                 throw e
             } catch (e: Exception) {
-                messages.tryEmit("Upload failed: ${e.message}")
+                resultMessage = "Upload failed: ${e.message}"
+                messages.tryEmit(resultMessage)
             } finally {
                 val partial = target
                 val ch = c
@@ -409,7 +423,7 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                 }
                 // Close after any cleanup ops so we do not yank the pipe out from under them.
                 c?.close()
-                _transfer.value = null
+                endTransfer(resultMessage)
                 // Refresh only while the SSH session is still up; otherwise the connection-lost
                 // card already explains why the folder cannot reload.
                 if (s.isConnected) refresh()
@@ -418,6 +432,19 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
         transferJob?.invokeOnCompletion { cause ->
             viewModelScope.launch { if (cause is CancellationException) queue.clear() else uploadNext() }
         }
+    }
+
+
+    private fun publishTransfer(t: Transfer?) {
+        _transfer.value = t
+        if (t == null) return
+        val id = session?.id ?: sessionId
+        notifier.update(t.name, t.upload, t.done, t.total, id, onCancel = { cancelTransfer() })
+    }
+
+    private fun endTransfer(message: String?) {
+        _transfer.value = null
+        notifier.finish(message)
     }
 
     private fun transferBusy(): Boolean {
@@ -429,6 +456,13 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     fun cancelTransfer() {
         queue.clear()
         transferJob?.cancel()
+    }
+
+    override fun onCleared() {
+        // Don't close the session's shared browsing channel; the session owns that.
+        cancelTransfer()
+        notifier.clear()
+        super.onCleared()
     }
 }
 
@@ -496,7 +530,14 @@ fun SftpScreen(
     incoming: SharedFiles? = null,
     onIncomingHandled: () -> Unit = {},
 ) {
-    val vm = containerViewModel(key = "sftp-$sessionId") { SftpViewModel(it, sessionId) }
+    val activity = LocalContext.current as ComponentActivity
+    val container = appContainer()
+    // Activity-scoped so an upload keeps going (and updating its notification) after leaving Files.
+    val vm: SftpViewModel = viewModel(
+        viewModelStoreOwner = activity,
+        key = "sftp-$sessionId",
+        factory = viewModelFactory { initializer { SftpViewModel(container, sessionId) } },
+    )
     val sessions by appContainer().sessionManager.sessions.collectAsStateWithLifecycle()
     val closed = sessions.none { it.id == sessionId }
     LaunchedEffect(closed) { if (closed) onBack() }
@@ -515,6 +556,10 @@ fun SftpScreen(
     var deleting by remember { mutableStateOf<RemoteFile?>(null) }
     var pendingDownload by remember { mutableStateOf<RemoteFile?>(null) }
 
+    DisposableEffect(Unit) {
+        container.transferNotifier.sftpVisible = true
+        onDispose { container.transferNotifier.sftpVisible = false }
+    }
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
     val filesInstalled by rememberUpdatedState(rememberInstalled(SuiteApp.FILES))
     LaunchedEffect(Unit) {
@@ -555,12 +600,9 @@ fun SftpScreen(
         if (uri != null) vm.requestUpload(uri, context)
     }
 
-    var confirmLeave by remember { mutableStateOf(false) }
-    val leave = { if (transfer != null) confirmLeave = true else onBack() }
+    val leave = { onBack() }
     val canGoBack by vm.canGoBack.collectAsStateWithLifecycle()
     BackHandler(enabled = canGoBack) { vm.back() }
-    // Declared last so it takes precedence while a transfer is running.
-    BackHandler(enabled = transfer != null) { confirmLeave = true }
 
     val visible = if (showHidden) files else files.filterNot { it.name.startsWith(".") }
 
@@ -683,21 +725,6 @@ fun SftpScreen(
             text = { Text("A file with this name already exists in this folder. Uploading will overwrite it.") },
             confirmButton = { TextButton(onClick = { vm.confirmReplace(context) }) { Text("Replace") } },
             dismissButton = { TextButton(onClick = { vm.dismissReplace() }) { Text("Cancel") } },
-        )
-    }
-    if (confirmLeave) {
-        AlertDialog(
-            onDismissRequest = { confirmLeave = false },
-            title = { Text("Cancel transfer?") },
-            text = { Text("Leaving this screen stops the ${if (transfer?.upload == true) "upload" else "download"} in progress.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmLeave = false
-                    vm.cancelTransfer()
-                    onBack()
-                }) { Text("Cancel transfer") }
-            },
-            dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Keep going") } },
         )
     }
     deleting?.let { f ->

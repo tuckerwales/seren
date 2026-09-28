@@ -43,7 +43,7 @@ android {
         unitTests.all {
             it.systemProperty("roborazzi.test.record", "true")
             it.systemProperty("robolectric.graphicsMode", "NATIVE")
-            it.maxHeapSize = "3g"
+            it.maxHeapSize = "1536m"
         }
     }
 }

@@ -60,6 +60,11 @@ class SuiteLinksTest {
     @Before
     fun setUp() {
         Robolectric.setupContentProvider(TestFilesProvider::class.java, TestFilesProvider.AUTHORITY)
+        // Hosts persist across methods in the shared TestApp DB; prior inserts must not leak.
+        runBlocking {
+            val hosts = container.database.hostDao()
+            hosts.all().forEach { hosts.delete(it) }
+        }
     }
 
     @After
@@ -119,9 +124,8 @@ class SuiteLinksTest {
     @Test
     fun sharingSeveralFilesNamesHowMany() {
         share(TestFilesProvider.share(app, "a.txt", "a"), TestFilesProvider.share(app, "b.txt", "b"))
-        pollUntil("upload screen") { exists("Upload 2 files") }
-        // No hosts or sessions yet.
-        assertTrue(exists("No servers yet"))
+        // Title paints before hosts finish loading (null → early return); wait for EmptyState too.
+        pollUntil("upload empty state") { exists("Upload 2 files") && exists("No servers yet") }
     }
 
     @Test

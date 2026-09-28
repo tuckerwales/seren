@@ -17,6 +17,7 @@ import wales.tucker.seren.edit.AppContainer
 import wales.tucker.seren.edit.data.RecentFile
 import wales.tucker.seren.edit.document.DecodedText
 import wales.tucker.seren.edit.document.DocumentStore
+import wales.tucker.seren.edit.document.FileOpenDecision
 import wales.tucker.seren.edit.document.FileTooLargeException
 import wales.tucker.seren.edit.document.LineEnding
 import wales.tucker.seren.edit.document.NotTextException
@@ -27,6 +28,12 @@ import java.io.FileNotFoundException
 sealed interface LoadState {
     data object Loading : LoadState
     data object Ready : LoadState
+
+    /**
+     * The file is over the soft warning size; the UI asks before reading.
+     * [size] is the reported length in bytes.
+     */
+    data class ConfirmLarge(val size: Long) : LoadState
 
     /** The file couldn't be opened; [reason] finishes the sentence "Couldn't open notes.txt." */
     data class Failed(val reason: String) : LoadState
@@ -53,6 +60,9 @@ class EditorViewModel(private val container: AppContainer, val uri: Uri) : ViewM
     var lineEnding by mutableStateOf(LineEnding.LF)
         private set
 
+    /** Set when the user confirms opening a file between the warn and hard caps. */
+    private var acceptLarge = false
+
     /** True when the text differs from the file. Reads snapshot state, so use it in derivedStateOf. */
     val isDirty: Boolean
         get() = load == LoadState.Ready && !text.text.contentEquals(savedText)
@@ -67,29 +77,52 @@ class EditorViewModel(private val container: AppContainer, val uri: Uri) : ViewM
         viewModelScope.launch { open() }
     }
 
+    /** Continue opening after the user confirms a large file. */
+    fun openLargeAnyway() {
+        if (load !is LoadState.ConfirmLarge) return
+        acceptLarge = true
+        load = LoadState.Loading
+        viewModelScope.launch { open() }
+    }
+
     private suspend fun open() {
         val store = container.documents
-        val result = runCatching {
-            val info = store.info(uri)
-            name = info.name
-            location = info.location
-            if ((info.size ?: 0) > DocumentStore.MAX_FILE_BYTES) throw FileTooLargeException(info.size ?: 0)
-            TextCodec.decode(store.read(uri))
+        val info = try {
+            store.info(uri).also {
+                name = it.name
+                location = it.location
+            }
+        } catch (e: Exception) {
+            load = failedReason(e)
+            return
         }
-        result.onSuccess { decoded ->
-            show(decoded)
-            remember()
-        }.onFailure { e ->
-            load = LoadState.Failed(
-                when (e) {
-                    is FileTooLargeException -> "It's larger than ${DocumentStore.MAX_FILE_BYTES / (1024 * 1024)} MB, the most Seren Edit can open."
-                    is NotTextException -> "It doesn't look like a text file."
-                    is FileNotFoundException, is SecurityException -> "The file was moved, deleted, or Seren Edit no longer has access to it."
-                    else -> e.message ?: e.javaClass.simpleName
-                },
-            )
+        when (DocumentStore.openDecision(info.size)) {
+            FileOpenDecision.Refuse -> {
+                load = failedReason(FileTooLargeException(info.size ?: 0))
+                return
+            }
+            FileOpenDecision.Confirm -> if (!acceptLarge) {
+                load = LoadState.ConfirmLarge(info.size ?: 0)
+                return
+            }
+            FileOpenDecision.Open -> Unit
         }
+        runCatching { TextCodec.decode(store.read(uri)) }
+            .onSuccess { decoded ->
+                show(decoded)
+                remember()
+            }
+            .onFailure { e -> load = failedReason(e) }
     }
+
+    private fun failedReason(e: Throwable): LoadState.Failed = LoadState.Failed(
+        when (e) {
+            is FileTooLargeException -> "It's larger than ${DocumentStore.MAX_FILE_BYTES / (1024 * 1024)} MB, the most Seren Edit can open."
+            is NotTextException -> "It doesn't look like a text file."
+            is FileNotFoundException, is SecurityException -> "The file was moved, deleted, or Seren Edit no longer has access to it."
+            else -> e.message ?: e.javaClass.simpleName
+        },
+    )
 
     private fun show(decoded: DecodedText) {
         encoding = decoded.encoding

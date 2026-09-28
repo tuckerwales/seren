@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.ui.LockScreen
 import wales.tucker.seren.ssh.KeyFile
+import wales.tucker.seren.ssh.SessionLink
 import wales.tucker.seren.ssh.SshLink
 import wales.tucker.seren.ssh.data.Host
 import wales.tucker.seren.ssh.data.Settings
@@ -73,7 +74,7 @@ fun TerminalAppUi(
     locked: Boolean,
     onUnlock: () -> Unit,
     deepLinks: Channel<SshLink>,
-    sessionLinks: Channel<Int>,
+    sessionLinks: Channel<SessionLink>,
     sharedFiles: Channel<List<Uri>> = Channel(),
     keyFiles: Channel<KeyFile> = Channel(),
 ) {
@@ -117,12 +118,15 @@ fun TerminalAppUi(
     }
 
     LaunchedEffect(Unit) {
-        for (id in sessionLinks) {
-            if (container.sessionManager.get(id) != null) {
-                navController.navigate(Routes.terminal(id)) {
+        for (link in sessionLinks) {
+            if (container.sessionManager.get(link.sessionId) != null) {
+                navController.navigate(Routes.terminal(link.sessionId)) {
                     // Replace any terminal (and SFTP screen) already open, as the switcher does.
                     popUpTo(Routes.TERMINAL) { inclusive = true }
                     launchSingleTop = true
+                }
+                if (link.openSftp) {
+                    navController.navigate(Routes.sftp(link.sessionId))
                 }
             }
         }

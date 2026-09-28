@@ -4,6 +4,13 @@
     <string name="terminal_content_description">Terminal</string>
     <string name="notification_channel_sessions">Active sessions</string>
     <string name="notification_channel_sessions_description">Shown while SSH sessions are open</string>
+    <string name="notification_channel_transfers">Transfers</string>
+    <string name="notification_channel_transfers_description">Progress of SFTP uploads and downloads, with Cancel</string>
+    <string name="notification_channel_transfers_done">Finished transfers</string>
+    <string name="notification_channel_transfers_done_description">How an SFTP upload or download ended, when Seren SSH wasn\'t open</string>
+    <string name="notification_uploading">Uploading %1$s</string>
+    <string name="notification_downloading">Downloading %1$s</string>
+    <string name="action_cancel_transfer">Cancel</string>
     <plurals name="notification_sessions">
         <item quantity="one">%d session</item>
         <item quantity="other">%d sessions</item>

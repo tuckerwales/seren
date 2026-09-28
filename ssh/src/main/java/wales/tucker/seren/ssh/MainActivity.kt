@@ -32,8 +32,8 @@ class MainActivity : FragmentActivity() {
     /** ssh:// links waiting to be opened by the UI. */
     val deepLinks = Channel<SshLink>(Channel.BUFFERED)
 
-    /** Sessions to show, from taps on the sessions notification. */
-    val sessionLinks = Channel<Int>(Channel.CONFLATED)
+    /** Sessions to show, from taps on the sessions or transfer notification. */
+    val sessionLinks = Channel<SessionLink>(Channel.CONFLATED)
 
     /** Files shared with Seren SSH, waiting for people to pick where to upload them. */
     val sharedFiles = Channel<List<Uri>>(Channel.CONFLATED)
@@ -120,7 +120,12 @@ class MainActivity : FragmentActivity() {
     @VisibleForTesting
     internal fun handleIntent(intent: Intent?) {
         if (intent?.hasExtra(EXTRA_SESSION_ID) == true) {
-            sessionLinks.trySend(intent.getIntExtra(EXTRA_SESSION_ID, 0))
+            sessionLinks.trySend(
+                SessionLink(
+                    sessionId = intent.getIntExtra(EXTRA_SESSION_ID, 0),
+                    openSftp = intent.getBooleanExtra(EXTRA_OPEN_SFTP, false),
+                ),
+            )
             return
         }
         when (intent?.action) {
@@ -152,6 +157,7 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_SESSION_ID = "wales.tucker.seren.ssh.SESSION_ID"
+        const val EXTRA_OPEN_SFTP = "wales.tucker.seren.ssh.OPEN_SFTP"
 
         /**
          * The files in a share: the stream extras, or the clip when an app only sets that. Only
@@ -169,6 +175,9 @@ class MainActivity : FragmentActivity() {
         }
     }
 }
+
+/** Open [sessionId], and the SFTP browser when [openSftp] is set (transfer notification). */
+data class SessionLink(val sessionId: Int, val openSftp: Boolean = false)
 
 /** A private key file to import, with its name when the app that sent it knows it. */
 data class KeyFile(val uri: Uri, val displayName: String?)

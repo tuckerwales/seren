@@ -50,14 +50,13 @@ class SessionService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        if (intent?.action == ACTION_DISCONNECT_ALL) {
-            manager.closeAll()
-        } else if (intent?.action == ACTION_RECONNECT) {
-            manager.sessions.value
+        when (intent?.action) {
+            ACTION_DISCONNECT_ALL -> manager.closeAll()
+            ACTION_RECONNECT -> manager.sessions.value
                 .filter { it.state.value is SessionState.Disconnected || it.state.value is SessionState.Failed }
                 .forEach { it.reconnect() }
-        } else {
-            startInForeground(buildNotification(manager.sessions.value.map { SessionStatus(it, it.state.value, it.prompt.value != null) }))
+            ACTION_CANCEL_TRANSFER -> (application as SerenApp).container.transferNotifier.requestCancel()
+            else -> startInForeground(buildNotification(manager.sessions.value.map { SessionStatus(it, it.state.value, it.prompt.value != null) }))
         }
         return START_NOT_STICKY
     }
@@ -151,5 +150,6 @@ class SessionService : LifecycleService() {
         const val NOTIFICATION_ID = 1
         const val ACTION_DISCONNECT_ALL = "wales.tucker.seren.ssh.DISCONNECT_ALL"
         const val ACTION_RECONNECT = "wales.tucker.seren.ssh.RECONNECT"
+        const val ACTION_CANCEL_TRANSFER = "wales.tucker.seren.ssh.CANCEL_TRANSFER"
     }
 }

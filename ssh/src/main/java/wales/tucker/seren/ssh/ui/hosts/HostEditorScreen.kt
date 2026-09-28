@@ -573,6 +573,7 @@ private fun JumpHostPicker(hosts: List<Host>, selected: Long?, onSelect: (Long?)
             onValueChange = {},
             readOnly = true,
             label = { Text("Jump host (ProxyJump)") },
+            supportingText = { Text("Nested jumps follow that host's own jump host, with cycles ignored.") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )

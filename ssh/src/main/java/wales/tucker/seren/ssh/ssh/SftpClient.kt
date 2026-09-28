@@ -46,6 +46,8 @@ data class RemoteFile(
     val size: Long,
     val modifiedAt: Long,
     val permissions: String,
+    /** Permission bits suitable for [SftpClient.chmod] (type bits masked off). */
+    val mode: Int = 0,
 )
 
 /**
@@ -97,7 +99,7 @@ class SftpClient private constructor(
 
     suspend fun stat(path: String): RemoteFile = io {
         val a = stat(path)
-        RemoteFile(path.substringAfterLast('/'), path, a.isDir, a.isLink, a.size, a.mTime * 1000L, a.permissionsString)
+        RemoteFile(path.substringAfterLast('/'), path, a.isDir, a.isLink, a.size, a.mTime * 1000L, a.permissionsString, a.permissions and 0xFFF)
     }
 
     suspend fun mkdir(path: String) = io { mkdir(path) }
@@ -199,6 +201,7 @@ class SftpClient private constructor(
         size = attrs.size,
         modifiedAt = attrs.mTime * 1000L,
         permissions = attrs.permissionsString,
+        mode = attrs.permissions and 0xFFF,
     )
 
     companion object {

@@ -26,6 +26,9 @@ data class FolderEntry(
 /** What the editor needs to know about a file before reading it. */
 data class DocumentInfo(val name: String, val location: String, val size: Long?)
 
+/** Whether a file of a given size should open, ask first, or be refused. */
+enum class FileOpenDecision { Open, Confirm, Refuse }
+
 class FileTooLargeException(val size: Long) : Exception("It's larger than Seren Edit can open")
 
 /**
@@ -53,7 +56,7 @@ class DocumentStore(private val context: Context) {
         DocumentInfo(name ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Untitled", location(uri), size)
     }
 
-    /** The file's bytes. Refuses files over [MAX_FILE_BYTES], which would be too slow to edit. */
+    /** The file's bytes. Refuses files over [MAX_FILE_BYTES] to avoid running out of memory. */
     suspend fun read(uri: Uri): ByteArray = withContext(Dispatchers.IO) {
         val input = resolver.openInputStream(uri) ?: throw FileNotFoundException("The file is no longer available")
         input.use {
@@ -160,8 +163,27 @@ class DocumentStore(private val context: Context) {
     }
 
     companion object {
-        /** The largest file Seren Edit opens; bigger ones would make typing slow. */
-        const val MAX_FILE_BYTES = 2L * 1024 * 1024
+        /**
+         * Soft warning: opening a file larger than this shows "Open anyway?" first.
+         * Logs and medium sources often sit above the old hard 2 MB refuse.
+         */
+        const val WARN_FILE_BYTES = 2L * 1024 * 1024
+
+        /**
+         * Hard refuse: larger files stay out to avoid OOM on phones. Between
+         * [WARN_FILE_BYTES] and this, the editor asks before reading.
+         */
+        const val MAX_FILE_BYTES = 16L * 1024 * 1024
+
+        /** How Seren Edit should treat a file of [size] bytes before reading it. */
+        fun openDecision(size: Long?): FileOpenDecision {
+            val bytes = size ?: 0L
+            return when {
+                bytes > MAX_FILE_BYTES -> FileOpenDecision.Refuse
+                bytes > WARN_FILE_BYTES -> FileOpenDecision.Confirm
+                else -> FileOpenDecision.Open
+            }
+        }
 
         private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
 

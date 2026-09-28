@@ -83,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import wales.tucker.seren.core.content.ContentColorSchemes
 import wales.tucker.seren.core.ui.StatusDot
+import wales.tucker.seren.core.ui.formatSize
 import wales.tucker.seren.core.ui.theme.MonoSmall
 import wales.tucker.seren.core.ui.theme.StatusColors
 import wales.tucker.seren.core.ui.theme.SystemBarAppearance
@@ -218,7 +219,7 @@ fun EditorScreen(uri: Uri, settings: Settings, onClose: () -> Unit) {
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (val load = vm.load) {
-                    LoadState.Loading -> CircularProgressIndicator(color = accent, modifier = Modifier.align(Alignment.Center))
+                    LoadState.Loading, is LoadState.ConfirmLarge -> CircularProgressIndicator(color = accent, modifier = Modifier.align(Alignment.Center))
                     is LoadState.Failed -> OpenFailed(vm.name, load.reason, fg, onRetry = vm::retry, onClose = ::leave)
                     LoadState.Ready -> CodeEditor(
                         state = vm.text,
@@ -277,6 +278,23 @@ fun EditorScreen(uri: Uri, settings: Settings, onClose: () -> Unit) {
                 }) { Text("Discard") }
             },
             dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep editing") } },
+        )
+    }
+
+    val large = vm.load
+    if (large is LoadState.ConfirmLarge) {
+        AlertDialog(
+            onDismissRequest = { leave() },
+            title = { Text("Open large file?") },
+            text = {
+                Text(
+                    "${vm.name} is ${formatSize(large.size)}. Editing large files can be slow on this device.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.openLargeAnyway() }) { Text("Open anyway") }
+            },
+            dismissButton = { TextButton(onClick = { leave() }) { Text("Cancel") } },
         )
     }
 }

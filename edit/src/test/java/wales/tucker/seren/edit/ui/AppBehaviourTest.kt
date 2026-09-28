@@ -18,8 +18,10 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import wales.tucker.seren.edit.MainActivity
+import wales.tucker.seren.edit.document.DocumentStore
 import wales.tucker.seren.edit.SerenApp
 import java.io.File
+import java.io.RandomAccessFile
 import wales.tucker.seren.core.suite.Suite
 import wales.tucker.seren.core.suite.SuiteApp
 
@@ -112,6 +114,31 @@ class AppBehaviourTest {
         open(file("photo.jpg", byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0, 0, 0x10)))
         compose.waitUntil(5_000) { exists("Couldn't open photo.jpg") }
         compose.onNodeWithText("It doesn't look like a text file.").assertExists()
+        compose.onNodeWithText("Close").performClick()
+        compose.waitUntil(5_000) { exists("New file") }
+    }
+
+    @Test
+    fun filesOverTwoMegabytesAskBeforeOpening() {
+        val bytes = ByteArray(DocumentStore.WARN_FILE_BYTES.toInt() + 1) { 'a'.code.toByte() }
+        open(file("big.log", bytes))
+        compose.waitUntil(5_000) { exists("Open large file?") }
+        compose.onNodeWithText("Open anyway").performClick()
+        compose.waitUntil(10_000) { exists("aaa") }
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.waitUntil(5_000) { exists("New file") }
+    }
+
+    @Test
+    fun filesOverSixteenMegabytesAreRefused() {
+        @Suppress("DEPRECATION")
+        val dir = File(Environment.getExternalStorageDirectory(), "Documents").apply { mkdirs() }
+        val f = File(dir, "huge.log")
+        // Sparse length is enough: the size gate refuses before any bytes are read.
+        RandomAccessFile(f, "rw").use { it.setLength(DocumentStore.MAX_FILE_BYTES + 1) }
+        open(f)
+        compose.waitUntil(5_000) { exists("Couldn't open huge.log") }
+        compose.onNodeWithText("16 MB", substring = true).assertExists()
         compose.onNodeWithText("Close").performClick()
         compose.waitUntil(5_000) { exists("New file") }
     }

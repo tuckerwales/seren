@@ -34,7 +34,7 @@ syntax highlighting or search yet.
 - Recent files, each with its own color
 - Keeps each file's encoding (UTF-8, UTF-8 or UTF-16 with a byte order mark, Latin-1) and line
   endings (LF, CRLF, CR), so saving never rewrites a file you didn't change
-- Refuses binary files and files over 2 MB with a clear reason, rather than corrupting them
+- Warns before opening files over 2 MB, refuses files over 16 MB, and refuses binary files with a clear reason rather than corrupting them
 - Asks before discarding unsaved changes
 
 **App**

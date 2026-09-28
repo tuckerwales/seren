@@ -12,7 +12,7 @@ Every app makes the same promises:
 | --- | --- |
 | **Free, always** | No paid tier, no “pro” unlock, no nag screens |
 | **No ads, no tracking** | No ad SDKs, no analytics, no crash reporters, no network calls you did not ask for |
-| **Open source** | Full source here; builds with `./gradlew assembleRelease` |
+| **Open source** | Apache License 2.0; full source here; builds with `./gradlew assembleRelease` |
 | **Yours, on your device** | Data stays local; secrets use a hardware-backed key; nothing sensitive goes into cloud backup |
 
 <p>
@@ -33,7 +33,7 @@ Every app makes the same promises:
 | App | Module | Package | Status |
 | --- | --- | --- | --- |
 | **[Seren SSH](ssh)** | [`ssh`](ssh) | `wales.tucker.seren.ssh` | Ready for daily use |
-| **[Seren Edit](edit)** | [`edit`](edit) | `wales.tucker.seren.edit` | Early days — edits well; no syntax highlighting or search yet |
+| **[Seren Edit](edit)** | [`edit`](edit) | `wales.tucker.seren.edit` | Early days — edits and find/replace work; no syntax highlighting yet |
 | **[Seren Auth](auth)** | [`auth`](auth) | `wales.tucker.seren.auth` | New: codes, scanning, backup and import all work |
 | **[Seren Files](files)** | [`files`](files) | `wales.tucker.seren.files` | New: browsing, copy and move, trash, archives, categories and search all work |
 | **[Seren Core](core)** | [`core`](core) | `wales.tucker.seren.core` | Shared theme, components, fonts and security helpers |
@@ -139,6 +139,8 @@ Colors, type, components, copy, icons and privacy patterns shared by every app a
 [docs/BRAND.md](docs/BRAND.md). The code that implements them is in [`core`](core).
 
 ## Licenses
+
+Seren is licensed under the [Apache License 2.0](LICENSE).
 
 Third-party licenses for each app are listed in that app’s README and in its About dialog.
 JetBrains Mono (SIL OFL 1.1) ships in Seren Core; see `core/src/main/assets/licenses`.

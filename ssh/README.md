@@ -38,7 +38,7 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 - Trust-on-first-use host key verification with SHA256 fingerprints and a clear warning when a key changes
 - Jump hosts (ProxyJump)
 - Local, remote and dynamic (SOCKS4/4a/5) port forwarding
-- SFTP file browser: browse, upload, download, rename, delete, create folders
+- SFTP file browser: browse, upload, download, rename, delete, create folders, change permissions
 - Share files from any app to upload them: pick a server (an open session or a saved host), open
   the folder, and upload; several files go one after another, asking before replacing any
 - Multiple concurrent sessions kept alive by a foreground service, with keep-alives and one-tap reconnect
@@ -67,7 +67,7 @@ From the repository root:
 
 ```sh
 ./gradlew :ssh:assembleDebug      # ssh/build/outputs/apk/debug/ssh-debug.apk
-./gradlew :ssh:assembleRelease    # minified; signed with the debug key until you add a release signing config
+./gradlew :ssh:assembleRelease    # minified; signed with the suite key when SEREN_KEYSTORE_* are set (see root README Signing)
 ```
 
 ## Tests

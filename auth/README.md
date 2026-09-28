@@ -85,7 +85,7 @@ From the repository root:
 
 ```sh
 ./gradlew :auth:assembleDebug      # auth/build/outputs/apk/debug/auth-debug.apk
-./gradlew :auth:assembleRelease    # minified; signed with the debug key until you add a release signing config
+./gradlew :auth:assembleRelease    # minified; signed with the suite key when SEREN_KEYSTORE_* are set (see root README Signing)
 ```
 
 ## Tests

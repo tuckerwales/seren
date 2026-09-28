@@ -249,6 +249,7 @@ fun SettingsTab(settings: Settings, onImport: () -> Unit) {
 /** Libraries Seren Auth bundles beyond Seren Core's, for the About dialog. */
 val AUTH_LICENSES = listOf(
     "ZXing, Apache 2.0",
+    "CameraX, Apache 2.0",
     "Bouncy Castle, MIT License",
 )
 

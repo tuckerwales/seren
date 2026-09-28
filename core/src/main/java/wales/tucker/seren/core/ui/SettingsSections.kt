@@ -47,7 +47,7 @@ import wales.tucker.seren.core.ui.theme.MonoFamily
 import wales.tucker.seren.core.ui.theme.ThemeMode
 
 /** The line every About dialog, README and store listing tells about the suite. */
-const val SUITE_STORY = "Seren is Welsh for star. Seren apps are free, open source, and have no ads and no tracking."
+const val SUITE_STORY = "Seren is Welsh for star. Seren apps are free, open source (Apache License 2.0), and have no ads and no tracking."
 
 /**
  * The Appearance section that opens every app's settings: Theme, then Dynamic color on Android
@@ -206,6 +206,10 @@ fun AboutDialog(appName: String, version: String, description: String, licenses:
                 Text(SUITE_STORY)
                 Text("Built with:", fontWeight = FontWeight.SemiBold)
                 licenses.forEach { Text("• $it") }
+                Text(
+                    "Seren itself is licensed under the Apache License 2.0.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },

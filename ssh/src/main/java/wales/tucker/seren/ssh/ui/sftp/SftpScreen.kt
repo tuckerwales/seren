@@ -106,6 +106,8 @@ import wales.tucker.seren.ssh.ssh.RemoteFile
 import wales.tucker.seren.ssh.ssh.SftpClient
 import wales.tucker.seren.ssh.ui.common.appContainer
 import wales.tucker.seren.ssh.ui.common.containerViewModel
+import java.io.ByteArrayInputStream
+import java.io.File
 import java.io.IOException
 import java.text.DateFormat
 import java.util.Date
@@ -350,16 +352,17 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     private fun displayName(context: android.content.Context, uri: Uri): String? =
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cur ->
             if (cur.moveToFirst()) cur.getString(0) else null
-        } ?: uri.lastPathSegment
+        }?.let { sanitizeUploadName(it) } ?: uri.lastPathSegment?.let { sanitizeUploadName(it) }
 
     private fun upload(uri: Uri, context: android.content.Context) {
         val s = session ?: return
         val dir = _path.value ?: return
         transferJob = viewModelScope.launch {
-            var name = uri.lastPathSegment ?: "upload"
+            var name = sanitizeUploadName(uri.lastPathSegment ?: "upload")
             var c: SftpClient? = null
             var target: String? = null
-            var written = false
+            // Volatile-style flag: progress callbacks may run on the SFTP thread.
+            val written = java.util.concurrent.atomic.AtomicBoolean(false)
             var complete = false
             try {
                 val channel = s.openSftpChannel().also { c = it }
@@ -367,19 +370,26 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                 withContext(Dispatchers.IO) {
                     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cur ->
                         if (cur.moveToFirst()) {
-                            name = cur.getString(0) ?: name
+                            name = sanitizeUploadName(cur.getString(0) ?: name)
                             size = if (cur.isNull(1)) -1L else cur.getLong(1)
                         }
                     }
                 }
                 _transfer.value = Transfer(name, upload = true, done = 0, total = size)
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        channel.upload(input, SftpClient.join(dir, name).also { target = it }, size) { done, _ ->
-                            if (done > 0) written = true
-                            _transfer.value = Transfer(name, true, done, size)
+                // ContentResolver streams are binder-backed and must be drained on the thread that
+                // opened them. JSch reads the upload on SftpClient's dedicated thread, so copy
+                // into memory (tiny/normal files) or a cache file first.
+                val remotePath = SftpClient.join(dir, name).also { target = it }
+                val source = withContext(Dispatchers.IO) { readUploadSource(context, uri, size) }
+                try {
+                    source.open().use { input ->
+                        channel.upload(input, remotePath, source.size) { done, _ ->
+                            if (done > 0) written.set(true)
+                            _transfer.value = Transfer(name, true, done, source.size)
                         }
-                    } ?: throw IllegalStateException("Cannot read file")
+                    }
+                } finally {
+                    source.cleanup()
                 }
                 complete = true
                 messages.tryEmit("Uploaded $name")
@@ -392,12 +402,17 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                 val partial = target
                 val ch = c
                 // Only remove a file this upload started writing, never one it failed to open.
-                if (!complete && written && partial != null && ch != null) withContext(NonCancellable) {
-                    runCatching { ch.delete(ch.stat(partial)) }
+                if (!complete && written.get() && partial != null && ch != null && ch.isConnected) {
+                    withContext(NonCancellable) {
+                        runCatching { ch.delete(ch.stat(partial)) }
+                    }
                 }
+                // Close after any cleanup ops so we do not yank the pipe out from under them.
                 c?.close()
                 _transfer.value = null
-                refresh()
+                // Refresh only while the SSH session is still up; otherwise the connection-lost
+                // card already explains why the folder cannot reload.
+                if (s.isConnected) refresh()
             }
         }
         transferJob?.invokeOnCompletion { cause ->
@@ -414,6 +429,62 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
     fun cancelTransfer() {
         queue.clear()
         transferJob?.cancel()
+    }
+}
+
+
+
+/** Strip path components and NULs from a ContentResolver display name before using it remotely. */
+private fun sanitizeUploadName(raw: String): String {
+    val base = raw.substringAfterLast('/').substringAfterLast('\\').replace("\u0000", "").trim()
+    return if (base.isEmpty() || base == "." || base == "..") "upload" else base
+}
+
+/** Local bytes or a temp file ready for JSch to read on its SFTP thread. */
+private sealed class UploadSource {
+    abstract val size: Long
+    abstract fun open(): java.io.InputStream
+    abstract fun cleanup()
+
+    class Memory(private val bytes: ByteArray) : UploadSource() {
+        override val size: Long get() = bytes.size.toLong()
+        override fun open() = ByteArrayInputStream(bytes)
+        override fun cleanup() = Unit
+    }
+
+    class Temp(private val file: File) : UploadSource() {
+        override val size: Long get() = file.length()
+        override fun open() = file.inputStream()
+        override fun cleanup() {
+            runCatching { file.delete() }
+        }
+    }
+}
+
+/** Caps in-memory buffering so a huge share cannot blow the heap. */
+private const val MAX_IN_MEMORY_UPLOAD = 8L * 1024L * 1024L
+
+private fun readUploadSource(context: android.content.Context, uri: Uri, reportedSize: Long): UploadSource {
+    val input = context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("Cannot read file")
+    input.use { stream ->
+        if (reportedSize in 0..MAX_IN_MEMORY_UPLOAD) {
+            val bytes = if (reportedSize == 0L) ByteArray(0) else stream.readBytes()
+            return UploadSource.Memory(bytes)
+        }
+        // Unknown size or larger than the cap: spool to cache so we never hold it all in RAM.
+        val tmp = File.createTempFile("seren-up-", ".bin", context.cacheDir)
+        try {
+            tmp.outputStream().use { out -> stream.copyTo(out) }
+            if (tmp.length() <= MAX_IN_MEMORY_UPLOAD) {
+                val bytes = tmp.readBytes()
+                tmp.delete()
+                return UploadSource.Memory(bytes)
+            }
+            return UploadSource.Temp(tmp)
+        } catch (e: Exception) {
+            tmp.delete()
+            throw e
+        }
     }
 }
 

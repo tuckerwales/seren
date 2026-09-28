@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import wales.tucker.seren.ssh.data.PortForward
 import wales.tucker.seren.ssh.emulator.KeyEncoder
 import wales.tucker.seren.ssh.emulator.TerminalClient
@@ -331,11 +330,22 @@ class TerminalSession(
     // region SFTP
 
     /** Opens (or reuses) an SFTP channel on this session's connection. */
-    suspend fun sftp(): SftpClient = withContext(Dispatchers.IO) {
+    suspend fun sftp(): SftpClient {
         synchronized(sftpLock) {
-            sftp?.takeIf { it.isConnected }?.let { return@withContext it }
-            val conn = connection?.takeIf { it.isConnected } ?: throw IOException("Not connected")
-            SftpClient(conn.openSftp()).also { sftp = it }
+            sftp?.takeIf { it.isConnected }?.let { return it }
+        }
+        val conn = connection?.takeIf { it.isConnected } ?: throw IOException("Not connected")
+        // Connect outside the lock: openSftp waits on the server, and must run on the client's
+        // dedicated reader thread (see SftpClient.open).
+        val created = SftpClient.open(conn)
+        synchronized(sftpLock) {
+            val existing = sftp?.takeIf { it.isConnected }
+            if (existing != null) {
+                created.close()
+                return existing
+            }
+            sftp = created
+            return created
         }
     }
 
@@ -343,9 +353,9 @@ class TerminalSession(
      * Opens a separate SFTP channel for one long running operation, such as a file transfer, so
      * that it does not hold up browsing on the shared channel. The caller closes it.
      */
-    suspend fun openSftpChannel(): SftpClient = withContext(Dispatchers.IO) {
+    suspend fun openSftpChannel(): SftpClient {
         val conn = connection?.takeIf { it.isConnected } ?: throw IOException("Not connected")
-        SftpClient(conn.openSftp())
+        return SftpClient.open(conn)
     }
 
     private fun closeSftp() {

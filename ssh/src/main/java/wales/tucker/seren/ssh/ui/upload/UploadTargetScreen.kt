@@ -70,6 +70,7 @@ fun UploadTargetScreen(
 ) {
     val container = appContainer()
     val sessions by container.sessionManager.sessions.collectAsStateWithLifecycle()
+    // null = still loading; emptyList() would flash EmptyState before real hosts arrive.
     val hosts by container.database.hostDao().observeAll().collectAsStateWithLifecycle(initialValue = null)
 
     Scaffold(

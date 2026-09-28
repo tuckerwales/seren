@@ -44,7 +44,7 @@ class MainActivity : FragmentActivity() {
 
         lifecycleScope.launch {
             val settings = container.settings.settings.first()
-            locked = settings.appLock && canAuthenticate()
+            locked = settings.appLock
             lockChecked = true
             if (locked) authenticate()
         }
@@ -81,7 +81,7 @@ class MainActivity : FragmentActivity() {
         super.onStart()
         if (stoppedAt > 0 && SystemClock.elapsedRealtime() - stoppedAt > AppLock.TIMEOUT_MS) {
             lifecycleScope.launch {
-                if (container.settings.settings.first().appLock && canAuthenticate()) {
+                if (container.settings.settings.first().appLock) {
                     locked = true
                     authenticate()
                 }

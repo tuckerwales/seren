@@ -45,7 +45,7 @@ class MainActivity : FragmentActivity() {
 
         lifecycleScope.launch {
             val settings = container.settings.settings.first()
-            locked = settings.appLock && canAuthenticate()
+            locked = settings.appLock
             lockChecked = true
             if (locked) authenticate()
         }
@@ -97,7 +97,7 @@ class MainActivity : FragmentActivity() {
         super.onStart()
         if (stoppedAt > 0 && AndroidClock.elapsedRealtime() - stoppedAt > AppLock.TIMEOUT_MS) {
             lifecycleScope.launch {
-                if (container.settings.settings.first().appLock && canAuthenticate()) {
+                if (container.settings.settings.first().appLock) {
                     locked = true
                     authenticate()
                 }
@@ -125,10 +125,12 @@ class MainActivity : FragmentActivity() {
      */
     fun confirmIdentity(reason: String, action: () -> Unit) {
         lifecycleScope.launch {
-            if (!container.settings.settings.first().appLock || !canAuthenticate()) {
+            if (!container.settings.settings.first().appLock) {
                 action()
                 return@launch
             }
+            // Fail closed when the device has no screen lock: do not reveal setup keys or exports.
+            if (!canAuthenticate()) return@launch
             AppLock.authenticate(this@MainActivity, getString(R.string.app_name), reason) { ok -> if (ok) action() }
         }
     }

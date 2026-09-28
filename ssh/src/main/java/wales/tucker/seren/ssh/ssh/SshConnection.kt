@@ -90,7 +90,7 @@ class ShellChannel internal constructor(private val channel: ChannelShell) {
 }
 
 /**
- * Wraps a JSch session (and an optional jump host session) with host key verification against the
+ * Wraps a JSch session (and optional jump-host sessions) with host key verification against the
  * app's known hosts database, interactive authentication and port forwarding.
  */
 class SshConnection(
@@ -115,8 +115,7 @@ class SshConnection(
     @Volatile
     private var session: Session? = null
 
-    @Volatile
-    private var jumpSession: Session? = null
+    private val jumpSessions = mutableListOf<Session>()
 
     private val socksServers = mutableListOf<SocksProxyServer>()
 
@@ -132,28 +131,38 @@ class SshConnection(
 
     /**
      * Connects and authenticates. Blocks; call from a background thread.
-     * @param jump optional jump host to tunnel through.
+     * @param jumps jump hosts from outermost to innermost; each tunnels to the next, then to [target].
      */
-    fun connect(target: ConnectionTarget, jump: ConnectionTarget? = null, timeoutMs: Int = 20_000) {
-        if (jump != null) {
-            ui.log("Connecting to jump host ${jump.hostname}:${jump.port}…")
-            val js = openSession(jump, jump.hostname, jump.port, alias = null, remember = false)
-            js.connect(timeoutMs)
-            jumpSession = js
-            val localPort = js.setPortForwardingL("127.0.0.1", 0, target.hostname, target.port)
-            ui.log("Tunnel via ${jump.hostname} established")
-            val s = openSession(target, "127.0.0.1", localPort, alias = hostKeyName(target.hostname, target.port), remember = true)
+    fun connect(target: ConnectionTarget, jumps: List<ConnectionTarget> = emptyList(), timeoutMs: Int = 20_000) {
+        if (jumps.isEmpty()) {
             ui.log("Connecting to ${target.hostname}:${target.port}…")
+            val s = openSession(target, target.hostname, target.port, alias = null, remember = true)
             s.connect(timeoutMs)
             session = s
         } else {
+            var prev: Session? = null
+            for ((index, hop) in jumps.withIndex()) {
+                ui.log("Connecting to jump host ${hop.hostname}:${hop.port}…")
+                val js = if (prev == null) {
+                    openSession(hop, hop.hostname, hop.port, alias = null, remember = false)
+                } else {
+                    val localPort = prev.setPortForwardingL("127.0.0.1", 0, hop.hostname, hop.port)
+                    openSession(hop, "127.0.0.1", localPort, alias = hostKeyName(hop.hostname, hop.port), remember = false)
+                }
+                js.connect(timeoutMs)
+                jumpSessions.add(js)
+                prev = js
+                ui.log("Tunnel hop ${index + 1}/${jumps.size} via ${hop.hostname} established")
+            }
+            val localPort = prev!!.setPortForwardingL("127.0.0.1", 0, target.hostname, target.port)
             ui.log("Connecting to ${target.hostname}:${target.port}…")
-            val s = openSession(target, target.hostname, target.port, alias = null, remember = true)
+            val s = openSession(target, "127.0.0.1", localPort, alias = hostKeyName(target.hostname, target.port), remember = true)
             s.connect(timeoutMs)
             session = s
         }
         ui.log("Authenticated as ${target.username}")
     }
+
 
     private fun openSession(target: ConnectionTarget, host: String, port: Int, alias: String?, remember: Boolean): Session {
         val s = jsch.getSession(target.username, host, port)
@@ -235,9 +244,9 @@ class SshConnection(
             socksServers.clear()
         }
         runCatching { session?.disconnect() }
-        runCatching { jumpSession?.disconnect() }
+        jumpSessions.asReversed().forEach { runCatching { it.disconnect() } }
+        jumpSessions.clear()
         session = null
-        jumpSession = null
     }
 
     private inner class InteractiveUserInfo(

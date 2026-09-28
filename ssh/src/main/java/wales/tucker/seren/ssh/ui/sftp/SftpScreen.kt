@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.Folder
@@ -48,6 +49,7 @@ import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -77,6 +79,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -280,6 +283,8 @@ class SftpViewModel(private val container: AppContainer, private val sessionId: 
     }
 
     fun delete(file: RemoteFile) = op("Deleted ${file.name}") { it.delete(file) }
+
+    fun chmod(file: RemoteFile, mode: Int) = op("Permissions updated") { it.chmod(file.path, mode) }
 
     fun download(file: RemoteFile, uri: Uri, context: android.content.Context) {
         val s = session ?: return
@@ -553,6 +558,7 @@ fun SftpScreen(
     var showHidden by remember { mutableStateOf(false) }
     var newFolder by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<RemoteFile?>(null) }
+    var permissionsFor by remember { mutableStateOf<RemoteFile?>(null) }
     var deleting by remember { mutableStateOf<RemoteFile?>(null) }
     var pendingDownload by remember { mutableStateOf<RemoteFile?>(null) }
 
@@ -674,6 +680,7 @@ fun SftpScreen(
                                 onOpen = { if (file.isDirectory) vm.navigate(file.path) else startDownload(file) },
                                 onDownload = { startDownload(file) },
                                 onRename = { renaming = file },
+                                onPermissions = { permissionsFor = file },
                                 onDelete = { deleting = file },
                                 onCopyPath = {
                                     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Path", file.path))
@@ -717,6 +724,13 @@ fun SftpScreen(
         NameDialog(title = "Rename", initial = f.name, confirm = "Rename", onDismiss = { renaming = null }) { name ->
             vm.rename(f, name); renaming = null
         }
+    }
+    permissionsFor?.let { f ->
+        PermissionsDialog(
+            file = f,
+            onDismiss = { permissionsFor = null },
+            onConfirm = { mode -> vm.chmod(f, mode); permissionsFor = null },
+        )
     }
     pendingReplace?.let { p ->
         AlertDialog(
@@ -767,6 +781,7 @@ private fun FileRow(
     onOpen: () -> Unit,
     onDownload: () -> Unit,
     onRename: () -> Unit,
+    onPermissions: () -> Unit,
     onDelete: () -> Unit,
     onCopyPath: () -> Unit,
 ) {
@@ -802,6 +817,7 @@ private fun FileRow(
                             DropdownMenuItem(text = { Text("Download") }, leadingIcon = { Icon(Icons.Rounded.Download, null) }, onClick = { menu = false; onDownload() })
                         }
                         DropdownMenuItem(text = { Text("Rename") }, leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null) }, onClick = { menu = false; onRename() })
+                        DropdownMenuItem(text = { Text("Permissions") }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; onPermissions() })
                         DropdownMenuItem(text = { Text("Copy path") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { menu = false; onCopyPath() })
                         DropdownMenuItem(text = { Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; onDelete() })
                     }
@@ -905,3 +921,43 @@ private fun NameDialog(title: String, initial: String, confirm: String, onDismis
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PermissionsDialog(file: RemoteFile, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    var mode by remember(file.path) { mutableIntStateOf(file.mode and 0x1FF) }
+    fun bit(mask: Int) = (mode and mask) != 0
+    fun toggle(mask: Int, on: Boolean) {
+        mode = if (on) mode or mask else mode and mask.inv()
+    }
+    val octal = mode.toString(8).padStart(3, '0')
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Permissions") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(file.name, style = MaterialTheme.typography.bodyMedium)
+                Text("Mode $octal", style = MonoSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                listOf(
+                    "Owner" to listOf(0b100_000_000 to "Read", 0b010_000_000 to "Write", 0b001_000_000 to "Execute"),
+                    "Group" to listOf(0b100_000 to "Read", 0b010_000 to "Write", 0b001_000 to "Execute"),
+                    "Others" to listOf(0b100 to "Read", 0b010 to "Write", 0b001 to "Execute"),
+                ).forEach { (label, bits) ->
+                    Text(label, style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        bits.forEach { (mask, name) ->
+                            FilterChip(
+                                selected = bit(mask),
+                                onClick = { toggle(mask, !bit(mask)) },
+                                label = { Text(name) },
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(mode) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+

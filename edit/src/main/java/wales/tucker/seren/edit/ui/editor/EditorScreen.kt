@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
@@ -35,10 +36,18 @@ import androidx.compose.material.icons.automirrored.rounded.Redo
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.automirrored.rounded.WrapText
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.FindReplace
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -65,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -114,6 +124,43 @@ fun EditorScreen(uri: Uri, settings: Settings, onClose: () -> Unit) {
     val undo = vm.text.undoState
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var findOpen by remember { mutableStateOf(false) }
+    var findQuery by remember { mutableStateOf("") }
+    var replaceQuery by remember { mutableStateOf("") }
+    var showReplace by remember { mutableStateOf(false) }
+    var matchCase by remember { mutableStateOf(false) }
+    var findStatus by remember { mutableStateOf<String?>(null) }
+    val findFocus = remember { FocusRequester() }
+
+    fun runFind(forward: Boolean) {
+        if (findQuery.isEmpty()) {
+            findStatus = null
+            return
+        }
+        val text = vm.text.text
+        val from = if (forward) vm.text.selection.max else vm.text.selection.min
+        val range = if (forward) {
+            FindReplace.findNext(text, findQuery, from, matchCase)
+                ?: FindReplace.findNext(text, findQuery, 0, matchCase)
+        } else {
+            FindReplace.findPrevious(text, findQuery, from, matchCase)
+                ?: FindReplace.findPrevious(text, findQuery, text.length, matchCase)
+        }
+        if (range == null) {
+            findStatus = "No matches"
+        } else {
+            FindReplace.select(vm.text, range)
+            findStatus = null
+        }
+    }
+
+    fun openFind(withReplace: Boolean) {
+        showReplace = withReplace
+        findOpen = true
+        findStatus = null
+        val selected = vm.text.text.substring(vm.text.selection.min, vm.text.selection.max)
+        if (selected.isNotEmpty() && !selected.contains('\n')) findQuery = selected
+    }
     // Pinch to zoom changes this live; it is stored in the settings when the fingers lift.
     var fontSize by remember(settings.fontSize) { mutableFloatStateOf(settings.fontSize) }
 
@@ -206,6 +253,17 @@ fun EditorScreen(uri: Uri, settings: Settings, onClose: () -> Unit) {
                                 onClick = { scope.launch { repo.setLineNumbers(!settings.lineNumbers) } },
                             )
                             HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Find") },
+                                leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                                onClick = { menuOpen = false; openFind(withReplace = false) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Find and replace") },
+                                leadingIcon = { Icon(Icons.Rounded.FindReplace, null) },
+                                onClick = { menuOpen = false; openFind(withReplace = true) },
+                            )
+                            HorizontalDivider()
                             // What the file will be saved as, for the curious.
                             DropdownMenuItem(
                                 text = { Text("${vm.encoding.label} · ${vm.lineEnding.label}", style = MonoSmall) },
@@ -215,6 +273,45 @@ fun EditorScreen(uri: Uri, settings: Settings, onClose: () -> Unit) {
                         }
                     }
                 }
+            }
+
+            if (findOpen && vm.load == LoadState.Ready) {
+                FindBar(
+                    query = findQuery,
+                    onQuery = { findQuery = it; findStatus = null },
+                    replace = replaceQuery,
+                    onReplace = { replaceQuery = it },
+                    showReplace = showReplace,
+                    onShowReplace = { showReplace = it },
+                    matchCase = matchCase,
+                    onMatchCase = { matchCase = it },
+                    status = findStatus,
+                    foreground = fg,
+                    accent = accent,
+                    background = bg,
+                    focusRequester = findFocus,
+                    onClose = { findOpen = false; findStatus = null },
+                    onFindNext = { runFind(forward = true) },
+                    onFindPrevious = { runFind(forward = false) },
+                    onReplaceOne = {
+                        val sel = vm.text.selection
+                        val selected = vm.text.text.substring(sel.min, sel.max)
+                        val matches = if (matchCase) selected == findQuery else selected.equals(findQuery, ignoreCase = true)
+                        if (matches && findQuery.isNotEmpty()) {
+                            FindReplace.replaceSelection(vm.text, replaceQuery)
+                        }
+                        runFind(forward = true)
+                    },
+                    onReplaceAll = {
+                        val n = FindReplace.replaceAll(vm.text, findQuery, replaceQuery, matchCase)
+                        findStatus = when (n) {
+                            0 -> "No matches"
+                            1 -> "Replaced 1 match"
+                            else -> "Replaced $n matches"
+                        }
+                    },
+                )
+                LaunchedEffect(findOpen) { if (findOpen) findFocus.requestFocus() }
             }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -233,7 +330,7 @@ fun EditorScreen(uri: Uri, settings: Settings, onClose: () -> Unit) {
                             fontSize = halfSteps
                             scope.launch { repo.setFontSize(halfSteps) }
                         },
-                        onKeyEvent = { event -> handleShortcut(event, vm.text, ::save) },
+                        onKeyEvent = { event -> handleShortcut(event, vm.text, ::save, onFind = { openFind(false) }, onReplace = { openFind(true) }) },
                         focusRequester = focusRequester,
                     )
                 }
@@ -345,11 +442,19 @@ private fun insertText(state: TextFieldState, text: String) {
     }
 }
 
-/** Hardware keyboard shortcuts: Ctrl+S saves, Ctrl+Z and Ctrl+Shift+Z or Ctrl+Y undo and redo, Tab indents. */
-private fun handleShortcut(event: KeyEvent, state: TextFieldState, save: () -> Unit): Boolean {
+/** Hardware keyboard shortcuts: Ctrl+S saves, Ctrl+F/H find, Ctrl+Z/Y undo/redo, Tab indents. */
+private fun handleShortcut(
+    event: KeyEvent,
+    state: TextFieldState,
+    save: () -> Unit,
+    onFind: () -> Unit = {},
+    onReplace: () -> Unit = {},
+): Boolean {
     if (event.type != KeyEventType.KeyDown) return false
     return when {
         event.isCtrlPressed && event.key == Key.S -> { save(); true }
+        event.isCtrlPressed && event.key == Key.F -> { onFind(); true }
+        event.isCtrlPressed && event.key == Key.H -> { onReplace(); true }
         event.isCtrlPressed && event.key == Key.Z && !event.isShiftPressed -> { state.undoState.undo(); true }
         event.isCtrlPressed && (event.key == Key.Y || (event.key == Key.Z && event.isShiftPressed)) -> { state.undoState.redo(); true }
         event.key == Key.Tab && !event.isCtrlPressed && !event.isAltPressed && !event.isShiftPressed -> {
@@ -357,5 +462,92 @@ private fun handleShortcut(event: KeyEvent, state: TextFieldState, save: () -> U
             true
         }
         else -> false
+    }
+}
+
+@Composable
+private fun FindBar(
+    query: String,
+    onQuery: (String) -> Unit,
+    replace: String,
+    onReplace: (String) -> Unit,
+    showReplace: Boolean,
+    onShowReplace: (Boolean) -> Unit,
+    matchCase: Boolean,
+    onMatchCase: (Boolean) -> Unit,
+    status: String?,
+    foreground: Color,
+    accent: Color,
+    background: Color,
+    focusRequester: FocusRequester,
+    onClose: () -> Unit,
+    onFindNext: () -> Unit,
+    onFindPrevious: () -> Unit,
+    onReplaceOne: () -> Unit,
+    onReplaceAll: () -> Unit,
+) {
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = foreground,
+        unfocusedTextColor = foreground,
+        focusedBorderColor = accent,
+        unfocusedBorderColor = foreground.copy(alpha = 0.3f),
+        cursorColor = accent,
+        focusedLabelColor = accent,
+        unfocusedLabelColor = foreground.copy(alpha = 0.6f),
+    )
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(background)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQuery,
+                modifier = Modifier.weight(1f).focusRequester(focusRequester).heightIn(max = 56.dp),
+                singleLine = true,
+                label = { Text("Find") },
+                colors = fieldColors,
+            )
+            IconButton(onClick = onFindPrevious) {
+                Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = "Previous", tint = foreground)
+            }
+            IconButton(onClick = onFindNext) {
+                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Next", tint = foreground)
+            }
+            IconButton(onClick = { onShowReplace(!showReplace) }) {
+                Icon(Icons.Rounded.FindReplace, contentDescription = "Replace", tint = if (showReplace) accent else foreground)
+            }
+            IconButton(onClick = onClose) {
+                Icon(Icons.Rounded.Close, contentDescription = "Close find", tint = foreground)
+            }
+        }
+        if (showReplace) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = replace,
+                    onValueChange = onReplace,
+                    modifier = Modifier.weight(1f).heightIn(max = 56.dp),
+                    singleLine = true,
+                    label = { Text("Replace") },
+                    colors = fieldColors,
+                )
+                TextButton(onClick = onReplaceOne, colors = ButtonDefaults.textButtonColors(contentColor = accent)) {
+                    Text("Replace")
+                }
+                TextButton(onClick = onReplaceAll, colors = ButtonDefaults.textButtonColors(contentColor = accent)) {
+                    Text("All")
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = matchCase, onCheckedChange = onMatchCase)
+            Text("Match case", color = foreground.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
+            if (status != null) {
+                Spacer(Modifier.width(12.dp))
+                Text(status, color = foreground.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
+            }
+        }
     }
 }

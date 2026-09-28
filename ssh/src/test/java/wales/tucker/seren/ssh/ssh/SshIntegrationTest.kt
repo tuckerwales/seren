@@ -293,7 +293,7 @@ class SshIntegrationTest {
     fun jumpHost() {
         val ui = TestUi()
         val c = SshConnection(dao, ui)
-        c.connect(target(), jump = target())
+        c.connect(target(), jumps = listOf(target()))
         assertTrue(c.isConnected)
         c.disconnect()
     }

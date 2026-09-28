@@ -100,7 +100,7 @@ class SessionManager(
 
     private suspend fun buildSpec(host: Host): SessionSpec {
         val target = buildTarget(host)
-        val jump = host.jumpHostId?.takeIf { it != host.id }?.let { db.hostDao().get(it) }?.let { buildTarget(it) }
+        val jumps = resolveJumpChain(host)
         val forwards = if (host.id > 0) db.portForwardDao().forHost(host.id) else emptyList()
         return SessionSpec(
             hostId = host.id,
@@ -108,11 +108,28 @@ class SessionManager(
             subtitle = host.address,
             color = host.color,
             target = target,
-            jump = jump,
+            jumps = jumps,
             forwards = forwards,
             startupCommand = host.startupCommand,
             colorSchemeId = host.colorSchemeId,
         )
+    }
+
+    /** Resolves [Host.jumpHostId] links into an outermost-first hop list (cycle-safe). */
+    private suspend fun resolveJumpChain(host: Host): List<ConnectionTarget> {
+        val known = mutableMapOf(host.id to host)
+        suspend fun load(id: Long): Host? = known[id] ?: db.hostDao().get(id)?.also { known[it.id] = it }
+        // Prefetch the chain so the pure helper can walk synchronously.
+        var cursor = host.jumpHostId?.takeIf { it != host.id }
+        val seen = mutableSetOf(host.id)
+        while (cursor != null && seen.add(cursor)) {
+            val h = load(cursor) ?: break
+            cursor = h.jumpHostId?.takeIf { it != h.id }
+        }
+        val ordered = resolveJumpHosts(host.id) { id ->
+            known[id]?.jumpHostId?.takeIf { it != id && known.containsKey(it) }
+        }
+        return ordered.map { buildTarget(known.getValue(it)) }
     }
 
     private suspend fun buildTarget(host: Host): ConnectionTarget {

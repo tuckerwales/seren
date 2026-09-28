@@ -44,7 +44,7 @@ class PickActivity : FragmentActivity() {
 
         // With app lock on, choosing a file needs unlocking just as opening the app does.
         lifecycleScope.launch {
-            locked = container.settings.settings.first().appLock && AppLock.canAuthenticate(this@PickActivity)
+            locked = container.settings.settings.first().appLock
             lockChecked = true
             if (locked) authenticate()
         }

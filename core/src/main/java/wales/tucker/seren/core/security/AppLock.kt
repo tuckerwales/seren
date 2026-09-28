@@ -25,11 +25,12 @@ object AppLock {
 
     /**
      * Shows the system prompt with [title] (the app name) and [subtitle]. [onResult] gets true on
-     * success, and also straight away when the device has nothing to authenticate with.
+     * success. When the device has nothing to authenticate with, [onResult] gets false so a locked
+     * app stays locked (fail-closed) rather than unlocking silently.
      */
     fun authenticate(activity: FragmentActivity, title: String, subtitle: String, onResult: (Boolean) -> Unit) {
         if (!canAuthenticate(activity)) {
-            onResult(true)
+            onResult(false)
             return
         }
         val prompt = BiometricPrompt(

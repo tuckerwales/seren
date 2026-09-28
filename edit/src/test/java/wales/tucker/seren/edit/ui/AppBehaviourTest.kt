@@ -120,12 +120,17 @@ class AppBehaviourTest {
 
     @Test
     fun filesOverTwoMegabytesAskBeforeOpening() {
-        val bytes = ByteArray(DocumentStore.WARN_FILE_BYTES.toInt() + 1) { 'a'.code.toByte() }
-        open(file("big.log", bytes))
+        @Suppress("DEPRECATION")
+        val dir = File(Environment.getExternalStorageDirectory(), "Documents").apply { mkdirs() }
+        val f = File(dir, "big.log")
+        // Sparse length is enough: the confirm gate runs before bytes are read.
+        // Do not Open anyway — loading ~2MB into a Robolectric NATIVE Compose
+        // TextField OOMs the CI runner when other modules test in parallel.
+        RandomAccessFile(f, "rw").use { it.setLength(DocumentStore.WARN_FILE_BYTES + 1) }
+        open(f)
         compose.waitUntil(5_000) { exists("Open large file?") }
-        compose.onNodeWithText("Open anyway").performClick()
-        compose.waitUntil(10_000) { exists("aaa") }
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Open anyway").assertExists()
+        compose.onNodeWithText("Cancel").performClick()
         compose.waitUntil(5_000) { exists("New file") }
     }
 

@@ -53,7 +53,7 @@ android {
         unitTests.all {
             it.systemProperty("roborazzi.test.record", "true")
             it.systemProperty("robolectric.graphicsMode", "NATIVE")
-            it.maxHeapSize = "3g"
+            it.maxHeapSize = "1536m"
             // Pass through the settings for the optional SSH integration tests.
             listOf("SSH_TEST_HOST", "SSH_TEST_PORT", "SSH_TEST_USER", "SSH_TEST_PASSWORD", "SSH_TEST_AUTHORIZED_KEYS")
                 .forEach { name -> System.getenv(name)?.let { value -> it.environment(name, value) } }

@@ -302,7 +302,7 @@ class SshIntegrationTest {
     fun sftpOperations() = runBlocking {
         val c = SshConnection(dao, TestUi())
         c.connect(target())
-        val sftp = SftpClient(c.openSftp())
+        val sftp = SftpClient.open(c)
         val home = sftp.home()
         val dir = SftpClient.join(home, "sftp-test-${System.nanoTime()}")
         sftp.mkdir(dir)
@@ -331,8 +331,8 @@ class SshIntegrationTest {
     fun sftpBrowsingIsNotBlockedByATransferOnAnotherChannel() = runBlocking {
         val c = SshConnection(dao, TestUi())
         c.connect(target())
-        val browse = SftpClient(c.openSftp())
-        val transfer = SftpClient(c.openSftp())
+        val browse = SftpClient.open(c)
+        val transfer = SftpClient.open(c)
         val home = browse.home()
         val file = SftpClient.join(home, "big-${System.nanoTime()}.bin")
         val data = ByteArray(2 * 1024 * 1024) { it.toByte() }
@@ -365,7 +365,7 @@ class SshIntegrationTest {
     fun cancellingATransferStopsIt() = runBlocking {
         val c = SshConnection(dao, TestUi())
         c.connect(target())
-        val sftp = SftpClient(c.openSftp())
+        val sftp = SftpClient.open(c)
         val file = SftpClient.join(sftp.home(), "cancel-${System.nanoTime()}.bin")
         val data = ByteArray(8 * 1024 * 1024) { it.toByte() }
         sftp.upload(data.inputStream(), file, data.size.toLong()) { _, _ -> }

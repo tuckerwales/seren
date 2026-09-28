@@ -22,6 +22,15 @@ class SftpClientTest {
     }
 
     @Test
+    fun quotePathEscapesGlobCharactersInTheFileNameOnly() {
+        assertEquals("/root/notes.txt", SftpClient.quotePath("/root/notes.txt"))
+        assertEquals("/root/report\\*.txt", SftpClient.quotePath("/root/report*.txt"))
+        assertEquals("/tmp/a\\?b", SftpClient.quotePath("/tmp/a?b"))
+        assertEquals("plain", SftpClient.quoteName("plain"))
+        assertEquals("x\\\\y", SftpClient.quoteName("x\\y"))
+    }
+
+    @Test
     fun progressMonitorStopsWhenJobIsCancelledAndNeverThrowsOut() {
         val job = kotlinx.coroutines.Job()
         var last = -1L

@@ -1,6 +1,8 @@
 package wales.tucker.seren.edit.ui.settings
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +28,14 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import wales.tucker.seren.edit.data.MetadataBackup
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import wales.tucker.seren.core.content.ContentColorScheme
 import wales.tucker.seren.core.content.ContentColorSchemes
 import wales.tucker.seren.core.ui.AboutDialog
@@ -50,6 +59,43 @@ fun SettingsTab(settings: Settings) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showAbout by remember { mutableStateOf(false) }
+    val container = appContainer()
+
+    val exportMeta = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val message = withContext(Dispatchers.IO) {
+                try {
+                    val recents = container.database.recentFiles().observe().first()
+                    val folders = container.database.folders().observe().first()
+                    context.contentResolver.openOutputStream(uri)?.use { MetadataBackup.export(recents, folders, it) }
+                        ?: error("Couldn't open the file for writing")
+                    "Exported ${recents.size} recent file${if (recents.size == 1) "" else "s"} and ${folders.size} folder${if (folders.size == 1) "" else "s"}"
+                } catch (e: Exception) {
+                    "Couldn't export. ${e.message ?: "The file couldn't be written."}"
+                }
+            }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val importMeta = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val message = withContext(Dispatchers.IO) {
+                try {
+                    val imported = context.contentResolver.openInputStream(uri)?.use { MetadataBackup.import(it) }
+                        ?: error("Couldn't open the file")
+                    imported.recents.forEach { container.database.recentFiles().upsert(it) }
+                    imported.folders.forEach { container.database.folders().upsert(it) }
+                    "Imported ${imported.recents.size} recent file${if (imported.recents.size == 1) "" else "s"} and ${imported.folders.size} folder${if (imported.folders.size == 1) "" else "s"}. Folder access may need re-picking on this device."
+                } catch (e: Exception) {
+                    "Couldn't import. ${e.message ?: "The file couldn't be read."}"
+                }
+            }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(title = { Text("Settings", fontWeight = FontWeight.SemiBold) }, windowInsets = WindowInsets.statusBars)
@@ -86,6 +132,21 @@ fun SettingsTab(settings: Settings) {
             SwitchRow("Line numbers", null, settings.lineNumbers) { scope.launch { repo.setLineNumbers(it) } }
             SwitchRow("Extra keys row", "Tab, arrows, undo, brackets and more above the keyboard", settings.showExtraKeys) {
                 scope.launch { repo.setShowExtraKeys(it) }
+            }
+
+            SectionHeader("Export")
+            NavRow(
+                "Export folders and recents",
+                "A JSON list of folder and recent-file metadata. SAF grants stay on this device.",
+            ) {
+                val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                exportMeta.launch("seren-edit-metadata-$today.json")
+            }
+            NavRow(
+                "Import folders and recents",
+                "Merges metadata from a Seren Edit export. You may need to re-open folders.",
+            ) {
+                importMeta.launch(arrayOf("application/json", "text/*", "*/*"))
             }
 
             SectionHeader("Security")

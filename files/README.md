@@ -24,6 +24,8 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 
 ## Features
 
+- Bookmark export and import as plain JSON (Settings)
+
 **Browsing**
 - Internal storage, SD cards and USB drives, each with how much space is free and a bar of how full it is
 - Downloads, Documents, Camera, Pictures, Music and Movies one tap away, plus bookmarks for any folder
@@ -103,7 +105,7 @@ From the repository root:
 
 ```sh
 ./gradlew :files:assembleDebug      # files/build/outputs/apk/debug/files-debug.apk
-./gradlew :files:assembleRelease    # minified; signed with the debug key until you add a release signing config
+./gradlew :files:assembleRelease    # minified; signed with the suite key when SEREN_KEYSTORE_* are set (see root README Signing)
 ```
 
 ## Tests

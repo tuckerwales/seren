@@ -16,7 +16,7 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 </p>
 
 Seren Edit is at an early stage: it edits files well, and the features below all work, but it has no
-syntax highlighting or search yet.
+syntax highlighting yet.
 
 ## Features
 
@@ -25,9 +25,10 @@ syntax highlighting or search yet.
 - Line numbers, word wrap, pinch to zoom, and a text size setting with a live preview
 - Extra keys row above the keyboard: Tab, arrows, Home/End, undo and redo, brackets and symbols
 - New lines keep the indentation of the line above; Tab follows the file's own indentation
-- Hardware keyboard shortcuts: Ctrl+S to save, Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y) to undo and redo
+- Find and replace (Ctrl+F / Ctrl+H), with match-case; hardware shortcuts also cover save and undo/redo
 
 **Files**
+- Export and import of folder and recent-file metadata as JSON (SAF grants stay device-bound)
 - Create a file anywhere, open any file, or add whole folders to browse from the Files tab
 - "Open with Seren Edit" from other apps for text, JSON, XML, YAML, TOML and shell files, and
   "Open in Seren Edit" in Seren Files for any text file, dotfiles and config files included
@@ -48,7 +49,7 @@ From the repository root:
 
 ```sh
 ./gradlew :edit:assembleDebug      # edit/build/outputs/apk/debug/edit-debug.apk
-./gradlew :edit:assembleRelease    # minified; signed with the debug key until you add a release signing config
+./gradlew :edit:assembleRelease    # minified; signed with the suite key when SEREN_KEYSTORE_* are set (see root README Signing)
 ```
 
 ## Tests

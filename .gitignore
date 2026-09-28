@@ -13,4 +13,6 @@
 .externalNativeBuild/
 .cxx/
 *.keystore
+*.p12
+*.jks
 !debug.keystore

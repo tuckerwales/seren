@@ -84,7 +84,8 @@ data class SessionSpec(
     val subtitle: String,
     val color: Int,
     val target: ConnectionTarget,
-    val jump: ConnectionTarget?,
+    /** Jump hosts from outermost to innermost (ProxyJump chain). Empty for a direct connection. */
+    val jumps: List<ConnectionTarget> = emptyList(),
     val forwards: List<PortForward>,
     val startupCommand: String,
     val colorSchemeId: String?,
@@ -183,7 +184,7 @@ class TerminalSession(
             val conn = connectionFactory(ui)
             connection = conn
             try {
-                conn.connect(spec.target, spec.jump)
+                conn.connect(spec.target, spec.jumps)
                 if (gen != generation.get()) {
                     conn.disconnect(); return@launch
                 }

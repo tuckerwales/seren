@@ -12,6 +12,9 @@ interface BookmarkDao {
     @Query("SELECT * FROM bookmarks ORDER BY name COLLATE NOCASE, path")
     fun observe(): Flow<List<Bookmark>>
 
+    @Query("SELECT * FROM bookmarks ORDER BY name COLLATE NOCASE, path")
+    suspend fun all(): List<Bookmark>
+
     @Query("SELECT EXISTS(SELECT 1 FROM bookmarks WHERE path = :path)")
     suspend fun isBookmarked(path: String): Boolean
 

@@ -1,6 +1,7 @@
 package wales.tucker.seren.ssh.ui.terminal
 
 import android.content.ClipData
+import androidx.activity.compose.BackHandler
 import android.content.ClipboardManager
 import android.os.Build
 import android.os.VibrationEffect
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.rounded.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.TextDecrease
@@ -185,6 +187,15 @@ private fun TerminalContent(
     var confirmClose by remember { mutableStateOf(false) }
     var keyboardShownOnce by remember { mutableStateOf(false) }
     var scrolledBackInHistory by remember { mutableStateOf(false) }
+    var findOpen by remember { mutableStateOf(false) }
+    var findQuery by remember { mutableStateOf("") }
+    var matchCase by remember { mutableStateOf(false) }
+    var findStatus by remember { mutableStateOf<String?>(null) }
+    val findFocus = remember { FocusRequester() }
+    // Anchor for next/prev around the last shown match.
+    var findAnchorLine by remember { mutableStateOf(0) }
+    var findAnchorStart by remember { mutableStateOf(0) }
+    var findAnchorEnd by remember { mutableStateOf(0) }
 
     val scheme = remember(session.spec.colorSchemeId, settings.colorSchemeId) {
         ContentColorSchemes.byId(session.spec.colorSchemeId ?: settings.colorSchemeId)
@@ -205,6 +216,55 @@ private fun TerminalContent(
     val accent = Color(scheme.cursor)
     SystemBarAppearance(lightBars = bg.luminance() > 0.5f)
     val currentSettings by rememberUpdatedState(settings)
+
+    fun closeFind() {
+        findOpen = false
+        findStatus = null
+        terminalView?.clearFindHighlight()
+        terminalView?.requestFocus()
+    }
+
+    fun openFind() {
+        findOpen = true
+        findStatus = null
+        terminalView?.hideKeyboard()
+    }
+
+    fun runFind(forward: Boolean) {
+        val view = terminalView
+        if (view == null || findQuery.isEmpty()) {
+            findStatus = if (findQuery.isEmpty()) null else "No matches"
+            return
+        }
+        val snapshot = view.scrollbackSnapshot()
+        if (snapshot.isEmpty()) {
+            findStatus = "No matches"
+            return
+        }
+        val lines = snapshot.map { it.second }
+        val match = if (forward) {
+            ScrollbackSearch.findNext(lines, findQuery, findAnchorLine, findAnchorEnd, matchCase)
+                ?: ScrollbackSearch.findNext(lines, findQuery, 0, 0, matchCase)
+        } else {
+            ScrollbackSearch.findPrevious(lines, findQuery, findAnchorLine, findAnchorStart, matchCase)
+                ?: ScrollbackSearch.findPrevious(lines, findQuery, lines.lastIndex, lines.last().length, matchCase)
+        }
+        if (match == null) {
+            findStatus = "No matches"
+            view.clearFindHighlight()
+            return
+        }
+        val bufferLine = snapshot[match.line].first
+        view.showFindMatch(bufferLine, match.start, match.end)
+        findAnchorLine = match.line
+        findAnchorStart = match.start
+        findAnchorEnd = match.end
+        val all = ScrollbackSearch.findAll(lines, findQuery, matchCase)
+        val index = all.indexOfFirst { it.line == match.line && it.start == match.start }.let { if (it < 0) 0 else it } + 1
+        findStatus = "$index / ${all.size}"
+    }
+
+    BackHandler(enabled = findOpen) { closeFind() }
 
     // Session events: bell, clipboard, messages.
     LaunchedEffect(session) {
@@ -320,6 +380,11 @@ private fun TerminalContent(
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
+                            text = { Text("Find in scrollback") },
+                            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                            onClick = { menuOpen = false; openFind() },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Snippets") },
                             leadingIcon = { Icon(Icons.Rounded.Terminal, null) },
                             onClick = { menuOpen = false; snippetsOpen = true },
@@ -370,6 +435,38 @@ private fun TerminalContent(
                 }
             }
 
+            if (findOpen) {
+                ScrollbackFindBar(
+                    query = findQuery,
+                    onQuery = {
+                        findQuery = it
+                        findStatus = null
+                        findAnchorLine = 0
+                        findAnchorStart = 0
+                        findAnchorEnd = 0
+                        terminalView?.clearFindHighlight()
+                    },
+                    matchCase = matchCase,
+                    onMatchCase = {
+                        matchCase = it
+                        findAnchorLine = 0
+                        findAnchorStart = 0
+                        findAnchorEnd = 0
+                        findStatus = null
+                        terminalView?.clearFindHighlight()
+                    },
+                    status = findStatus,
+                    foreground = fg,
+                    accent = accent,
+                    background = bg,
+                    focusRequester = findFocus,
+                    onClose = { closeFind() },
+                    onFindNext = { runFind(forward = true) },
+                    onFindPrevious = { runFind(forward = false) },
+                )
+                LaunchedEffect(findOpen) { if (findOpen) findFocus.requestFocus() }
+            }
+
             // Terminal.
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 AndroidView(
@@ -385,6 +482,10 @@ private fun TerminalContent(
 
                                 override fun onScrolledBackChanged(scrolledBack: Boolean) {
                                     scrolledBackInHistory = scrolledBack
+                                }
+
+                                override fun onFindRequested() {
+                                    openFind()
                                 }
                             }
                             view.session = session

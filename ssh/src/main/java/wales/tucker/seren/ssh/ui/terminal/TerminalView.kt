@@ -71,6 +71,9 @@ class TerminalView @JvmOverloads constructor(
 
         /** Called when the view scrolls into the history or back to the bottom. */
         fun onScrolledBackChanged(scrolledBack: Boolean) {}
+
+        /** Hardware Ctrl+F — open the scrollback find bar. */
+        fun onFindRequested() {}
     }
 
     var listener: Listener? = null
@@ -83,6 +86,7 @@ class TerminalView @JvmOverloads constructor(
             value?.screenListener = screenListener
             scrollOffset = 0
             clearSelection()
+            findActive = false
             lastScrolledCount = value?.emulator?.mainBuffer?.linesScrolledIntoHistory ?: 0
             updateGrid(force = true)
             invalidate()
@@ -145,6 +149,13 @@ class TerminalView @JvmOverloads constructor(
     private var draggingHandle = 0 // 0 none, 1 start, 2 end
     private var actionMode: ActionMode? = null
     private val handleRadius = 11f * density
+
+    // Scrollback find highlight (absolute rows, inclusive end col). Distinct from text selection.
+    private var findActive = false
+    private var findStartRow = 0L
+    private var findStartCol = 0
+    private var findEndRow = 0L
+    private var findEndCol = 0
 
     // Cursor blink.
     private var cursorBlinkOn = true
@@ -256,8 +267,11 @@ class TerminalView @JvmOverloads constructor(
                 val row = buffer.lineAt(lineIndex)
                 val y = paddingTop + vy * cellHeight
                 drawRow(canvas, row, y, palette, reverse, defaultBg)
+                val abs = lineIndex + scrolled
+                if (findActive) {
+                    drawFindHighlight(canvas, abs, y, row.cols)
+                }
                 if (selRange != null) {
-                    val abs = lineIndex + scrolled
                     drawSelection(canvas, abs, y, row.cols, selRange)
                 }
             }
@@ -482,6 +496,16 @@ class TerminalView @JvmOverloads constructor(
         val to = if (absRow == sel[2]) sel[3].toInt() else rowCols - 1
         if (to < from) return
         fillPaint.color = 0x5580A8FF
+        canvas.drawRect(paddingLeft + from * cellWidth, y.toFloat(), paddingLeft + (to + 1) * cellWidth, (y + cellHeight).toFloat(), fillPaint)
+    }
+
+    private fun drawFindHighlight(canvas: Canvas, absRow: Long, y: Int, rowCols: Int) {
+        if (absRow < findStartRow || absRow > findEndRow) return
+        val from = if (absRow == findStartRow) findStartCol else 0
+        val to = if (absRow == findEndRow) findEndCol else rowCols - 1
+        if (to < from) return
+        // Amber wash so it reads against both dark and light schemes.
+        fillPaint.color = 0x66FFB300
         canvas.drawRect(paddingLeft + from * cellWidth, y.toFloat(), paddingLeft + (to + 1) * cellWidth, (y + cellHeight).toFloat(), fillPaint)
     }
 
@@ -834,6 +858,82 @@ class TerminalView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Snapshot of scrollback + screen as plain lines for [ScrollbackSearch].
+     * Each pair is (buffer line index, text); indices run from -historySize to rows-1.
+     */
+    fun scrollbackSnapshot(): List<Pair<Int, String>> {
+        val s = session ?: return emptyList()
+        val emu = s.emulator
+        synchronized(emu) {
+            if (emu.isAltScreen) {
+                return (0 until emu.rows).map { it to emu.buffer.row(it).getText() }
+            }
+            val min = -emu.buffer.historySize
+            return (min until emu.rows).map { it to emu.buffer.lineAt(it).getText() }
+        }
+    }
+
+    /** Clears the amber find highlight. */
+    fun clearFindHighlight() {
+        if (!findActive) return
+        findActive = false
+        invalidate()
+    }
+
+    /**
+     * Highlights [start]..[end] (char offsets in the line's getText()) on buffer [lineIndex]
+     * and scrolls so that line is visible.
+     */
+    fun showFindMatch(lineIndex: Int, start: Int, end: Int) {
+        val s = session ?: return
+        val emu = s.emulator
+        synchronized(emu) {
+            val min = if (emu.isAltScreen) 0 else -emu.buffer.historySize
+            if (lineIndex < min || lineIndex >= emu.rows) return
+            val row = emu.buffer.lineAt(lineIndex)
+            val startCol = columnForCharIndex(row, start)
+            val endCol = columnForCharIndex(row, (end - 1).coerceAtLeast(start))
+            val scrolled = emu.mainBuffer.linesScrolledIntoHistory
+            findStartRow = lineIndex + scrolled
+            findEndRow = findStartRow
+            findStartCol = startCol
+            findEndCol = endCol
+            findActive = true
+            scrollToRevealLocked(lineIndex, emu.buffer.historySize)
+        }
+        invalidate()
+    }
+
+    /** Maps a UTF-16 offset in [TerminalRow.getText] to a cell column. */
+    private fun columnForCharIndex(row: TerminalRow, charIndex: Int): Int {
+        if (charIndex <= 0) return 0
+        var ci = 0
+        var lastCol = 0
+        for (col in 0 until row.cols) {
+            val cp = row.text[col]
+            if (cp == TerminalRow.WIDE_TAIL) continue
+            if (ci >= charIndex) return col
+            lastCol = col
+            ci += Character.charCount(cp)
+            row.getCombining(col)?.let { ci += it.length }
+        }
+        return lastCol
+    }
+
+    /** Must be called while holding the emulator lock. */
+    private fun scrollToRevealLocked(lineIndex: Int, historySize: Int) {
+        if (historySize <= 0 || lineIndex >= 0) {
+            scrollOffset = 0
+            return
+        }
+        val top = -scrollOffset
+        val bottom = top + rows - 1
+        if (lineIndex in top..bottom) return
+        // Prefer the match near the top third of the viewport.
+        scrollOffset = (-lineIndex - rows / 3).coerceIn(0, historySize)
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (selecting && handleSelectionTouch(event)) return true
@@ -992,6 +1092,16 @@ class TerminalView @JvmOverloads constructor(
         while (i < text.length) {
             val cp = text.codePointAt(i)
             i += Character.charCount(cp)
+            // Sticky Ctrl+F opens find instead of sending 0x06.
+            if (mods and KeyEncoder.MOD_CTRL != 0 &&
+                mods and KeyEncoder.MOD_ALT == 0 &&
+                (cp == 'f'.code || cp == 'F'.code)
+            ) {
+                listener?.onFindRequested()
+                consumeStickyModifiers()
+                mods = if (volumeCtrl || volumeAlt) effectiveModifiers(null) else 0
+                continue
+            }
             if (cp == '\n'.code) {
                 out.write(KeyEncoder.encode(TerminalKey.ENTER, mods and KeyEncoder.MOD_ALT, false, s.emulator.newLineMode))
             } else {
@@ -1002,7 +1112,7 @@ class TerminalView @JvmOverloads constructor(
                 mods = if (volumeCtrl || volumeAlt) effectiveModifiers(null) else 0
             }
         }
-        s.write(out.toByteArray())
+        if (out.size() > 0) s.write(out.toByteArray())
     }
 
     fun sendKey(key: TerminalKey, extraModifiers: Int) {
@@ -1033,6 +1143,11 @@ class TerminalView @JvmOverloads constructor(
         ) return super.onKeyDown(keyCode, event)
 
         val s = session ?: return super.onKeyDown(keyCode, event)
+        // Ctrl+F opens scrollback find (do not send 0x06 to the shell).
+        if (keyCode == KeyEvent.KEYCODE_F && event.isCtrlPressed && !event.isAltPressed && !event.isShiftPressed) {
+            listener?.onFindRequested()
+            return true
+        }
         val special = specialKey(keyCode)
         if (special != null) {
             val eventMods = effectiveModifiers(event)
@@ -1055,6 +1170,15 @@ class TerminalView @JvmOverloads constructor(
         var cp = event.getUnicodeChar(meta)
         if (cp == 0) return super.onKeyDown(keyCode, event)
         if (cp and KeyCharacterMap.COMBINING_ACCENT != 0) return true
+        // Sticky Ctrl+F (extra keys / volume) — same as hardware Ctrl+F above.
+        if (mods and KeyEncoder.MOD_CTRL != 0 &&
+            mods and KeyEncoder.MOD_ALT == 0 &&
+            (cp == 'f'.code || cp == 'F'.code)
+        ) {
+            listener?.onFindRequested()
+            if (listener?.currentModifiers() ?: 0 != 0) consumeStickyModifiers()
+            return true
+        }
         clearSelectionForTyping()
         s.write(KeyEncoder.encodeChar(cp, mods and (KeyEncoder.MOD_CTRL or KeyEncoder.MOD_ALT)))
         if (listener?.currentModifiers() ?: 0 != 0) consumeStickyModifiers()

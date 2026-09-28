@@ -922,6 +922,7 @@ private fun NameDialog(title: String, initial: String, confirm: String, onDismis
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PermissionsDialog(file: RemoteFile, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
     var mode by remember(file.path) { mutableIntStateOf(file.mode and 0x1FF) }

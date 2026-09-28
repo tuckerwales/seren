@@ -359,7 +359,8 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
             var name = uri.lastPathSegment ?: "upload"
             var c: SftpClient? = null
             var target: String? = null
-            var written = false
+            // Volatile-style flag: progress callbacks may run on the SFTP thread.
+            val written = java.util.concurrent.atomic.AtomicBoolean(false)
             var complete = false
             try {
                 val channel = s.openSftpChannel().also { c = it }
@@ -373,10 +374,12 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                     }
                 }
                 _transfer.value = Transfer(name, upload = true, done = 0, total = size)
+                // Open the stream on IO, but let SftpClient read it on its dedicated thread so
+                // JSch's pipe and the ContentResolver stream are not shared across pool threads.
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openInputStream(uri)?.use { input ->
                         channel.upload(input, SftpClient.join(dir, name).also { target = it }, size) { done, _ ->
-                            if (done > 0) written = true
+                            if (done > 0) written.set(true)
                             _transfer.value = Transfer(name, true, done, size)
                         }
                     } ?: throw IllegalStateException("Cannot read file")
@@ -392,12 +395,17 @@ class SftpViewModel(container: AppContainer, sessionId: Int) : ViewModel() {
                 val partial = target
                 val ch = c
                 // Only remove a file this upload started writing, never one it failed to open.
-                if (!complete && written && partial != null && ch != null) withContext(NonCancellable) {
-                    runCatching { ch.delete(ch.stat(partial)) }
+                if (!complete && written.get() && partial != null && ch != null && ch.isConnected) {
+                    withContext(NonCancellable) {
+                        runCatching { ch.delete(ch.stat(partial)) }
+                    }
                 }
+                // Close after any cleanup ops so we do not yank the pipe out from under them.
                 c?.close()
                 _transfer.value = null
-                refresh()
+                // Refresh only while the SSH session is still up; otherwise the connection-lost
+                // card already explains why the folder cannot reload.
+                if (s.isConnected) refresh()
             }
         }
         transferJob?.invokeOnCompletion { cause ->

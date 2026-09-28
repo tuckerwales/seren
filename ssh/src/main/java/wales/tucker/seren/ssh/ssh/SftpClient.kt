@@ -2,17 +2,38 @@ package wales.tucker.seren.ssh.ssh
 
 import com.jcraft.jsch.ChannelSftp
 import com.jcraft.jsch.SftpATTRS
+import com.jcraft.jsch.SftpException
 import com.jcraft.jsch.SftpProgressMonitor
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+
+/** Progress monitor that swallows callback failures and stops when the job is cancelled. */
+internal fun safeProgressMonitor(
+    total: Long,
+    job: Job,
+    onProgress: (Long, Long) -> Unit,
+): SftpProgressMonitor = object : SftpProgressMonitor {
+    private var transferred = 0L
+    override fun init(op: Int, src: String?, dest: String?, max: Long) {
+        runCatching { onProgress(0, if (total > 0) total else max) }
+    }
+
+    override fun count(count: Long): Boolean {
+        transferred += count
+        runCatching { onProgress(transferred, total) }
+        return job.isActive
+    }
+
+    override fun end() {}
+}
 
 data class RemoteFile(
     val name: String,
@@ -24,14 +45,27 @@ data class RemoteFile(
     val permissions: String,
 )
 
-/** Coroutine friendly wrapper over a JSch SFTP channel. Operations are serialized. */
+/**
+ * Coroutine-friendly wrapper over a JSch SFTP channel.
+ *
+ * JSch delivers channel data through a [java.io.PipedInputStream] that tracks a single reader
+ * thread. Running ops on [Dispatchers.IO]'s pool lets that reader die between calls, so the
+ * session thread's next write hits "Read end dead", disconnects the channel, and under load can
+ * stall the whole session until the TCP connection drops ("End of IO Stream Read"). Every call
+ * therefore runs on one dedicated thread for this client.
+ */
 class SftpClient(private val channel: ChannelSftp) {
-    private val mutex = Mutex()
+    private val executor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "sftp-${System.identityHashCode(this)}").apply { isDaemon = true }
+    }
+    private val dispatcher = executor.asCoroutineDispatcher()
+    private val closed = AtomicBoolean(false)
 
-    val isConnected: Boolean get() = channel.isConnected && !channel.isClosed
+    val isConnected: Boolean get() = !closed.get() && channel.isConnected && !channel.isClosed
 
-    private suspend fun <T> io(block: ChannelSftp.() -> T): T = withContext(Dispatchers.IO) {
-        mutex.withLock { channel.block() }
+    private suspend fun <T> io(block: ChannelSftp.() -> T): T {
+        if (closed.get()) throw java.io.IOException("SFTP channel is closed")
+        return withContext(dispatcher) { channel.block() }
     }
 
     suspend fun home(): String = io { home }
@@ -85,9 +119,15 @@ class SftpClient(private val channel: ChannelSftp) {
     /** Downloads [path] into [out]. Cancelling the calling coroutine stops the transfer. */
     suspend fun download(path: String, out: OutputStream, onProgress: (Long, Long) -> Unit) {
         val job = currentCoroutineContext().job
-        io {
-            val size = runCatching { stat(path).size }.getOrDefault(-1L)
-            get(path, out, monitor(size, job, onProgress))
+        try {
+            io {
+                val size = runCatching { stat(path).size }.getOrDefault(-1L)
+                get(path, out, monitor(size, job, onProgress))
+            }
+        } catch (e: SftpException) {
+            // Returning false from the progress monitor ends the transfer with this id.
+            if (e.id == ChannelSftp.SSH_FX_FAILURE && !job.isActive) throw kotlinx.coroutines.CancellationException("Transfer cancelled", e)
+            throw e
         }
         job.ensureActive()
     }
@@ -98,7 +138,12 @@ class SftpClient(private val channel: ChannelSftp) {
      */
     suspend fun upload(input: InputStream, path: String, size: Long, onProgress: (Long, Long) -> Unit) {
         val job = currentCoroutineContext().job
-        io { put(input, path, monitor(size, job, onProgress), ChannelSftp.OVERWRITE) }
+        try {
+            io { put(input, path, monitor(size, job, onProgress), ChannelSftp.OVERWRITE) }
+        } catch (e: SftpException) {
+            if (e.id == ChannelSftp.SSH_FX_FAILURE && !job.isActive) throw kotlinx.coroutines.CancellationException("Transfer cancelled", e)
+            throw e
+        }
         job.ensureActive()
     }
 
@@ -114,24 +159,22 @@ class SftpClient(private val channel: ChannelSftp) {
     }
 
     fun close() {
+        if (!closed.compareAndSet(false, true)) return
+        // Disconnect first so an in-flight put/get fails out of the dedicated thread, then stop
+        // that thread. Doing this on the caller avoids deadlocking if close() is itself invoked
+        // from an SFTP op.
         runCatching { channel.disconnect() }
+        dispatcher.close()
+        executor.shutdownNow()
     }
 
-    /** Reports progress, and stops the transfer once [job] is cancelled. */
-    private fun monitor(total: Long, job: Job, onProgress: (Long, Long) -> Unit) = object : SftpProgressMonitor {
-        private var transferred = 0L
-        override fun init(op: Int, src: String?, dest: String?, max: Long) {
-            onProgress(0, if (total > 0) total else max)
-        }
-
-        override fun count(count: Long): Boolean {
-            transferred += count
-            onProgress(transferred, total)
-            return job.isActive
-        }
-
-        override fun end() {}
-    }
+    /**
+     * Reports progress and stops the transfer once [job] is cancelled. Callbacks must never throw:
+     * an exception here aborts mid-protocol without closing the remote handle, which can desync
+     * the channel and take down the SSH session.
+     */
+    private fun monitor(total: Long, job: Job, onProgress: (Long, Long) -> Unit) =
+        safeProgressMonitor(total, job, onProgress)
 
     private fun ChannelSftp.LsEntry.toRemote(full: String, attrs: SftpATTRS, isDir: Boolean) = RemoteFile(
         name = filename,

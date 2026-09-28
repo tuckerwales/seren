@@ -160,6 +160,10 @@ class SshConnection(
         s.setHostKeyRepository(DatabaseHostKeyRepository(knownHosts, ui))
         s.setConfig("StrictHostKeyChecking", "yes")
         s.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password")
+        // JSch's default channel pipe is 32 KiB, but the local window is 1 MiB. During an SFTP
+        // upload the session thread can block writing shell output into that tiny pipe, stop
+        // reading the socket, and the server then drops us with "End of IO Stream Read".
+        s.setConfig("max_input_buffer_size", (2 * 1024 * 1024).toString())
         if (target.compression) {
             s.setConfig("compression.s2c", "zlib@openssh.com,zlib,none")
             s.setConfig("compression.c2s", "zlib@openssh.com,zlib,none")

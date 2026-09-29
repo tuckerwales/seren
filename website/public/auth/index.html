@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seren Auth — authenticator for Android</title>
+  <meta name="description" content="A modern authenticator for two-factor codes on Android. TOTP and HOTP, QR scanning, encrypted backups. Free, open source, no ads, no tracking.">
+  <meta name="theme-color" content="#5B6CF9">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("seren-theme");
+        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="wordmark" href="/">
+        <span class="wordmark-star" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M8 2l1.2 3.8H13l-3.1 2.3 1.2 3.8L8 9.6l-3.1 2.3 1.2-3.8L3 5.8h3.8L8 2z" fill="#8FA8FF"/><circle cx="8" cy="8" r="1.4" fill="#7DF0C8"/></svg>
+        </span>
+        <span class="wordmark-seren">Seren</span>
+        <span class="wordmark-app">Auth</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="/ssh/">SSH</a></li>
+          <li><a href="/edit/">Edit</a></li>
+          <li><a href="/auth/" aria-current="page">Auth</a></li>
+          <li><a href="/files/">Files</a></li>
+        </ul>
+        <div class="nav-actions">
+          <button type="button" class="icon-btn" data-theme-toggle aria-label="Toggle theme">
+            <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/></svg>
+          </button>
+          <a class="btn btn-primary" href="https://github.com/tuckerwales/seren/tree/main/auth" style="padding:0.55rem 1.1rem;font-size:0.9rem">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>
+            GitHub
+          </a>
+          <button type="button" class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="nav-panel" aria-label="Open menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+    <div class="nav-panel" id="nav-panel" data-nav-panel hidden>
+      <ul>
+        <li><a href="/ssh/">Seren SSH</a></li>
+        <li><a href="/edit/">Seren Edit</a></li>
+        <li><a href="/auth/" aria-current="page">Seren Auth</a></li>
+        <li><a href="/files/">Seren Files</a></li>
+        <li><a href="https://github.com/tuckerwales/seren">View on GitHub</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="app-hero">
+      <div class="wrap app-hero-grid">
+        <div>
+          <a class="back-link" href="/">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+            All Seren apps
+          </a>
+          <p class="eyebrow">New — codes, scanning, backup and import all work</p>
+          <h1>Seren <span style="font-weight:400;color:var(--primary)">Auth</span></h1>
+          <p class="lede">A modern, fast and easy to use authenticator for two-factor sign in codes.</p>
+          <p class="muted" style="max-width:36rem;margin-top:0.75rem">Part of Seren: free, carefully made, and built so you aren’t the product.</p>
+          <p class="muted" style="max-width:36rem">Time and counter based codes, QR scanning with the camera or from an image, Google Authenticator transfer codes, encrypted backups, and import from Aegis and andOTP. No network permission at all; setup keys are encrypted with the Android Keystore.</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="https://github.com/tuckerwales/seren/tree/main/auth">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>
+              View on GitHub
+            </a>
+            <a class="btn btn-secondary" href="https://github.com/tuckerwales/seren/blob/main/auth/README.md">Module README</a>
+          </div>
+        </div>
+        <div class="app-hero-shots">
+          <div class="phone">
+            <div class="phone-screen"><img src="/images/auth/01_accounts.png" alt="" width="400" height="860" loading="eager"></div>
+          </div>
+          <div class="phone">
+            <div class="phone-screen"><img src="/images/auth/03_editor.png" alt="" width="400" height="860" loading="eager"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2 id="features-title">Features</h2>
+            <p class="muted">From the Seren Auth README. Nothing invented.</p>
+          </div>
+        </div>
+        <div class="features">
+        <article class="feature">
+          <h3>Codes</h3>
+          <ul>
+            <li>Time based (TOTP) and counter based (HOTP) codes, SHA-1/256/512, 6 to 8 digits, any period</li>
+            <li>Steam Guard codes, including from Aegis, andOTP and otpauth://steam/ links</li>
+            <li>Large JetBrains Mono digits with a countdown ring; tap to copy (clipboard clears after a minute)</li>
+            <li>Optional hidden codes, shown only after a tap; search by service or account name</li>
+          </ul>
+        </article>
+        <article class="feature">
+          <h3>Adding accounts</h3>
+          <ul>
+            <li>Scan a QR code with the camera or from a screenshot or photo</li>
+            <li>Enter or paste a setup key, or paste a whole otpauth link with a live preview of the code</li>
+            <li>Open otpauth:// links from a browser; offer a copied setup link from another app in one tap</li>
+            <li>Scan Google Authenticator “Transfer accounts” QR codes; duplicates are never added twice</li>
+          </ul>
+        </article>
+        <article class="feature">
+          <h3>Backup and moving devices</h3>
+          <ul>
+            <li>Encrypted backups: documented JSON, AES-256-GCM with a scrypt-derived password key</li>
+            <li>Export as a plain list of otpauth:// links most authenticator apps can import</li>
+            <li>Import from Seren Auth, Aegis (plain or encrypted), andOTP, Google Authenticator or a list of links</li>
+            <li>Show any account’s QR code to add it on another device</li>
+          </ul>
+        </article>
+        <article class="feature">
+          <h3>Privacy and security</h3>
+          <ul>
+            <li>No network permission: codes are made on the device from the time and the setup key</li>
+            <li>Setup keys encrypted with a hardware-backed Android Keystore key, kept out of cloud backups</li>
+            <li>Screenshots and screen recording blocked by default; optional app lock before showing a setup key or exporting</li>
+            <li>The camera is only used to read QR codes; nothing is recorded</li>
+          </ul>
+        </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="shots-title">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <h2 id="shots-title">Screenshots</h2>
+            <p class="muted">Rendered from the app with demo data.</p>
+          </div>
+        </div>
+        <div class="shots-row">
+          <div class="phone">
+            <div class="phone-screen"><img src="/images/auth/01_accounts.png" alt="Accounts list in Seren Auth" width="400" height="860" loading="lazy"></div>
+          </div>
+          <div class="phone">
+            <div class="phone-screen"><img src="/images/auth/03_editor.png" alt="Account editor in Seren Auth" width="400" height="860" loading="lazy"></div>
+          </div>
+          <div class="phone">
+            <div class="phone-screen"><img src="/images/auth/06_accounts_dark.png" alt="Accounts in the dark theme" width="400" height="860" loading="lazy"></div>
+          </div>
+          <div class="phone">
+            <div class="phone-screen"><img src="/images/auth/07_qr_code.png" alt="An account’s QR code" width="400" height="860" loading="lazy"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight">
+      <div class="wrap">
+        <div class="cta-band">
+          <div>
+            <h2>Part of the Seren suite</h2>
+            <p>Same theme, same promises, and careful handoffs with the other apps when they are installed.</p>
+          </div>
+          <div class="btn-row" style="margin:0">
+            <a class="btn btn-primary" href="/">Back to Seren</a>
+            <a class="btn btn-secondary" href="https://github.com/tuckerwales/seren/tree/main/auth">Module on GitHub</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <div class="footer-brand">
+        <a class="wordmark" href="/">
+          <span class="wordmark-star" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 2l1.2 3.8H13l-3.1 2.3 1.2 3.8L8 9.6l-3.1 2.3 1.2-3.8L3 5.8h3.8L8 2z" fill="#8FA8FF"/><circle cx="8" cy="8" r="1.4" fill="#7DF0C8"/></svg>
+          </span>
+          <span class="wordmark-seren">Seren</span>
+        </a>
+        <p>Everyone deserves free, high-quality apps that don’t track them. Seren is Welsh for star.</p>
+      </div>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="/">Suite</a>
+        <a href="/ssh/">SSH</a>
+        <a href="/edit/">Edit</a>
+        <a href="/auth/">Auth</a>
+        <a href="/files/">Files</a>
+        <a href="https://github.com/tuckerwales/seren">GitHub</a>
+      </nav>
+      <div class="footer-meta">
+        <span>Apache License 2.0</span>
+        <a href="https://github.com/tuckerwales/seren">github.com/tuckerwales/seren</a>
+        <a href="https://github.com/tuckerwales/seren/tree/main/auth">Module on GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js" defer></script>
+</body>
+</html>

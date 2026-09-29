@@ -83,6 +83,7 @@ seren/
 ├── edit/          Seren Edit
 ├── auth/          Seren Auth
 ├── files/         Seren Files
+├── website/       Marketing site (Coolify / static)
 ├── docs/BRAND.md  Brand and design guide for the suite
 └── README.md      This file
 ```

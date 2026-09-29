@@ -1,0 +1,7 @@
+# Local smoke test: docker compose up --build
+services:
+  seren-website:
+    build: .
+    ports:
+      - "8080:80"
+    restart: unless-stopped

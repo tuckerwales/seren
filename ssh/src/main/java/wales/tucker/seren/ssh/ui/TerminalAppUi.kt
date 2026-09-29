@@ -219,11 +219,12 @@ private fun AppNavHost(
         popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(280)) + fadeOut(tween(280)) },
     ) {
         composable(Routes.HOME) {
+            val activity = LocalContext.current as? MainActivity
             HomeScreen(
                 settings = settings,
                 onConnect = { host ->
                     openSession {
-                        ensureAgentForHost(context as? MainActivity, container, host)
+                        ensureAgentForHost(activity, container, host)
                         container.sessionManager.open(host).id
                     }
                 },

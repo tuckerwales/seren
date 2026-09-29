@@ -83,12 +83,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.content.ContentColorSchemes
 import wales.tucker.seren.core.ui.SectionHeader
+import wales.tucker.seren.core.ui.SwitchRow
 import wales.tucker.seren.core.ui.theme.AccentColors
 import wales.tucker.seren.core.ui.theme.MonoSmall
 import wales.tucker.seren.ssh.AppContainer
@@ -116,6 +118,7 @@ data class HostForm(
     val jumpHostId: Long? = null,
     val keepAlive: String = "30",
     val compression: Boolean = false,
+    val forwardAgent: Boolean = false,
     val colorSchemeId: String? = null,
     val forwards: List<PortForward> = emptyList(),
     val lastConnectedAt: Long = 0,
@@ -150,6 +153,9 @@ class HostEditorViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val hosts: StateFlow<List<Host>> = container.database.hostDao().observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val appLock: StateFlow<Boolean> = container.settings.settings
+        .map { it.appLock }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _saved = MutableStateFlow(false)
     val saved: StateFlow<Boolean> = _saved.asStateFlow()
@@ -190,6 +196,7 @@ class HostEditorViewModel(
                     jumpHostId = h.jumpHostId,
                     keepAlive = h.keepAliveSeconds.toString(),
                     compression = h.compression,
+                    forwardAgent = h.forwardAgent,
                     colorSchemeId = h.colorSchemeId,
                     forwards = forwards,
                     lastConnectedAt = if (duplicate) 0 else h.lastConnectedAt,
@@ -229,6 +236,7 @@ class HostEditorViewModel(
                 jumpHostId = f.jumpHostId?.takeIf { it != f.id },
                 keepAliveSeconds = f.keepAlive.toIntOrNull()?.coerceIn(0, 3600) ?: 30,
                 compression = f.compression,
+                forwardAgent = f.forwardAgent,
                 colorSchemeId = f.colorSchemeId,
                 lastConnectedAt = f.lastConnectedAt,
                 createdAt = f.createdAt,
@@ -250,6 +258,7 @@ fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit, from
     val keys by vm.keys.collectAsStateWithLifecycle()
     val hosts by vm.hosts.collectAsStateWithLifecycle()
     val saved by vm.saved.collectAsStateWithLifecycle()
+    val appLock by vm.appLock.collectAsStateWithLifecycle()
     var showErrors by remember { mutableStateOf(false) }
     var editingForward by remember { mutableStateOf<Pair<Int, PortForward>?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
@@ -466,6 +475,19 @@ fun HostEditorScreen(hostId: Long?, duplicate: Boolean, onDone: () -> Unit, from
                     }
                     Switch(checked = form.compression, onCheckedChange = { c -> vm.update { it.copy(compression = c) } })
                 }
+                val forwardEnabled = appLock
+                val forwardSubtitle = if (forwardEnabled) {
+                    "Lets the server use keys currently unlocked in the agent for further hops. The agent is wiped when App Lock engages."
+                } else {
+                    "Requires App Lock in Settings. Without it, unlocked keys could stay available after the app is backgrounded."
+                }
+                SwitchRow(
+                    title = "Forward agent",
+                    subtitle = forwardSubtitle,
+                    checked = form.forwardAgent,
+                    enabled = forwardEnabled,
+                    onChange = { on -> vm.update { it.copy(forwardAgent = on) } },
+                )
             }
             Spacer(Modifier.height(24.dp))
             Button(

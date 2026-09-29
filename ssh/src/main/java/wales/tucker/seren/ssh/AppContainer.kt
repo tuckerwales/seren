@@ -16,5 +16,6 @@ class AppContainer(context: Context, val secretBox: SecretBox = SecretBox("termi
     val database: AppDatabase = AppDatabase.create(context)
     val settings = SettingsRepository(context)
     val sessionManager = SessionManager(context, database, secretBox, settings, appScope)
+    val agent get() = sessionManager.agent
     val transferNotifier = SftpTransferNotifier(context)
 }

@@ -17,7 +17,10 @@ import wales.tucker.seren.ssh.data.AppDatabase
 import wales.tucker.seren.ssh.data.AuthType
 import wales.tucker.seren.ssh.data.Host
 import wales.tucker.seren.ssh.data.SettingsRepository
+import wales.tucker.seren.ssh.ssh.AgentLockedException
 import wales.tucker.seren.ssh.ssh.ConnectionTarget
+import wales.tucker.seren.ssh.ssh.ForwardAgentRequiresAppLockException
+import wales.tucker.seren.ssh.ssh.InAppAgent
 import wales.tucker.seren.ssh.ssh.SshConnection
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -28,6 +31,7 @@ class SessionManager(
     private val secretBox: SecretBox,
     private val settings: SettingsRepository,
     private val scope: CoroutineScope,
+    val agent: InAppAgent = InAppAgent(),
 ) {
     private val nextId = AtomicInteger(1)
     private val _sessions = MutableStateFlow<List<TerminalSession>>(emptyList())
@@ -37,8 +41,32 @@ class SessionManager(
 
     /** Opens a new session to a saved host. */
     suspend fun open(host: Host): TerminalSession {
+        ensureForwardAgentReady(host.forwardAgent)
         val spec = withContext(Dispatchers.IO) { buildSpec(host) }
         return start(spec)
+    }
+
+    /**
+     * Decrypts every stored private key into [agent]. Call only after AppLock authentication.
+     * Refuses when App Lock is off so unlocked keys cannot outlive a lock timeout.
+     */
+    suspend fun unlockAgent() {
+        if (!settings.settings.first().appLock) throw ForwardAgentRequiresAppLockException()
+        val loaded = withContext(Dispatchers.IO) {
+            db.keyDao().all().mapNotNull { key ->
+                val plain = runCatching { secretBox.decrypt(key.encryptedPrivateKey) }.getOrNull() ?: return@mapNotNull null
+                InAppAgent.LoadedKey(key.name, plain)
+            }
+        }
+        agent.unlock(loaded)
+    }
+
+    fun wipeAgent() = agent.wipe()
+
+    private suspend fun ensureForwardAgentReady(forwardAgent: Boolean) {
+        if (!forwardAgent) return
+        if (!settings.settings.first().appLock) throw ForwardAgentRequiresAppLockException()
+        if (!agent.isUnlocked) throw AgentLockedException()
     }
 
     /** Opens a session to an unsaved host (quick connect). */
@@ -53,7 +81,7 @@ class SessionManager(
         session = TerminalSession(
             id = nextId.getAndIncrement(),
             spec = spec,
-            connectionFactory = { ui -> SshConnection(db.knownHostDao(), ui) },
+            connectionFactory = { ui -> SshConnection(db.knownHostDao(), ui, agent) },
             scope = scope,
             scrollback = scrollback,
             onPasswordRemembered = { pw -> rememberPassword(session.hostId.value, pw) },
@@ -112,6 +140,7 @@ class SessionManager(
             forwards = forwards,
             startupCommand = host.startupCommand,
             colorSchemeId = host.colorSchemeId,
+            forwardAgent = host.forwardAgent,
         )
     }
 
@@ -152,6 +181,7 @@ class SessionManager(
             keyName = keyName,
             keepAliveSeconds = host.keepAliveSeconds,
             compression = host.compression,
+            forwardAgent = host.forwardAgent,
         )
     }
 }

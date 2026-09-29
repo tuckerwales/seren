@@ -241,13 +241,21 @@ fun pillFieldColors(container: Color): TextFieldColors = TextFieldDefaults.color
 
 /** A settings row with a switch on the right; the whole row toggles it. */
 @Composable
-fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+fun SwitchRow(
+    title: String,
+    subtitle: String?,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = subtitle?.let { { Text(it) } },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = onChange, enabled = enabled) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.clickable { onChange(!checked) }.padding(horizontal = 4.dp),
+        modifier = Modifier
+            .then(if (enabled) Modifier.clickable { onChange(!checked) } else Modifier)
+            .padding(horizontal = 4.dp),
     )
 }
 

@@ -89,6 +89,7 @@ data class SessionSpec(
     val forwards: List<PortForward>,
     val startupCommand: String,
     val colorSchemeId: String?,
+    val forwardAgent: Boolean = false,
 )
 
 /**
@@ -191,7 +192,7 @@ class TerminalSession(
                 conn.passwordToRemember?.let(onPasswordRemembered)
                 val errors = conn.startForwards(spec.forwards)
                 errors.forEach { _events.tryEmit(SessionEvent.Message("Forward failed: $it")) }
-                val sh = conn.openShell(cols, rows, widthPx, heightPx)
+                val sh = conn.openShell(cols, rows, widthPx, heightPx, agentForwarding = spec.forwardAgent)
                 shell = sh
                 _state.value = SessionState.Connected
                 onConnected()

@@ -67,6 +67,7 @@ fun CountdownRing(remainingMillis: Long, periodMillis: Long, modifier: Modifier 
 /** What a hidden code shows: a dot per digit, grouped like the code. */
 fun hiddenCode(digits: Int): String {
     val dots = "•".repeat(digits)
+    if (digits < 6) return dots
     val split = digits / 2
-    return if (digits < 5) dots else dots.substring(0, split) + " " + dots.substring(split)
+    return dots.substring(0, split) + " " + dots.substring(split)
 }

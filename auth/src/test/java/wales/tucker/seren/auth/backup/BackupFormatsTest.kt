@@ -24,6 +24,7 @@ import wales.tucker.seren.core.backup.BackupCrypto
 class BackupFormatsTest {
     private val github = OtpToken("GitHub", "octocat", "JBSWY3DPEHPK3PXP")
     private val server = OtpToken("", "root@server", "GEZDGNBVGY3TQOJQ", OtpType.HOTP, OtpAlgorithm.SHA256, 8, counter = 12)
+    private val steam = OtpToken("Steam", "gamer", "JBSWY3DPEHPK3PXP", OtpType.STEAM, digits = OtpToken.STEAM_DIGITS)
     private val entries = listOf(BackupEntry(github, 2), BackupEntry(server, 5))
 
     private fun ready(read: ImportRead) = (read as ImportRead.Ready).import
@@ -61,8 +62,8 @@ class BackupFormatsTest {
     fun readsPlainAegisVaults() {
         val import = ready(Importer.read(aegisPlain().toString()))
         assertEquals("Aegis", import.source)
-        assertEquals(listOf(BackupEntry(github), BackupEntry(server)), import.entries)
-        assertEquals("Steam codes aren't supported", 1, import.unsupported)
+        assertEquals(listOf(BackupEntry(github), BackupEntry(server), BackupEntry(steam)), import.entries)
+        assertEquals("MD5 codes aren't supported", 1, import.unsupported)
     }
 
     @Test
@@ -71,16 +72,17 @@ class BackupFormatsTest {
         val locked = Importer.read(vault.toString()) as ImportRead.Locked
         assertEquals("Aegis", locked.source)
         assertThrows(OtpFormatException::class.java) { locked.decrypt("nope".toCharArray()) }
-        assertEquals(2, locked.decrypt("test".toCharArray()).entries.size)
+        assertEquals(3, locked.decrypt("test".toCharArray()).entries.size)
     }
 
     @Test
     fun readsAndOtpExports() {
         val json = JSONArray()
             .put(JSONObject().put("secret", "JBSWY3DPEHPK3PXP").put("issuer", "GitHub").put("label", "GitHub - octocat").put("digits", 6).put("type", "TOTP").put("algorithm", "SHA1").put("period", 30))
-            .put(JSONObject().put("secret", "JBSWY3DPEHPK3PXP").put("label", "steam").put("type", "STEAM"))
+            .put(JSONObject().put("secret", "JBSWY3DPEHPK3PXP").put("issuer", "Steam").put("label", "gamer").put("digits", 5).put("type", "STEAM").put("algorithm", "SHA1").put("period", 30))
+            .put(JSONObject().put("secret", "JBSWY3DPEHPK3PXP").put("label", "legacy").put("type", "MOTP"))
         val import = ready(Importer.read(json.toString()))
-        assertEquals(listOf(BackupEntry(github)), import.entries)
+        assertEquals(listOf(BackupEntry(github), BackupEntry(steam)), import.entries)
         assertEquals(1, import.unsupported)
     }
 
@@ -109,6 +111,7 @@ class BackupFormatsTest {
             .put(entry("totp", "GitHub", "octocat", JSONObject().put("secret", "JBSWY3DPEHPK3PXP").put("algo", "SHA1").put("digits", 6).put("period", 30)))
             .put(entry("hotp", "", "root@server", JSONObject().put("secret", "GEZDGNBVGY3TQOJQ").put("algo", "SHA256").put("digits", 8).put("counter", 12)))
             .put(entry("steam", "Steam", "gamer", JSONObject().put("secret", "JBSWY3DPEHPK3PXP").put("algo", "SHA1").put("digits", 5).put("period", 30)))
+            .put(entry("totp", "Odd", "md5", JSONObject().put("secret", "JBSWY3DPEHPK3PXP").put("algo", "MD5").put("digits", 6).put("period", 30)))
         return JSONObject()
             .put("version", 1)
             .put("header", JSONObject().put("slots", JSONObject.NULL).put("params", JSONObject.NULL))

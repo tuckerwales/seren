@@ -10,6 +10,9 @@ class OtpFormatException(message: String) : Exception(message)
  * `otpauth://` links, the format sites put in their setup QR codes:
  * `otpauth://totp/GitHub:you@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub`.
  * See https://github.com/google/google-authenticator/wiki/Key-Uri-Format.
+ *
+ * Steam Guard accounts use `otpauth://steam/...`, or a TOTP link with `issuer=Steam` and
+ * `digits=5` (a compatibility shape some exporters use).
  */
 object OtpAuthUri {
     const val SCHEME = "otpauth"
@@ -23,9 +26,10 @@ object OtpAuthUri {
         val rest = link.substring(SCHEME.length + 3)
         val slash = rest.indexOf('/')
         val typeName = (if (slash >= 0) rest.substring(0, slash) else rest.substringBefore('?')).lowercase()
-        val type = when (typeName) {
+        var type = when (typeName) {
             "totp" -> OtpType.TOTP
             "hotp" -> OtpType.HOTP
+            "steam" -> OtpType.STEAM
             else -> throw OtpFormatException("Seren Auth doesn't support \"$typeName\" codes")
         }
         val afterType = if (slash >= 0) rest.substring(slash + 1) else ""
@@ -51,9 +55,27 @@ object OtpAuthUri {
             "SHA512" -> OtpAlgorithm.SHA512
             else -> throw OtpFormatException("Seren Auth doesn't support the ${query["algorithm"]} algorithm")
         }
-        val digits = query["digits"]?.takeIf { it.isNotBlank() }?.let {
-            it.toIntOrNull()?.takeIf { d -> d in OtpToken.DIGIT_CHOICES } ?: throw OtpFormatException("Seren Auth doesn't support $it digit codes")
-        } ?: OtpToken.DEFAULT_DIGITS
+        var digits = query["digits"]?.takeIf { it.isNotBlank() }?.let { raw ->
+            val d = raw.toIntOrNull() ?: throw OtpFormatException("Seren Auth doesn't support $raw digit codes")
+            when {
+                type == OtpType.STEAM && d == OtpToken.STEAM_DIGITS -> d
+                d in OtpToken.DIGIT_CHOICES -> d
+                // Provisional: may become Steam when the issuer is Steam (see below).
+                type == OtpType.TOTP && d == OtpToken.STEAM_DIGITS -> d
+                else -> throw OtpFormatException("Seren Auth doesn't support $raw digit codes")
+            }
+        } ?: if (type == OtpType.STEAM) OtpToken.STEAM_DIGITS else OtpToken.DEFAULT_DIGITS
+
+        // Compatibility: some exporters write Steam as totp + issuer=Steam + digits=5.
+        if (type == OtpType.TOTP && digits == OtpToken.STEAM_DIGITS) {
+            if (issuer.equals("Steam", ignoreCase = true)) {
+                type = OtpType.STEAM
+                digits = OtpToken.STEAM_DIGITS
+            } else {
+                throw OtpFormatException("Seren Auth doesn't support $digits digit codes")
+            }
+        }
+
         val period = query["period"]?.takeIf { it.isNotBlank() }?.let {
             it.toIntOrNull()?.takeIf { p -> p in OtpToken.PERIOD_RANGE } ?: throw OtpFormatException("The link's period isn't valid")
         } ?: OtpToken.DEFAULT_PERIOD
@@ -66,15 +88,18 @@ object OtpAuthUri {
             name = name,
             secret = Base32.normalize(secret),
             type = type,
-            algorithm = algorithm,
-            digits = digits,
+            algorithm = if (type == OtpType.STEAM) OtpAlgorithm.SHA1 else algorithm,
+            digits = if (type == OtpType.STEAM) OtpToken.STEAM_DIGITS else digits,
             period = period,
             counter = counter,
         )
     }
 
     fun format(token: OtpToken): String {
-        val type = token.type.name.lowercase()
+        val type = when (token.type) {
+            OtpType.STEAM -> "steam"
+            else -> token.type.name.lowercase()
+        }
         val label = if (token.issuer.isNotEmpty()) "${encode(token.issuer)}:${encode(token.name)}" else encode(token.name)
         val params = buildList {
             add("secret=${token.secret}")
@@ -82,7 +107,7 @@ object OtpAuthUri {
             add("algorithm=${token.algorithm.name}")
             add("digits=${token.digits}")
             when (token.type) {
-                OtpType.TOTP -> add("period=${token.period}")
+                OtpType.TOTP, OtpType.STEAM -> add("period=${token.period}")
                 OtpType.HOTP -> add("counter=${token.counter}")
             }
         }

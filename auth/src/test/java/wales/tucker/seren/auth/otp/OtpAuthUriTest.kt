@@ -45,11 +45,28 @@ class OtpAuthUriTest {
     }
 
     @Test
+    fun parsesSteamGuardLinks() {
+        val steam = OtpAuthUri.parse("otpauth://steam/Steam:gamer?secret=JBSWY3DPEHPK3PXP&issuer=Steam")
+        assertEquals(OtpType.STEAM, steam.type)
+        assertEquals("Steam", steam.issuer)
+        assertEquals("gamer", steam.name)
+        assertEquals(OtpToken.STEAM_DIGITS, steam.digits)
+        assertEquals(OtpAlgorithm.SHA1, steam.algorithm)
+        assertEquals(30, steam.period)
+
+        // Compatibility shape some exporters use instead of otpauth://steam/...
+        val compat = OtpAuthUri.parse("otpauth://totp/gamer?secret=JBSWY3DPEHPK3PXP&issuer=Steam&digits=5")
+        assertEquals(OtpType.STEAM, compat.type)
+        assertEquals(OtpToken.STEAM_DIGITS, compat.digits)
+    }
+
+    @Test
     fun formatRoundTrips() {
         val tokens = listOf(
             OtpToken("ACME Co", "john doe+1@x.com", "JBSWY3DPEHPK3PXP", OtpType.TOTP, OtpAlgorithm.SHA512, 8, 45),
             OtpToken("", "server", "JBSWY3DPEHPK3PXP", OtpType.HOTP, counter = 7),
             OtpToken("Odd: name", "me", "JBSWY3DPEHPK3PXP"),
+            OtpToken("Steam", "gamer", "JBSWY3DPEHPK3PXP", OtpType.STEAM, digits = OtpToken.STEAM_DIGITS),
         )
         for (t in tokens) assertEquals(t, OtpAuthUri.parse(OtpAuthUri.format(t)))
     }
@@ -59,7 +76,7 @@ class OtpAuthUriTest {
         fun message(link: String) = assertThrows(OtpFormatException::class.java) { OtpAuthUri.parse(link) }.message
         assertEquals("The link has no setup key", message("otpauth://totp/x?issuer=y"))
         assertEquals("The setup key in the link isn't valid", message("otpauth://totp/x?secret=189"))
-        assertEquals("Seren Auth doesn't support \"steam\" codes", message("otpauth://steam/x?secret=JBSWY3DP"))
+        assertEquals("Seren Auth doesn't support \"motp\" codes", message("otpauth://motp/x?secret=JBSWY3DP"))
         assertEquals("Seren Auth doesn't support the MD5 algorithm", message("otpauth://totp/x?secret=JBSWY3DP&algorithm=MD5"))
         assertEquals("Seren Auth doesn't support 5 digit codes", message("otpauth://totp/x?secret=JBSWY3DP&digits=5"))
         assertEquals("This isn't an otpauth link", message("https://example.com"))

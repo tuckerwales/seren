@@ -245,8 +245,8 @@ fun SwitchRow(
     title: String,
     subtitle: String?,
     checked: Boolean,
-    onChange: (Boolean) -> Unit,
     enabled: Boolean = true,
+    onChange: (Boolean) -> Unit,
 ) {
     ListItem(
         headlineContent = { Text(title) },

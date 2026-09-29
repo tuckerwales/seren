@@ -63,6 +63,7 @@ class Backup(private val db: AppDatabase, private val secretBox: SecretBox? = nu
                     .putOpt("jumpHost", h.jumpHostId?.let { index[it] })
                     .put("keepAliveSeconds", h.keepAliveSeconds)
                     .put("compression", h.compression)
+                    .put("forwardAgent", h.forwardAgent)
                     .putOpt("colorSchemeId", h.colorSchemeId)
                     .putOpt("password", h.encryptedPassword?.let { box?.decryptString(it) })
                     .put("forwards", forwards),
@@ -180,6 +181,7 @@ class Backup(private val db: AppDatabase, private val secretBox: SecretBox? = nu
                 startupCommand = o.optString("startupCommand"),
                 keepAliveSeconds = o.optInt("keepAliveSeconds", 30),
                 compression = o.optBoolean("compression"),
+                forwardAgent = o.optBoolean("forwardAgent"),
                 colorSchemeId = o.optString("colorSchemeId").takeIf { it.isNotEmpty() },
                 encryptedPassword = o.optString("password").takeIf { it.isNotEmpty() }?.let { secretBox?.encryptString(it) },
             )

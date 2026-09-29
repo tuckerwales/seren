@@ -24,6 +24,11 @@ data class Host(
     val jumpHostId: Long? = null,
     val keepAliveSeconds: Int = 30,
     val compression: Boolean = false,
+    /**
+     * When true, the shell requests SSH agent forwarding so the remote can use keys currently
+     * unlocked in the in-app agent. Requires AppLock; the agent is wiped when the app locks.
+     */
+    val forwardAgent: Boolean = false,
     val colorSchemeId: String? = null,
     val lastConnectedAt: Long = 0,
     val createdAt: Long = System.currentTimeMillis(),

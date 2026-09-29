@@ -29,10 +29,14 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
+import kotlin.coroutines.resume
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.ui.LockScreen
 import wales.tucker.seren.ssh.KeyFile
+import wales.tucker.seren.ssh.MainActivity
 import wales.tucker.seren.ssh.SessionLink
 import wales.tucker.seren.ssh.SshLink
 import wales.tucker.seren.ssh.data.Host
@@ -178,6 +182,7 @@ fun TerminalAppUi(
                 requestNotifications()
                 scope.launch(Dispatchers.Main) {
                     try {
+                        ensureAgentForHost(context as? MainActivity, container, host)
                         browseForUpload(container.sessionManager.open(host))
                     } catch (e: Exception) {
                         Toast.makeText(context, "Could not open session: ${e.message}", Toast.LENGTH_LONG).show()
@@ -214,9 +219,15 @@ private fun AppNavHost(
         popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(280)) + fadeOut(tween(280)) },
     ) {
         composable(Routes.HOME) {
+            val activity = LocalContext.current as? MainActivity
             HomeScreen(
                 settings = settings,
-                onConnect = { host -> openSession { container.sessionManager.open(host).id } },
+                onConnect = { host ->
+                    openSession {
+                        ensureAgentForHost(activity, container, host)
+                        container.sessionManager.open(host).id
+                    }
+                },
                 onQuickConnect = { link -> openSession { container.sessionManager.openQuick(link.username, link.hostname, link.port).id } },
                 quickConnectPrefill = quickConnectPrefill,
                 onPrefillConsumed = onPrefillConsumed,
@@ -303,6 +314,24 @@ private fun AppNavHost(
             )
         }
     }
+}
+
+
+/** Unlocks the in-app agent when [host] needs ForwardAgent; throws with clear copy on refusal. */
+private suspend fun ensureAgentForHost(
+    activity: MainActivity?,
+    container: wales.tucker.seren.ssh.AppContainer,
+    host: Host,
+) {
+    if (!host.forwardAgent) return
+    val settings = container.settings.settings.first()
+    if (!settings.appLock) throw wales.tucker.seren.ssh.ssh.ForwardAgentRequiresAppLockException()
+    if (container.agent.isUnlocked) return
+    if (activity == null) throw wales.tucker.seren.ssh.ssh.AgentLockedException()
+    val ok = suspendCancellableCoroutine { cont ->
+        activity.unlockAgent { success -> cont.resume(success) }
+    }
+    if (!ok) throw wales.tucker.seren.ssh.ssh.AgentLockedException()
 }
 
 /** Shared files and, once people pick one, the session whose SFTP browser they go to. */

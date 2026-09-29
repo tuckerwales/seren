@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -246,7 +247,36 @@ fun SettingsTab(settings: Settings, onKnownHosts: () -> Unit, onExtraKeys: () ->
                         activity.authenticate { ok -> if (ok) scope.launch { repo.setAppLock(true) } }
                     }
                 } else {
+                    container.agent.wipe()
                     scope.launch { repo.setAppLock(false) }
+                }
+            }
+            val agentUnlocked by container.agent.unlocked.collectAsStateWithLifecycle()
+            if (settings.appLock) {
+                if (agentUnlocked) {
+                    NavRow(
+                        "SSH agent",
+                        "Unlocked · ${container.agent.keyCount} key${if (container.agent.keyCount == 1) "" else "s"} in memory",
+                    ) {}
+                    NavRow("Lock agent now", "Wipe unlocked keys from memory so forwarded sign requests stop") {
+                        container.agent.wipe()
+                        Toast.makeText(context, "Agent locked", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    NavRow("SSH agent", "Locked · tap to unlock keys for agent forwarding") {
+                        val activity = context as? MainActivity ?: return@NavRow
+                        activity.unlockAgent { ok ->
+                            Toast.makeText(
+                                context,
+                                if (ok) "Agent unlocked" else "Could not unlock the agent. Is App Lock set up?",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                }
+            } else {
+                NavRow("SSH agent", "Turn on App Lock to unlock keys for agent forwarding") {
+                    Toast.makeText(context, "Turn on App Lock in Settings first", Toast.LENGTH_LONG).show()
                 }
             }
             NavRow("Known hosts", "Manage trusted server fingerprints", onKnownHosts)

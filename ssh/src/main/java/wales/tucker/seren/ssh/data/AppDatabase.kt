@@ -6,6 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 class Converters {
     @TypeConverter fun authTypeToString(v: AuthType): String = v.name
@@ -18,7 +20,7 @@ class Converters {
 
 @Database(
     entities = [Host::class, SshKey::class, KnownHost::class, PortForward::class, Snippet::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -30,7 +32,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun snippetDao(): SnippetDao
 
     companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE hosts ADD COLUMN forwardAgent INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "terminal.db").build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "terminal.db")
+                .addMigrations(MIGRATION_1_2)
+                .build()
     }
 }

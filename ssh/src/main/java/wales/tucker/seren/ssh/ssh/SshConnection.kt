@@ -30,6 +30,8 @@ data class ConnectionTarget(
     val keyName: String? = null,
     val keepAliveSeconds: Int = 30,
     val compression: Boolean = false,
+    /** Request SSH agent forwarding on the shell channel (requires an unlocked [InAppAgent]). */
+    val forwardAgent: Boolean = false,
 )
 
 data class HostKeyRequest(
@@ -72,6 +74,14 @@ interface ConnectionUi {
 
 class AuthCancelledException : Exception("Authentication cancelled")
 
+/** ForwardAgent was requested but the in-app agent has no unlocked keys (AppLock wiped it, or never unlocked). */
+class AgentLockedException : Exception("Unlock the SSH agent first (App Lock is required)")
+
+/** ForwardAgent needs App Lock so unlocked keys are wiped when the app locks. */
+class ForwardAgentRequiresAppLockException : Exception(
+    "Turn on App Lock in Settings before using agent forwarding",
+)
+
 /** An open interactive shell channel. */
 class ShellChannel internal constructor(private val channel: ChannelShell) {
     val input: InputStream = channel.inputStream
@@ -96,6 +106,8 @@ class ShellChannel internal constructor(private val channel: ChannelShell) {
 class SshConnection(
     private val knownHosts: KnownHostDao,
     private val ui: ConnectionUi,
+    /** When non-null and the target asks for ForwardAgent, wired as the JSch identity repository. */
+    private val agent: InAppAgent? = null,
 ) {
     private val jsch = JSch().apply {
         setInstanceLogger(object : Logger {
@@ -134,6 +146,12 @@ class SshConnection(
      * @param jumps jump hosts from outermost to innermost; each tunnels to the next, then to [target].
      */
     fun connect(target: ConnectionTarget, jumps: List<ConnectionTarget> = emptyList(), timeoutMs: Int = 20_000) {
+        if (target.forwardAgent) {
+            val a = agent ?: throw IllegalStateException("ForwardAgent requires the in-app agent")
+            if (!a.isUnlocked) throw AgentLockedException()
+            jsch.setIdentityRepository(a)
+            ui.log("Agent forwarding enabled (${a.keyCount} key${if (a.keyCount == 1) "" else "s"} unlocked)")
+        }
         if (jumps.isEmpty()) {
             ui.log("Connecting to ${target.hostname}:${target.port}…")
             val s = openSession(target, target.hostname, target.port, alias = null, remember = true)
@@ -197,12 +215,13 @@ class SshConnection(
         return s
     }
 
-    fun openShell(cols: Int, rows: Int, widthPx: Int, heightPx: Int): ShellChannel {
+    fun openShell(cols: Int, rows: Int, widthPx: Int, heightPx: Int, agentForwarding: Boolean = false): ShellChannel {
         val s = session ?: throw IllegalStateException("Not connected")
         val ch = s.openChannel("shell") as ChannelShell
         ch.setPtyType("xterm-256color", cols, rows, widthPx, heightPx)
         ch.setEnv("LANG", "en_US.UTF-8")
         ch.setEnv("COLORTERM", "truecolor")
+        if (agentForwarding) ch.setAgentForwarding(true)
         val shell = ShellChannel(ch)
         ch.connect(15_000)
         return shell
@@ -340,6 +359,8 @@ class SshConnection(
             var t: Throwable? = e
             while (t != null) {
                 if (t is AuthCancelledRuntime || t is AuthCancelledException) return "Authentication cancelled"
+                if (t is AgentLockedException) return t.message ?: "Unlock the SSH agent first"
+                if (t is ForwardAgentRequiresAppLockException) return t.message ?: "Turn on App Lock for agent forwarding"
                 t = t.cause
             }
             val msg = e.message.orEmpty()

@@ -110,8 +110,7 @@ class MainActivity : FragmentActivity() {
         if (stoppedAt > 0 && SystemClock.elapsedRealtime() - stoppedAt > AppLock.TIMEOUT_MS) {
             lifecycleScope.launch {
                 if (container.settings.settings.first().appLock) {
-                    locked = true
-                    authenticate()
+                    lockApp()
                 }
             }
         }
@@ -148,10 +147,39 @@ class MainActivity : FragmentActivity() {
 
     fun canAuthenticate(): Boolean = AppLock.canAuthenticate(this)
 
+    /** Locks the UI and wipes the in-app agent so forwarded sign requests stop (fail-closed). */
+    fun lockApp() {
+        container.agent.wipe()
+        locked = true
+        authenticate()
+    }
+
     fun authenticate(onResult: (Boolean) -> Unit = {}) {
         AppLock.authenticate(this, getString(R.string.app_name), "Unlock to access your servers") { ok ->
             if (ok) locked = false
             onResult(ok)
+        }
+    }
+
+    /** Unlocks the in-app agent after biometric confirmation. No-op success when already unlocked. */
+    fun unlockAgent(onResult: (Boolean) -> Unit) {
+        if (container.agent.isUnlocked) {
+            onResult(true)
+            return
+        }
+        AppLock.authenticate(this, getString(R.string.app_name), "Unlock the SSH agent to forward keys") { ok ->
+            if (!ok) {
+                onResult(false)
+                return@authenticate
+            }
+            lifecycleScope.launch {
+                try {
+                    container.sessionManager.unlockAgent()
+                    onResult(true)
+                } catch (_: Exception) {
+                    onResult(false)
+                }
+            }
         }
     }
 

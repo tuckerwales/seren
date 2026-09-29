@@ -76,7 +76,7 @@ fun AppearanceSection(
         }
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        SwitchRow("Dynamic color", "Use colors from your wallpaper", dynamicColor, onDynamicColor)
+        SwitchRow("Dynamic color", "Use colors from your wallpaper", dynamicColor, onChange = onDynamicColor)
     }
 }
 

@@ -50,7 +50,7 @@ data class AccountForm(
         get() = if (issuer.isBlank() && name.isBlank()) "Enter a service or an account name" else null
 
     val periodError: String?
-        get() = if (type == OtpType.TOTP && period.toIntOrNull() !in OtpToken.PERIOD_RANGE) "Enter a number of seconds from 1 to 3600" else null
+        get() = if (type.isTimeBased && period.toIntOrNull() !in OtpToken.PERIOD_RANGE) "Enter a number of seconds from 1 to 3600" else null
 
     val counterError: String?
         get() = if (type == OtpType.HOTP && (counter.toLongOrNull() ?: -1) < 0) "Enter a whole number, 0 or more" else null
@@ -82,8 +82,8 @@ data class AccountForm(
             name = name.trim(),
             secret = Base32.normalize(secret),
             type = type,
-            algorithm = algorithm,
-            digits = digits,
+            algorithm = if (type == OtpType.STEAM) OtpAlgorithm.SHA1 else algorithm,
+            digits = if (type == OtpType.STEAM) OtpToken.STEAM_DIGITS else digits,
             period = period.toIntOrNull() ?: OtpToken.DEFAULT_PERIOD,
             counter = counter.toLongOrNull() ?: 0,
         )

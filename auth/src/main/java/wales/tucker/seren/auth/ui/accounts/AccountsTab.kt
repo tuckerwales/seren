@@ -365,10 +365,10 @@ fun AccountTile(
 ) {
     val token = account.token
     val periodMillis = token.period * 1000L
-    val step = if (token.type == OtpType.TOTP) now / periodMillis else token.counter
+    val step = if (token.type.isTimeBased) now / periodMillis else token.counter
     val code = remember(token, step) { token.code(now) }
     val remaining = token.remainingMillis(now)
-    val totp = token.type == OtpType.TOTP
+    val totp = token.type.isTimeBased
     val urgent = totp && remaining <= URGENT_MILLIS
     var menuOpen by remember { mutableStateOf(false) }
 

@@ -272,7 +272,7 @@ private fun CodePreview(token: OtpToken, ticks: kotlinx.coroutines.flow.Flow<Lon
         Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    if (token.type == OtpType.TOTP) "Current code" else "Code for counter ${token.counter}",
+                    if (token.type.isTimeBased) "Current code" else "Code for counter ${token.counter}",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -289,7 +289,7 @@ private fun CodePreview(token: OtpToken, ticks: kotlinx.coroutines.flow.Flow<Lon
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (token.type == OtpType.TOTP) CountdownRing(token.remainingMillis(now), token.period * 1000L)
+            if (token.type.isTimeBased) CountdownRing(token.remainingMillis(now), token.period * 1000L)
         }
     }
 }
@@ -297,10 +297,27 @@ private fun CodePreview(token: OtpToken, ticks: kotlinx.coroutines.flow.Flow<Lon
 @Composable
 private fun AdvancedFields(form: AccountForm, errors: Boolean, onChange: ((AccountForm) -> AccountForm) -> Unit) {
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Choice("Type", listOf(OtpType.TOTP to "Time based", OtpType.HOTP to "Counter based"), form.type) { v -> onChange { it.copy(type = v) } }
-        Choice("Algorithm", OtpAlgorithm.entries.map { it to it.label }, form.algorithm) { v -> onChange { it.copy(algorithm = v) } }
-        Choice("Digits", OtpToken.DIGIT_CHOICES.map { it to it.toString() }, form.digits) { v -> onChange { it.copy(digits = v) } }
-        if (form.type == OtpType.TOTP) {
+        Choice(
+            "Type",
+            listOf(OtpType.TOTP to "Time based", OtpType.HOTP to "Counter based", OtpType.STEAM to "Steam"),
+            form.type,
+        ) { v ->
+            onChange {
+                it.copy(
+                    type = v,
+                    digits = when (v) {
+                        OtpType.STEAM -> OtpToken.STEAM_DIGITS
+                        else -> if (it.type == OtpType.STEAM) OtpToken.DEFAULT_DIGITS else it.digits
+                    },
+                    algorithm = if (v == OtpType.STEAM) OtpAlgorithm.SHA1 else it.algorithm,
+                )
+            }
+        }
+        if (form.type != OtpType.STEAM) {
+            Choice("Algorithm", OtpAlgorithm.entries.map { it to it.label }, form.algorithm) { v -> onChange { it.copy(algorithm = v) } }
+            Choice("Digits", OtpToken.DIGIT_CHOICES.map { it to it.toString() }, form.digits) { v -> onChange { it.copy(digits = v) } }
+        }
+        if (form.type.isTimeBased) {
             OutlinedTextField(
                 value = form.period,
                 onValueChange = { v -> onChange { it.copy(period = v.filter(Char::isDigit).take(4)) } },

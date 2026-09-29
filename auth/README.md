@@ -22,6 +22,7 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
 
 **Codes**
 - Time based (TOTP) and counter based (HOTP) codes, SHA-1, SHA-256 or SHA-512, 6 to 8 digits, any period
+- Steam Guard codes (Steam's 5-character alphabet encoding of TOTP), including from Aegis, andOTP and `otpauth://steam/` links
 - Large JetBrains Mono digits, grouped for reading out, with a countdown ring for each account
 - Tap an account to copy its code; the clipboard hides it from previews and clears it after a minute
 - The next code shows under the current one in its last seconds
@@ -94,7 +95,7 @@ From the repository root:
 ./gradlew :auth:testDebugUnitTest
 ```
 
-This runs the HOTP and TOTP test vectors from RFC 4226 and RFC 6238, the Base32, otpauth link,
+This runs the HOTP and TOTP test vectors from RFC 4226 and RFC 6238, Steam Guard encoding, the Base32, otpauth link,
 Google Authenticator, backup and import tests (including encrypted Aegis vaults), QR code reading,
 and Robolectric UI tests that add, copy, edit, delete, import and export accounts and render the main
 screens to `auth/build/screenshots`.
@@ -107,7 +108,7 @@ by typing into them.
 
 | Package | Contents |
 | --- | --- |
-| `otp` | `Otp` (HOTP and TOTP), `Base32`, `OtpAuthUri` (otpauth links), `GoogleMigration` (transfer QR codes) and `CopiedSetup` (spotting them in copied text) |
+| `otp` | `Otp` (HOTP, TOTP and Steam Guard), `Base32`, `OtpAuthUri` (otpauth links), `GoogleMigration` (transfer QR codes) and `CopiedSetup` (spotting them in copied text) |
 | `backup` | The Seren Auth, Aegis and andOTP formats and `Importer`, which recognises any of them (scrypt and AES-GCM come from `BackupCrypto` in Seren Core) |
 | `qr` | `QrCodes`: reading QR codes from camera frames and images, and making them, with ZXing |
 | `data` | Room database of accounts with encrypted setup keys, `AccountRepository` and DataStore settings |

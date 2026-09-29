@@ -22,7 +22,7 @@ data class ParsedImport(
     /** Where the accounts came from, for "Import 3 accounts from Aegis?". */
     val source: String,
     val entries: List<BackupEntry>,
-    /** Accounts in the file that Seren Auth can't use, such as Steam or MD5 ones. */
+    /** Accounts in the file that Seren Auth can't use, such as MD5 or other non-standard ones. */
     val unsupported: Int = 0,
     /** Anything else worth knowing, such as more Google Authenticator QR codes to scan. */
     val note: String? = null,
@@ -157,6 +157,7 @@ object AegisBackup {
             val type = when (e.optString("type").lowercase()) {
                 "totp" -> OtpType.TOTP
                 "hotp" -> OtpType.HOTP
+                "steam" -> OtpType.STEAM
                 else -> null
             }
             val algorithm = when (info?.optString("algo", "SHA1")?.uppercase()) {
@@ -288,7 +289,18 @@ object Importer {
 internal fun validated(token: OtpToken): OtpToken? {
     val secret = Base32.normalize(token.secret)
     if (!Base32.isValid(secret)) return null
-    if (token.digits !in OtpToken.DIGIT_CHOICES) return null
     if (token.period !in OtpToken.PERIOD_RANGE || token.counter < 0) return null
-    return token.copy(secret = secret, issuer = token.issuer.trim(), name = token.name.trim())
+    return when (token.type) {
+        OtpType.STEAM -> token.copy(
+            secret = secret,
+            issuer = token.issuer.trim(),
+            name = token.name.trim(),
+            algorithm = OtpAlgorithm.SHA1,
+            digits = OtpToken.STEAM_DIGITS,
+        )
+        OtpType.TOTP, OtpType.HOTP -> {
+            if (token.digits !in OtpToken.DIGIT_CHOICES) return null
+            token.copy(secret = secret, issuer = token.issuer.trim(), name = token.name.trim())
+        }
+    }
 }

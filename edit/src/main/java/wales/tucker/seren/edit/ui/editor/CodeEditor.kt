@@ -19,16 +19,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.OutputTransformation
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.insert
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
@@ -43,6 +46,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -51,16 +55,34 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.withContext
 import wales.tucker.seren.core.content.ContentColorScheme
 import wales.tucker.seren.core.ui.theme.MonoFamily
+import wales.tucker.seren.edit.highlight.HighlightedSpan
+import wales.tucker.seren.edit.highlight.Highlighters
+import wales.tucker.seren.edit.highlight.Language
+import wales.tucker.seren.edit.highlight.detectLanguage
+import wales.tucker.seren.edit.highlight.TokenKind
+import wales.tucker.seren.edit.highlight.tokenColor
 
 /** Space above the first line, so it doesn't touch the top bar. */
 private val TopPadding = 8.dp
 
+/** How long to wait after a keystroke before re-lexing. Keeps typing snappy on larger files. */
+private const val HighlightDebounceMs = 50L
+
 /**
- * The text canvas: JetBrains Mono in the content color scheme, with optional line numbers and
- * word wrap. Pinching changes the text size through [onZoom], and [onZoomEnd] when fingers lift.
+ * The text canvas: JetBrains Mono in the content color scheme, with optional line numbers,
+ * word wrap and Prism-style syntax colors for known languages. Pinching changes the text size
+ * through [onZoom], and [onZoomEnd] when fingers lift.
  */
+@OptIn(ExperimentalFoundationApi::class, FlowPreview::class, ExperimentalCoroutinesApi::class)
 @Composable
 fun CodeEditor(
     state: TextFieldState,
@@ -68,6 +90,7 @@ fun CodeEditor(
     fontSize: Float,
     wordWrap: Boolean,
     lineNumbers: Boolean,
+    fileName: String,
     onZoom: (Float) -> Unit,
     onZoomEnd: () -> Unit,
     onKeyEvent: (KeyEvent) -> Boolean,
@@ -86,6 +109,42 @@ fun CodeEditor(
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val selectionColors = remember(cursor) { TextSelectionColors(handleColor = cursor, backgroundColor = cursor.copy(alpha = 0.35f)) }
 
+    // Extension first; content sniff covers shebang / XML when the name has no useful extension.
+    val language = remember(fileName, state.text.take(64).toString()) {
+        detectLanguage(fileName, state.text.toString())
+    }
+    val highlighter = remember(language) { Highlighters.forLanguage(language) }
+    var spans by remember(language) { mutableStateOf<List<HighlightedSpan>>(emptyList()) }
+
+    LaunchedEffect(highlighter, language) {
+        if (language == Language.Plain) {
+            spans = emptyList()
+            return@LaunchedEffect
+        }
+        snapshotFlow { state.text.toString() }
+            .distinctUntilChanged()
+            .debounce(HighlightDebounceMs)
+            .mapLatest { text ->
+                withContext(Dispatchers.Default) { highlighter.highlight(text) }
+            }
+            .collect { spans = it }
+    }
+
+    val colors = remember(scheme) { TokenKindColors(scheme) }
+    val outputTransformation = remember(spans, colors, language) {
+        if (language == Language.Plain || spans.isEmpty()) null
+        else OutputTransformation {
+            val len = length
+            for (span in spans) {
+                if (span.start >= len) continue
+                val end = span.end.coerceAtMost(len)
+                if (span.start < end) {
+                    addStyle(SpanStyle(color = colors[span.kind]), span.start, end)
+                }
+            }
+        }
+    }
+
     CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
         BoxWithConstraints(modifier.fillMaxSize().pinchToZoom(onZoom, onZoomEnd)) {
             val viewportWidth = maxWidth
@@ -103,6 +162,7 @@ fun CodeEditor(
                         cursorBrush = SolidColor(cursor),
                         scrollState = scroll,
                         inputTransformation = AutoIndent,
+                        outputTransformation = outputTransformation,
                         keyboardOptions = KeyboardOptions(
                             capitalization = KeyboardCapitalization.None,
                             autoCorrectEnabled = false,
@@ -122,6 +182,12 @@ fun CodeEditor(
             }
         }
     }
+}
+
+/** Precomputed colors for each token kind from the active content scheme. */
+private class TokenKindColors(scheme: ContentColorScheme) {
+    private val map = TokenKind.entries.associateWith { tokenColor(it, scheme) }
+    operator fun get(kind: TokenKind): Color = map.getValue(kind)
 }
 
 /** Keeps the indentation of the line when Enter starts a new one. */

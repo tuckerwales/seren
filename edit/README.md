@@ -15,13 +15,15 @@ Seren is Welsh for star. Seren apps are free, open source, and have no ads and n
   <img src="docs/screenshots/04_settings.png" width="200" alt="Settings">
 </p>
 
-Seren Edit is at an early stage: it edits files well, and the features below all work, but it has no
-syntax highlighting yet.
+Seren Edit is at an early stage: it edits files well, and the features below all work. Syntax
+highlighting covers a small set of languages; there is no language server.
 
 ## Features
 
 **Editing**
 - JetBrains Mono on a canvas in the same 11 color schemes as Seren SSH (Midnight by default)
+- Syntax highlighting for Kotlin/Java, JSON, XML/HTML, shell, Markdown, YAML and TOML, using the
+  active content color scheme; unknown files stay single-color
 - Line numbers, word wrap, pinch to zoom, and a text size setting with a live preview
 - Extra keys row above the keyboard: Tab, arrows, Home/End, undo and redo, brackets and symbols
 - New lines keep the indentation of the line above; Tab follows the file's own indentation
@@ -58,8 +60,8 @@ From the repository root:
 ./gradlew :edit:testDebugUnitTest
 ```
 
-This runs the text codec and editing tests, and Robolectric UI tests that open, edit and save real
-files and render the main screens to `edit/build/screenshots`.
+This runs the text codec, editing and syntax-highlight tests, and Robolectric UI tests that open,
+edit and save real files and render the main screens to `edit/build/screenshots`.
 
 ## Architecture
 
@@ -67,7 +69,8 @@ files and render the main screens to `edit/build/screenshots`.
 | --- | --- |
 | `document` | `TextCodec` (encodings, byte order marks, line endings) and `DocumentStore` (Storage Access Framework reads, writes and folder listing) |
 | `data` | Room database (recent files, folders) and DataStore settings |
-| `ui/editor` | `EditorScreen`, `CodeEditor` (the canvas, line numbers, pinch to zoom), `TextEditing` (cursor movement and indentation) and the extra keys row |
+| `ui/editor` | `EditorScreen`, `CodeEditor` (the canvas, line numbers, pinch to zoom, syntax colors), `TextEditing` (cursor movement and indentation) and the extra keys row |
+| `highlight` | Language detection and Prism-style lexers; token colors map to Core content scheme roles |
 | `ui` | The Files, Recent and Settings tabs and the folder browser |
 
 The theme, shared components, fonts and app lock come from [Seren Core](../core).

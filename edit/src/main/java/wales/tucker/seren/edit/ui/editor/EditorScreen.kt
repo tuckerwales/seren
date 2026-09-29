@@ -324,6 +324,7 @@ fun EditorScreen(uri: Uri, settings: Settings, onClose: () -> Unit) {
                         fontSize = fontSize,
                         wordWrap = settings.wordWrap,
                         lineNumbers = settings.lineNumbers,
+                        fileName = vm.name,
                         onZoom = { zoom -> fontSize = (fontSize * zoom).coerceIn(SettingsRepository.MIN_FONT, SettingsRepository.MAX_FONT) },
                         onZoomEnd = {
                             val halfSteps = (fontSize * 2).roundToInt() / 2f

@@ -1,4 +1,4 @@
-# Seren marketing site — static files served by nginx on port 80
+# Seren marketing site: static files served by nginx on port 80
 FROM nginx:1.27-alpine
 
 # Custom nginx config (multi-page, gzip, asset cache)

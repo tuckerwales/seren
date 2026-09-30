@@ -3,214 +3,243 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Seren Files — file manager for Android</title>
-  <meta name="description" content="A modern file manager for Android. Browse, copy and move, trash, archives, categories and search. Free, open source, no ads, no tracking.">
-  <meta name="theme-color" content="#5B6CF9">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Seren Files: file manager for Android</title>
+  <meta name="description" content="A modern, fast and easy to use file manager for Android. It has no network permission, and deleted files stay in a trash for 30 days.">
+  <meta name="theme-color" content="#1E2A6B">
+  <link rel="icon" href="/images/icons/files.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Seren">
+  <meta property="og:title" content="Seren Files: file manager for Android">
+  <meta property="og:description" content="A modern, fast and easy to use file manager for Android. It has no network permission, and deleted files stay in a trash for 30 days.">
+  <script>
+    document.documentElement.classList.add("js");
+    try {
+      var t = localStorage.getItem("seren-theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
-  <script>
-    (function () {
-      try {
-        var t = localStorage.getItem("seren-theme");
-        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-      } catch (e) {}
-    })();
-  </script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="site-header">
-    <div class="header-inner">
-      <a class="wordmark" href="/">
-        <span class="wordmark-star" aria-hidden="true">
-          <svg viewBox="0 0 16 16" fill="none"><path d="M8 2l1.2 3.8H13l-3.1 2.3 1.2 3.8L8 9.6l-3.1 2.3 1.2-3.8L3 5.8h3.8L8 2z" fill="#8FA8FF"/><circle cx="8" cy="8" r="1.4" fill="#7DF0C8"/></svg>
-        </span>
-        <span class="wordmark-seren">Seren</span>
-        <span class="wordmark-app">Files</span>
-      </a>
-      <nav class="nav" aria-label="Primary">
-        <ul class="nav-links">
-          <li><a href="/ssh/">SSH</a></li>
-          <li><a href="/edit/">Edit</a></li>
-          <li><a href="/auth/">Auth</a></li>
-          <li><a href="/files/" aria-current="page">Files</a></li>
-        </ul>
-        <div class="nav-actions">
-          <button type="button" class="icon-btn" data-theme-toggle aria-label="Toggle theme">
-            <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-            <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/></svg>
-          </button>
-          <a class="btn btn-primary" href="https://github.com/tuckerwales/seren/tree/main/files" style="padding:0.55rem 1.1rem;font-size:0.9rem">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>
-            GitHub
-          </a>
-          <button type="button" class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="nav-panel" aria-label="Open menu">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-          </button>
-        </div>
+    <div class="wrap header-inner">
+      <a class="wordmark" href="/"><img src="/images/icons/seren.svg" alt="" width="32" height="32"><span>Seren</span></a>
+      <nav class="nav" aria-label="Apps">
+        <a class="nav-link" href="/ssh/"><img src="/images/icons/ssh.svg" alt="" width="20" height="20">SSH</a>
+        <a class="nav-link" href="/edit/"><img src="/images/icons/edit.svg" alt="" width="20" height="20">Edit</a>
+        <a class="nav-link" href="/auth/"><img src="/images/icons/auth.svg" alt="" width="20" height="20">Auth</a>
+        <a class="nav-link" href="/files/" aria-current="page"><img src="/images/icons/files.svg" alt="" width="20" height="20">Files</a>
       </nav>
-    </div>
-    <div class="nav-panel" id="nav-panel" data-nav-panel hidden>
-      <ul>
-        <li><a href="/ssh/">Seren SSH</a></li>
-        <li><a href="/edit/">Seren Edit</a></li>
-        <li><a href="/auth/">Seren Auth</a></li>
-        <li><a href="/files/" aria-current="page">Seren Files</a></li>
-        <li><a href="https://github.com/tuckerwales/seren">View on GitHub</a></li>
-      </ul>
+      <div class="header-actions">
+        <button type="button" class="icon-btn theme-toggle" data-theme-toggle aria-label="Switch theme"><span class="sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span><span class="moon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a7 7 0 1 0 11 11z"/></svg></span></button>
+        <a class="icon-btn" href="https://github.com/tuckerwales/seren" aria-label="Seren on GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg></a>
+        <button type="button" class="icon-btn menu-btn" data-menu-toggle aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      </div>
     </div>
   </header>
+  <div class="mobile-menu" id="mobile-menu" hidden>
+    <ul>
+      <li><a href="/ssh/"><img src="/images/icons/ssh.svg" alt="" width="36" height="36"><span>Seren SSH<small>Terminal, SFTP and port forwarding</small></span></a></li>
+      <li><a href="/edit/"><img src="/images/icons/edit.svg" alt="" width="36" height="36"><span>Seren Edit<small>Text and code editor</small></span></a></li>
+      <li><a href="/auth/"><img src="/images/icons/auth.svg" alt="" width="36" height="36"><span>Seren Auth<small>Two-factor codes</small></span></a></li>
+      <li><a href="/files/" aria-current="page"><img src="/images/icons/files.svg" alt="" width="36" height="36"><span>Seren Files<small>File manager</small></span></a></li>
+      <li><a href="https://github.com/tuckerwales/seren"><img src="/images/icons/seren.svg" alt="" width="36" height="36"><span>Source code<small>github.com/tuckerwales/seren</small></span></a></li>
+    </ul>
+  </div>
 
   <main id="main">
-    <section class="app-hero">
+    <section class="night app-hero">
       <div class="wrap app-hero-grid">
-        <div>
-          <a class="back-link" href="/">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-            All Seren apps
-          </a>
-          <p class="eyebrow">New — browsing, copy and move, trash, archives, categories and search all work</p>
-          <h1>Seren <span style="font-weight:400;color:var(--primary)">Files</span></h1>
-          <p class="lede">A modern, fast and easy to use file manager for Android.</p>
-          <p class="muted" style="max-width:36rem;margin-top:0.75rem">Part of Seren: free, carefully made, and built so you aren’t the product.</p>
-          <p class="muted" style="max-width:36rem">Internal storage, SD cards and bookmarks, copy and move with clear choices when names clash, a 30 day trash with Undo, zip, 7z and tar, search, categories, photo thumbnails, and Save to Seren Files from the share sheet. No network permission; its one permission is all files access, asked for with a plain explanation.</p>
+        <div class="app-hero-text">
+          <img class="app-icon" src="/images/icons/files.svg" alt="" width="104" height="104">
+          <h1>Seren <span class="word">Files</span></h1>
+          <p class="hero-lede">A modern, fast and easy to use file manager for Android. It has no network permission, and deleted files stay in a trash for 30 days.</p>
+          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>New</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Android 8.0 and newer</li></ul>
           <div class="btn-row">
-            <a class="btn btn-primary" href="https://github.com/tuckerwales/seren/tree/main/files">
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>
-              View on GitHub
-            </a>
-            <a class="btn btn-secondary" href="https://github.com/tuckerwales/seren/blob/main/files/README.md">Module README</a>
+            <a class="btn btn-light" href="#features">Features</a>
+            <a class="btn btn-ghost" href="https://github.com/tuckerwales/seren/tree/main/files"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>Source code</a>
           </div>
         </div>
-        <div class="app-hero-shots">
-          <div class="phone">
-            <div class="phone-screen"><img src="/images/files/01_browse.png" alt="" width="400" height="860" loading="eager"></div>
+        <div class="app-hero-shot" aria-hidden="true"><div class="phone"><img src="/images/files/02_folder.webp" alt="" width="720" height="1548" fetchpriority="high"></div></div>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <div class="glance" aria-label="At a glance" role="group">
+          <div class="reveal"><b>30 days</b><span>How long deleted items stay in the trash</span></div>
+          <div class="reveal"><b>zip · 7z · tar</b><span>Compress to zip, extract 7z, tar, gz, xz and bz2</span></div>
+          <div class="reveal"><b>25 MB+</b><span>Files listed under Large files, biggest first</span></div>
+          <div class="reveal"><b>0</b><span>Network permissions</span></div>
+      </div>
+    </div>
+
+    <section class="section" data-gallery aria-labelledby="shots-title">
+      <div class="wrap gallery-head">
+        <div class="section-head reveal">
+          <h2 id="shots-title">Screenshots</h2>
+        </div>
+        <div class="gallery-nav">
+          <button type="button" data-gallery-prev aria-label="Previous screenshots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button type="button" data-gallery-next aria-label="Next screenshots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+      </div>
+      <ul class="gallery" tabindex="0" aria-label="Seren Files screenshots">
+          <li><figure><div class="phone"><img src="/images/files/01_browse.webp" alt="Seren Files: Browse" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>Browse</figcaption></figure></li>
+          <li><figure><div class="phone"><img src="/images/files/02_folder.webp" alt="Seren Files: A folder" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>A folder</figcaption></figure></li>
+          <li><figure><div class="phone"><img src="/images/files/11_grid.webp" alt="Seren Files: Grid of thumbnails" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>Grid of thumbnails</figcaption></figure></li>
+          <li><figure><div class="phone"><img src="/images/files/03_selection.webp" alt="Seren Files: Picking several" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>Picking several</figcaption></figure></li>
+          <li><figure><div class="phone"><img src="/images/files/09_categories.webp" alt="Seren Files: Categories" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>Categories</figcaption></figure></li>
+          <li><figure><div class="phone"><img src="/images/files/05_recent.webp" alt="Seren Files: Recent" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>Recent</figcaption></figure></li>
+          <li><figure><div class="phone"><img src="/images/files/06_trash.webp" alt="Seren Files: Trash" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>Trash</figcaption></figure></li>
+          <li><figure><div class="phone"><img src="/images/files/08_folder_dark.webp" alt="Seren Files: Dark theme" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>Dark theme</figcaption></figure></li>
+          <li><figure><div class="phone"><img src="/images/files/07_settings.webp" alt="Seren Files: Settings" width="720" height="1548" loading="lazy" decoding="async"></div><figcaption>Settings</figcaption></figure></li>
+      </ul>
+    </section>
+
+    <section class="section section-alt" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2 id="features-title">Features</h2>
+        </div>
+        <div class="feature-groups">
+          <article class="feature-group reveal">
+            <div class="feature-group-head"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.5h7A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg></span><h3>Browsing</h3></div>
+            <ul class="feature-list">
+              <li><b>Storage</b><span>Internal storage, SD cards and USB drives, each with its free space.</span></li>
+              <li><b>Shortcuts and bookmarks</b><span>Downloads, Documents, Camera, Pictures, Music and Movies on the Browse tab, plus bookmarks for any folder.</span></li>
+              <li><b>Sorting</b><span>By name, date, size or type, ascending or descending. Numbers sort naturally, so photo 2 comes before photo 10.</span></li>
+              <li><b>List or grid</b><span>Photos and videos get thumbnails in both.</span></li>
+              <li><b>Categories</b><span>All images, videos, audio, documents, archives or apps on the device in one list, and Large files for anything over 25 MB.</span></li>
+              <li><b>Recent and search</b><span>Recent shows files changed in the last 30 days. Search looks through a folder and its subfolders.</span></li>
+            </ul>
+          </article>
+          <article class="feature-group reveal">
+            <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg></span><h3>Working with files</h3></div>
+            <ul class="feature-list">
+              <li><b>Name clashes</b><span>When a name is taken, choose Replace (folders merge), Keep both or Skip.</span></li>
+              <li><b>Copy and move</b><span>Copies show progress, can be cancelled, keep dates, and don&#x27;t leave partial files behind. Moves on the same storage are renames.</span></li>
+              <li><b>Archives</b><span>Compress to zip. Extract zip, 7z (password protected too), tar, tar.gz, tar.xz, tar.bz2, gz, xz and bz2.</span></li>
+              <li><b>Free space</b><span>A copy that won&#x27;t fit is refused before it starts, with how much space it needs.</span></li>
+              <li><b>Background jobs</b><span>Long copies continue if you leave the app, with a progress notification.</span></li>
+              <li><b>Details</b><span>Type, size (including folder totals), date, location, and SHA-256 on request.</span></li>
+            </ul>
+          </article>
+          <article class="feature-group reveal">
+            <div class="feature-group-head"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path d="M10 11v6M14 11v6"/></svg></span><h3>Trash</h3></div>
+            <ul class="feature-list">
+              <li><b>Undo</b><span>Deleted items move to a trash folder on the same storage, so deleting is instant and can be undone.</span></li>
+              <li><b>Restore</b><span>Items go back to where they were. Missing folders are recreated and nothing is overwritten.</span></li>
+              <li><b>Emptying</b><span>Items are deleted after 30 days, or sooner with Empty trash. The trash can also be turned off.</span></li>
+            </ul>
+          </article>
+          <article class="feature-group reveal">
+            <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/></svg></span><h3>With other apps</h3></div>
+            <ul class="feature-list">
+              <li><b>Save to Seren Files</b><span>Appears in the share sheet. Pick a folder and tap Save here. Shared text is saved as a .txt file.</span></li>
+              <li><b>File picker</b><span>Other apps can use Seren Files to pick attachments. They get read only access to the files you choose.</span></li>
+              <li><b>Home screen shortcuts</b><span>Pin a folder to the home screen.</span></li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="privacy-title">
+      <div class="wrap">
+        <div class="night privacy reveal">
+          <div>
+            <h2 id="privacy-title">Permissions</h2>
+            <p>A file manager needs to see your files, so Seren Files asks for all files access. It doesn&#x27;t request network access.</p>
           </div>
-          <div class="phone">
-            <div class="phone-screen"><img src="/images/files/02_folder.png" alt="" width="400" height="860" loading="eager"></div>
+          <div>
+                        <ul class="perm-list">
+            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5-2.7M19 12.9a10 10 0 0 0-2.2-1.6M2 8.8a15 15 0 0 1 4.4-2.6M22 8.8A15 15 0 0 0 11 5.1M12 20h.01"/></svg><div><b>Network <span class="visually-hidden">(not used)</span></b><span>Not requested.</span></div></li>
+            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5C4 5 7.6 4 12 4s8 1 8 2.5S16.4 9 12 9 4 8 4 6.5z"/><path d="M4 6.5v11C4 19 7.6 20 12 20s8-1 8-2.5v-11M4 12c0 1.5 3.6 2.5 8 2.5s8-1 8-2.5"/></svg><div><b>All files access</b><span>Asked for when you tap Allow access, after an explanation of why it&#x27;s needed.</span></div></li>
+            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5h4"/></svg><div><b>Notifications</b><span>On Android 13 and newer, asked for the first time a long copy starts, to show its progress.</span></div></li>
+            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.5c1-2 1.5-4 1.5-6.5a4 4 0 0 1 8 0c0 1.3-.1 2.6-.3 3.8M12 12c0 3.4-.8 6.3-2.3 8.6M16.5 19.5c.3-.7.6-1.5.8-2.3"/><path d="M4.2 15.5A12 12 0 0 0 4 12a8 8 0 0 1 13.6-5.7M19.7 9.2c.2.9.3 1.8.3 2.8 0 .5 0 1-.1 1.5"/></svg><div><b>Biometrics</b><span>Only used if you turn on app lock.</span></div></li>
+            </ul>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section section-tight" aria-labelledby="features-title">
-      <div class="wrap">
-        <div class="section-head">
-          <div>
-            <h2 id="features-title">Features</h2>
-            <p class="muted">From the Seren Files README. Nothing invented.</p>
-          </div>
+    <section class="section section-alt" aria-labelledby="together-title">
+      <div class="wrap split">
+        <div class="section-head reveal">
+          <h2 id="together-title">With other Seren apps</h2>
         </div>
-        <div class="features">
-        <article class="feature">
-          <h3>Browsing</h3>
-          <ul>
-            <li>Internal storage, SD cards and USB drives, each with free space and a fullness bar</li>
-            <li>Downloads, Documents, Camera and more one tap away, plus bookmarks for any folder</li>
-            <li>List or grid of large thumbnails; categories for images, video, audio, documents, archives and large files</li>
-            <li>Hidden files on request, search by name through a folder and everything inside it</li>
-            <li>Recent: files changed in the last 30 days, grouped into Today, Yesterday, This week and Earlier</li>
+        <div class="reveal">
+          <ul class="flows" style="list-style:none;margin:0;padding:0">
+          <li class="flow">
+            <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/edit.svg" alt="Seren Edit" width="44" height="44"></div>
+            <div><h3>Open in Seren Edit</h3><p>Open text files, including dotfiles, from Seren Files in Seren Edit. Saving writes back to the original file.</p></div>
+          </li>
+          <li class="flow">
+            <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"></div>
+            <div><h3>Upload with Seren SSH</h3><p>Send files from Seren Files to a server over SFTP.</p></div>
+          </li>
+          <li class="flow">
+            <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"></div>
+            <div><h3>Import into Seren SSH</h3><p>Private keys (id_ed25519, .pem, .ppk) open in Seren SSH&#x27;s Import key screen.</p></div>
+          </li>
+          <li class="flow">
+            <div class="flow-icons"><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"></div>
+            <div><h3>Show in Seren Files</h3><p>After an SFTP download, open the folder it was saved to.</p></div>
+          </li>
           </ul>
-        </article>
-        <article class="feature">
-          <h3>Working with files</h3>
-          <ul>
-            <li>Long press to pick several items, then copy, move, share, delete, rename, compress or see details</li>
-            <li>When names clash: Replace (folders merge), Keep both, or Skip</li>
-            <li>Compress to zip; extract zip, 7z (including password protected), tar and compressed variants</li>
-            <li>Long jobs keep going after you leave the app, with a notification showing progress and Cancel</li>
-            <li>Details: type, size, date, path, and SHA-256 on request</li>
-          </ul>
-        </article>
-        <article class="feature">
-          <h3>Trash</h3>
-          <ul>
-            <li>Deleting moves things to a trash folder on the same volume, instantly, with Undo</li>
-            <li>Restore puts items back where they were; items are deleted for good after 30 days</li>
-            <li>The trash can be turned off, so deleting is permanent (and says so)</li>
-          </ul>
-        </article>
-        <article class="feature">
-          <h3>Privacy and the suite</h3>
-          <ul>
-            <li>No network permission: nothing Seren Files sees ever leaves the device</li>
-            <li>One clearly explained permission, all files access, asked for only when you tap Allow access</li>
-            <li>“Open in Seren Edit”, “Upload with Seren SSH”, and “Import into Seren SSH” when those apps are installed</li>
-            <li>Optional app lock with biometrics or the device screen lock</li>
-          </ul>
-        </article>
+          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>These actions only show up when the other app is installed. The apps pass files to each other through Android intents, not passwords or keys.</span></p>
         </div>
       </div>
     </section>
 
-    <section class="section" aria-labelledby="shots-title">
+    <section class="section" aria-labelledby="more-title">
       <div class="wrap">
-        <div class="section-head">
-          <div>
-            <h2 id="shots-title">Screenshots</h2>
-            <p class="muted">Rendered from the app with demo data.</p>
-          </div>
+        <div class="section-head reveal">
+          <h2 id="more-title">Other Seren apps</h2>
         </div>
-        <div class="shots-row">
-          <div class="phone">
-            <div class="phone-screen"><img src="/images/files/01_browse.png" alt="Browse tab in Seren Files" width="400" height="860" loading="lazy"></div>
-          </div>
-          <div class="phone">
-            <div class="phone-screen"><img src="/images/files/02_folder.png" alt="A folder in Seren Files" width="400" height="860" loading="lazy"></div>
-          </div>
-          <div class="phone">
-            <div class="phone-screen"><img src="/images/files/04_photos.png" alt="Photos with thumbnails" width="400" height="860" loading="lazy"></div>
-          </div>
-          <div class="phone">
-            <div class="phone-screen"><img src="/images/files/03_selection.png" alt="Selecting several files" width="400" height="860" loading="lazy"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section section-tight">
-      <div class="wrap">
-        <div class="cta-band">
-          <div>
-            <h2>Part of the Seren suite</h2>
-            <p>Same theme, same promises, and careful handoffs with the other apps when they are installed.</p>
-          </div>
-          <div class="btn-row" style="margin:0">
-            <a class="btn btn-primary" href="/">Back to Seren</a>
-            <a class="btn btn-secondary" href="https://github.com/tuckerwales/seren/tree/main/files">Module on GitHub</a>
-          </div>
+        <div class="other-apps reveal">
+          <a class="other-app" href="/ssh/"><img src="/images/icons/ssh.svg" alt="" width="52" height="52"><div><b>Seren <span class="word">SSH</span></b><span>Terminal, SFTP and port forwarding</span></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+          <a class="other-app" href="/edit/"><img src="/images/icons/edit.svg" alt="" width="52" height="52"><div><b>Seren <span class="word">Edit</span></b><span>Text and code editor</span></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+          <a class="other-app" href="/auth/"><img src="/images/icons/auth.svg" alt="" width="52" height="52"><div><b>Seren <span class="word">Auth</span></b><span>Two-factor codes</span></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
         </div>
       </div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <div class="wrap footer-inner">
-      <div class="footer-brand">
-        <a class="wordmark" href="/">
-          <span class="wordmark-star" aria-hidden="true">
-            <svg viewBox="0 0 16 16" fill="none"><path d="M8 2l1.2 3.8H13l-3.1 2.3 1.2 3.8L8 9.6l-3.1 2.3 1.2-3.8L3 5.8h3.8L8 2z" fill="#8FA8FF"/><circle cx="8" cy="8" r="1.4" fill="#7DF0C8"/></svg>
-          </span>
-          <span class="wordmark-seren">Seren</span>
-        </a>
-        <p>Everyone deserves free, high-quality apps that don’t track them. Seren is Welsh for star.</p>
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="wordmark" href="/"><img src="/images/icons/seren.svg" alt="" width="32" height="32"><span>Seren</span></a>
+          <p>Seren is Welsh for star. Seren apps are free, open source, and have no ads and no tracking.</p>
+        </div>
+        <nav aria-labelledby="f-apps">
+          <h2 id="f-apps">Apps</h2>
+          <ul>
+            <li><a href="/ssh/">Seren SSH</a></li>
+            <li><a href="/edit/">Seren Edit</a></li>
+            <li><a href="/auth/">Seren Auth</a></li>
+            <li><a href="/files/">Seren Files</a></li>
+          </ul>
+        </nav>
+        <nav aria-labelledby="f-source">
+          <h2 id="f-source">Source</h2>
+          <ul>
+            <li><a href="https://github.com/tuckerwales/seren">GitHub</a></li>
+            <li><a href="https://github.com/tuckerwales/seren/blob/main/docs/BRAND.md">Brand guide</a></li>
+            <li><a href="https://github.com/tuckerwales/seren/actions">Builds</a></li>
+            <li><a href="https://github.com/tuckerwales/seren/blob/main/LICENSE">Apache License 2.0</a></li>
+          </ul>
+        </nav>
       </div>
-      <nav class="footer-nav" aria-label="Footer">
-        <a href="/">Suite</a>
-        <a href="/ssh/">SSH</a>
-        <a href="/edit/">Edit</a>
-        <a href="/auth/">Auth</a>
-        <a href="/files/">Files</a>
-        <a href="https://github.com/tuckerwales/seren">GitHub</a>
-      </nav>
-      <div class="footer-meta">
+      <div class="footer-bottom">
+        <span>This site doesn't use cookies or analytics.</span>
         <span>Apache License 2.0</span>
-        <a href="https://github.com/tuckerwales/seren">github.com/tuckerwales/seren</a>
-        <a href="https://github.com/tuckerwales/seren/tree/main/files">Module on GitHub</a>
       </div>
     </div>
   </footer>

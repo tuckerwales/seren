@@ -1,47 +1,79 @@
 (function () {
   var root = document.documentElement;
-  var stored = null;
-  try { stored = localStorage.getItem("seren-theme"); } catch (e) {}
+  root.classList.add("js");
 
-  function apply(theme) {
-    if (theme === "light" || theme === "dark") {
-      root.setAttribute("data-theme", theme);
-    } else {
-      root.removeAttribute("data-theme");
-    }
-  }
-
-  if (stored === "light" || stored === "dark") apply(stored);
-
-  function current() {
-    var attr = root.getAttribute("data-theme");
-    if (attr === "light" || attr === "dark") return attr;
+  // Theme: follows the system until the visitor picks one, then remembers it.
+  function currentTheme() {
+    var set = root.getAttribute("data-theme");
+    if (set === "light" || set === "dark") return set;
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
-
+  function labelThemeButtons() {
+    var next = currentTheme() === "dark" ? "light" : "dark";
+    document.querySelectorAll("[data-theme-toggle]").forEach(function (btn) {
+      btn.setAttribute("aria-label", "Switch to " + next + " theme");
+    });
+  }
   document.querySelectorAll("[data-theme-toggle]").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      var next = current() === "dark" ? "light" : "dark";
-      apply(next);
+      var next = currentTheme() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
       try { localStorage.setItem("seren-theme", next); } catch (e) {}
-      btn.setAttribute("aria-label", next === "dark" ? "Switch to light theme" : "Switch to dark theme");
+      labelThemeButtons();
     });
   });
+  labelThemeButtons();
 
-  var toggle = document.querySelector("[data-nav-toggle]");
-  var panel = document.querySelector("[data-nav-panel]");
-  if (toggle && panel) {
-    toggle.addEventListener("click", function () {
-      var open = panel.classList.toggle("open");
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      panel.hidden = !open;
-    });
-    panel.querySelectorAll("a").forEach(function (a) {
-      a.addEventListener("click", function () {
-        panel.classList.remove("open");
-        panel.hidden = true;
-        toggle.setAttribute("aria-expanded", "false");
+  // Mobile menu.
+  var menuBtn = document.querySelector("[data-menu-toggle]");
+  var menu = document.getElementById("mobile-menu");
+  function setMenu(open) {
+    if (!menuBtn || !menu) return;
+    menu.hidden = !open;
+    menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    menuBtn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  }
+  if (menuBtn && menu) {
+    menuBtn.addEventListener("click", function () { setMenu(menu.hidden); });
+    menu.addEventListener("click", function (e) { if (e.target.closest("a")) setMenu(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenu(false); });
+    window.addEventListener("resize", function () { if (window.innerWidth > 860) setMenu(false); });
+  }
+
+  // Screenshot gallery arrows.
+  document.querySelectorAll("[data-gallery]").forEach(function (section) {
+    var track = section.querySelector(".gallery");
+    var prev = section.querySelector("[data-gallery-prev]");
+    var next = section.querySelector("[data-gallery-next]");
+    if (!track || !prev || !next) return;
+    function step() {
+      var item = track.querySelector("li");
+      return item ? item.getBoundingClientRect().width + 24 : 280;
+    }
+    function update() {
+      prev.disabled = track.scrollLeft <= 4;
+      next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+    }
+    prev.addEventListener("click", function () { track.scrollBy({ left: -step() * 2, behavior: "smooth" }); });
+    next.addEventListener("click", function () { track.scrollBy({ left: step() * 2, behavior: "smooth" }); });
+    track.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    update();
+  });
+
+  // Gentle fade in as sections scroll into view.
+  var items = document.querySelectorAll(".reveal");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          io.unobserve(entry.target);
+        }
       });
-    });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    items.forEach(function (el) { io.observe(el); });
+  } else {
+    items.forEach(function (el) { el.classList.add("in"); });
   }
 })();

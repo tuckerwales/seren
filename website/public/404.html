@@ -3,20 +3,100 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Page not found — Seren</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Page not found: Seren</title>
+  <meta name="description" content="That page isn’t part of the Seren website.">
+  <meta name="theme-color" content="#1E2A6B">
+  <link rel="icon" href="/images/icons/seren.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Seren">
+  <meta property="og:title" content="Page not found: Seren">
+  <meta property="og:description" content="That page isn’t part of the Seren website.">
+  <script>
+    document.documentElement.classList.add("js");
+    try {
+      var t = localStorage.getItem("seren-theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-  <main class="wrap" style="padding:6rem 0;text-align:center">
-    <p class="eyebrow" style="justify-content:center">404</p>
-    <h1>Page not found</h1>
-    <p class="lede" style="margin-inline:auto">That URL isn’t part of the Seren site.</p>
-    <div class="btn-row" style="justify-content:center">
-      <a class="btn btn-primary" href="/">Back to Seren</a>
-      <a class="btn btn-secondary" href="https://github.com/tuckerwales/seren">GitHub</a>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="wordmark" href="/"><img src="/images/icons/seren.svg" alt="" width="32" height="32"><span>Seren</span></a>
+      <nav class="nav" aria-label="Apps">
+        <a class="nav-link" href="/ssh/"><img src="/images/icons/ssh.svg" alt="" width="20" height="20">SSH</a>
+        <a class="nav-link" href="/edit/"><img src="/images/icons/edit.svg" alt="" width="20" height="20">Edit</a>
+        <a class="nav-link" href="/auth/"><img src="/images/icons/auth.svg" alt="" width="20" height="20">Auth</a>
+        <a class="nav-link" href="/files/"><img src="/images/icons/files.svg" alt="" width="20" height="20">Files</a>
+      </nav>
+      <div class="header-actions">
+        <button type="button" class="icon-btn theme-toggle" data-theme-toggle aria-label="Switch theme"><span class="sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span><span class="moon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a7 7 0 1 0 11 11z"/></svg></span></button>
+        <a class="icon-btn" href="https://github.com/tuckerwales/seren" aria-label="Seren on GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg></a>
+        <button type="button" class="icon-btn menu-btn" data-menu-toggle aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <div class="mobile-menu" id="mobile-menu" hidden>
+    <ul>
+      <li><a href="/ssh/"><img src="/images/icons/ssh.svg" alt="" width="36" height="36"><span>Seren SSH<small>Terminal, SFTP and port forwarding</small></span></a></li>
+      <li><a href="/edit/"><img src="/images/icons/edit.svg" alt="" width="36" height="36"><span>Seren Edit<small>Text and code editor</small></span></a></li>
+      <li><a href="/auth/"><img src="/images/icons/auth.svg" alt="" width="36" height="36"><span>Seren Auth<small>Two-factor codes</small></span></a></li>
+      <li><a href="/files/"><img src="/images/icons/files.svg" alt="" width="36" height="36"><span>Seren Files<small>File manager</small></span></a></li>
+      <li><a href="https://github.com/tuckerwales/seren"><img src="/images/icons/seren.svg" alt="" width="36" height="36"><span>Source code<small>github.com/tuckerwales/seren</small></span></a></li>
+    </ul>
+  </div>
+
+  <main id="main" class="night not-found">
+    <div class="wrap">
+      <p class="code">404</p>
+      <h1>This page isn’t here</h1>
+      <p>The link may be old, or the address mistyped.</p>
+      <div class="btn-row">
+        <a class="btn btn-light" href="/">Back to Seren</a>
+        <a class="btn btn-ghost" href="https://github.com/tuckerwales/seren"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>GitHub</a>
+      </div>
     </div>
   </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="wordmark" href="/"><img src="/images/icons/seren.svg" alt="" width="32" height="32"><span>Seren</span></a>
+          <p>Seren is Welsh for star. Seren apps are free, open source, and have no ads and no tracking.</p>
+        </div>
+        <nav aria-labelledby="f-apps">
+          <h2 id="f-apps">Apps</h2>
+          <ul>
+            <li><a href="/ssh/">Seren SSH</a></li>
+            <li><a href="/edit/">Seren Edit</a></li>
+            <li><a href="/auth/">Seren Auth</a></li>
+            <li><a href="/files/">Seren Files</a></li>
+          </ul>
+        </nav>
+        <nav aria-labelledby="f-source">
+          <h2 id="f-source">Source</h2>
+          <ul>
+            <li><a href="https://github.com/tuckerwales/seren">GitHub</a></li>
+            <li><a href="https://github.com/tuckerwales/seren/blob/main/docs/BRAND.md">Brand guide</a></li>
+            <li><a href="https://github.com/tuckerwales/seren/actions">Builds</a></li>
+            <li><a href="https://github.com/tuckerwales/seren/blob/main/LICENSE">Apache License 2.0</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="footer-bottom">
+        <span>No cookies, no analytics, no tracking. This site included.</span>
+        <span>Made in Wales</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js" defer></script>
 </body>
 </html>

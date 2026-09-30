@@ -380,8 +380,8 @@ code, kbd, .mono { font-family: var(--mono); font-size: 0.9em; }
   width: var(--w);
   flex-shrink: 0;
   aspect-ratio: 1200 / 2580;
-  padding: calc(var(--w) * 0.03);
-  border-radius: calc(var(--w) * 0.14);
+  padding: calc(var(--w) * 0.025);
+  border-radius: calc(var(--w) * 0.07);
   background: #0A0D1C;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.08) inset,
@@ -392,7 +392,7 @@ code, kbd, .mono { font-family: var(--mono); font-size: 0.9em; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: calc(var(--w) * 0.11);
+  border-radius: calc(var(--w) * 0.045);
   background: var(--surface);
 }
 

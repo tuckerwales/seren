@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Seren SSH: terminal, SFTP and port forwarding for Android</title>
-  <meta name="description" content="A modern, fast and easy to use SSH client for Android. A terminal that gets the details right, keys that never leave your phone, and sessions that stay alive while you do something else.">
+  <meta name="description" content="A modern, fast and easy to use SSH client for Android. Passwords and private keys are encrypted with the Android Keystore, and sessions keep running in the background.">
   <meta name="theme-color" content="#1E2A6B">
   <link rel="icon" href="/images/icons/ssh.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Seren">
   <meta property="og:title" content="Seren SSH: terminal, SFTP and port forwarding for Android">
-  <meta property="og:description" content="A modern, fast and easy to use SSH client for Android. A terminal that gets the details right, keys that never leave your phone, and sessions that stay alive while you do something else.">
+  <meta property="og:description" content="A modern, fast and easy to use SSH client for Android. Passwords and private keys are encrypted with the Android Keystore, and sessions keep running in the background.">
   <script>
     document.documentElement.classList.add("js");
     try {
@@ -58,10 +58,10 @@
         <div class="app-hero-text">
           <img class="app-icon" src="/images/icons/ssh.svg" alt="" width="104" height="104">
           <h1>Seren <span class="word">SSH</span></h1>
-          <p class="hero-lede">A modern, fast and easy to use SSH client for Android. A terminal that gets the details right, keys that never leave your phone, and sessions that stay alive while you do something else.</p>
-          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Ready for daily use</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Keys encrypted on device</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>No account</li></ul>
+          <p class="hero-lede">A modern, fast and easy to use SSH client for Android. Passwords and private keys are encrypted with the Android Keystore, and sessions keep running in the background.</p>
+          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Ready for daily use</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Android 8.0 and newer</li></ul>
           <div class="btn-row">
-            <a class="btn btn-light" href="#features">See what it does</a>
+            <a class="btn btn-light" href="#features">Features</a>
             <a class="btn btn-ghost" href="https://github.com/tuckerwales/seren/tree/main/ssh"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>Source code</a>
           </div>
         </div>
@@ -72,7 +72,7 @@
     <div class="wrap">
       <div class="glance" aria-label="At a glance" role="group">
           <div class="reveal"><b>xterm</b><span>256 colors, truecolor, mouse, box drawing and wide characters</span></div>
-          <div class="reveal"><b>Ed25519</b><span>Plus ECDSA and RSA keys, made on the phone or imported</span></div>
+          <div class="reveal"><b>Ed25519</b><span>ECDSA and RSA too, generated on the phone or imported</span></div>
           <div class="reveal"><b>-L -R -D</b><span>Local, remote and dynamic (SOCKS) port forwarding</span></div>
           <div class="reveal"><b>11 schemes</b><span>From Midnight to Solarized, with an override per host</span></div>
       </div>
@@ -81,7 +81,6 @@
     <section class="section" data-gallery aria-labelledby="shots-title">
       <div class="wrap gallery-head">
         <div class="section-head reveal">
-          <p class="eyebrow">A look around</p>
           <h2 id="shots-title">Screenshots</h2>
         </div>
         <div class="gallery-nav">
@@ -104,47 +103,45 @@
     <section class="section section-alt" id="features" aria-labelledby="features-title">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="eyebrow">Features</p>
-          <h2 id="features-title">Everything it does</h2>
-          <p>Common actions are one tap away. Advanced options live in menus and settings, never removed.</p>
+          <h2 id="features-title">Features</h2>
         </div>
         <div class="feature-groups">
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M7 9l3 3-3 3M12.5 15H17"/></svg></span><h3>Terminal</h3></div>
             <ul class="feature-list">
-              <li><b>A real xterm</b><span>256 colors and truecolor, bold, italic and underline, mouse reporting, bracketed paste and the alternate screen, so tmux, vim and htop look right.</span></li>
-              <li><b>Every character in its place</b><span>CJK, emoji and accents line up, and box drawing is pixel perfect in the bundled JetBrains Mono.</span></li>
-              <li><b>Touch that makes sense</b><span>Pinch to zoom, fling through scrollback, and long press to select with handles. Scrollback reflows when you rotate.</span></li>
+              <li><b>xterm compatible</b><span>256 colors and truecolor, bold, italic and underline, mouse reporting, bracketed paste and the alternate screen. tmux, vim and htop display correctly.</span></li>
+              <li><b>Unicode</b><span>Wide characters (CJK, emoji) and combining characters are handled correctly. Box drawing is drawn by the app, so lines join up.</span></li>
+              <li><b>Touch</b><span>Pinch to zoom, fling to scroll back, long press to select. Scrollback reflows when the screen size changes.</span></li>
               <li><b>Extra keys</b><span>Esc, Tab, sticky Ctrl and Alt, arrows that repeat, Home, End, PgUp, PgDn and F1 to F12. Hardware keyboards work too.</span></li>
-              <li><b>11 color schemes</b><span>Midnight, Dracula, Catppuccin, Nord, Gruvbox, One Dark, Solarized and more, with an override per host.</span></li>
+              <li><b>Color schemes</b><span>11 of them, including Midnight, Dracula, Catppuccin, Nord, Gruvbox and Solarized. Each host can use its own.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M16 7l3 3M18 5l2 2"/></svg></span><h3>Connecting</h3></div>
             <ul class="feature-list">
-              <li><b>Every way to sign in</b><span>Passwords, keyboard-interactive prompts for 2FA, and public keys.</span></li>
-              <li><b>Keys made or imported</b><span>Ed25519, ECDSA and RSA. Generate them on the phone, or import OpenSSH, PEM and PuTTY keys.</span></li>
-              <li><b>Trust on first use</b><span>Host keys are checked by SHA256 fingerprint, with a clear warning if one ever changes.</span></li>
+              <li><b>Authentication</b><span>Password, keyboard-interactive (for 2FA prompts) and public key.</span></li>
+              <li><b>Keys</b><span>Generate Ed25519, ECDSA and RSA keys on the phone, or import OpenSSH, PEM and PuTTY keys.</span></li>
+              <li><b>Host key checks</b><span>You confirm a host&#x27;s SHA256 fingerprint the first time you connect, and get a warning if it changes.</span></li>
               <li><b>Jump hosts and forwarding</b><span>ProxyJump chains, plus local, remote and dynamic (SOCKS4, 4a and 5) port forwarding.</span></li>
-              <li><b>In-app SSH agent</b><span>Optional, with ForwardAgent per host. It needs app lock, and is wiped whenever the app locks.</span></li>
+              <li><b>SSH agent</b><span>Optional, with agent forwarding set per host. It requires app lock and is cleared when the app locks.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.5h7A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg></span><h3>Sessions and files</h3></div>
             <ul class="feature-list">
-              <li><b>Sessions that stay alive</b><span>Several at once, kept running in the background with keep-alives and one tap reconnect.</span></li>
+              <li><b>Background sessions</b><span>Run several sessions at once. A foreground service keeps them connected, and reconnecting is one tap.</span></li>
               <li><b>SFTP browser</b><span>Browse, upload, download, rename, delete, create folders and change permissions.</span></li>
-              <li><b>Share to upload</b><span>Share files from any app, pick an open session or a saved host, choose the folder, and upload.</span></li>
-              <li><b>Quick connect</b><span>Type user@host:port or open an ssh:// link. Hosts can run a startup command like tmux new -A -s main.</span></li>
+              <li><b>Upload from other apps</b><span>Share files to Seren SSH, pick a session or saved host and a folder, and they upload one after another.</span></li>
+              <li><b>Quick connect</b><span>Type user@host:port, or open an ssh:// link. Each host can have a startup command, such as tmux new -A -s main.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
-            <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.6-3.3 8.3-8 9.5-4.7-1.2-8-4.9-8-9.5V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span><h3>Your data</h3></div>
+            <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.6-3.3 8.3-8 9.5-4.7-1.2-8-4.9-8-9.5V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span><h3>Data</h3></div>
             <ul class="feature-list">
-              <li><b>Hosts and snippets</b><span>Groups, colors and search for your hosts, and snippets you can send to any session.</span></li>
-              <li><b>Encrypted on the device</b><span>Passwords and private keys use an AES-256-GCM key held in the Android Keystore, and never go into cloud backup.</span></li>
-              <li><b>Backups you control</b><span>Export hosts and snippets as JSON, or everything, keys included, in a backup locked with your password.</span></li>
-              <li><b>App lock</b><span>Biometrics or your screen lock. While it is on, the app is hidden in recent apps.</span></li>
+              <li><b>Hosts and snippets</b><span>Hosts have groups, colors and search. Snippets are saved commands you can send to any session.</span></li>
+              <li><b>Encryption</b><span>Passwords and private keys are encrypted with an AES-256-GCM key in the Android Keystore, and left out of cloud backup.</span></li>
+              <li><b>Backups</b><span>Export hosts and snippets as JSON, or export everything, including keys, in a file encrypted with a password.</span></li>
+              <li><b>App lock</b><span>Uses biometrics or the screen lock. While it&#x27;s on, the app&#x27;s contents are hidden in recent apps.</span></li>
             </ul>
           </article>
         </div>
@@ -155,17 +152,14 @@
       <div class="wrap">
         <div class="night privacy reveal">
           <div>
-            <p class="eyebrow">Privacy</p>
-            <h2 id="privacy-title">Your keys never leave your phone</h2>
-            <p>Seren SSH talks to the servers you ask it to, and nothing else. Secrets are encrypted with a hardware-backed key and kept out of cloud backups.</p>
+            <h2 id="privacy-title">Permissions</h2>
+            <p>Seren SSH only connects to hosts you tell it to. It has no analytics or crash reporting.</p>
           </div>
           <div>
-            <h3 class="visually-hidden">Permissions</h3>
-            <ul class="perm-list">
-            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 14 0M2 8.8a15 15 0 0 1 20 0M12 20h.01"/></svg><div><b>Network</b><span>To reach the servers you connect to. Nothing else goes out.</span></div></li>
-            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5h4"/></svg><div><b>Notifications</b><span>Shows your live sessions, so Android keeps them running.</span></div></li>
+                        <ul class="perm-list">
+            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 14 0M2 8.8a15 15 0 0 1 20 0M12 20h.01"/></svg><div><b>Network</b><span>Used to connect to your hosts.</span></div></li>
+            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5h4"/></svg><div><b>Notifications</b><span>A notification for open sessions, which lets them run in the background.</span></div></li>
             <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.5c1-2 1.5-4 1.5-6.5a4 4 0 0 1 8 0c0 1.3-.1 2.6-.3 3.8M12 12c0 3.4-.8 6.3-2.3 8.6M16.5 19.5c.3-.7.6-1.5.8-2.3"/><path d="M4.2 15.5A12 12 0 0 0 4 12a8 8 0 0 1 13.6-5.7M19.7 9.2c.2.9.3 1.8.3 2.8 0 .5 0 1-.1 1.5"/></svg><div><b>Biometrics</b><span>Only used if you turn on app lock.</span></div></li>
-            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><div><b>Ads, analytics and crash reporting <span class="visually-hidden">(not used)</span></b><span>None at all.</span></div></li>
             </ul>
           </div>
         </div>
@@ -175,30 +169,28 @@
     <section class="section section-alt" aria-labelledby="together-title">
       <div class="wrap split">
         <div class="section-head reveal">
-          <p class="eyebrow">Better together</p>
-          <h2 id="together-title">Works with the other Seren apps</h2>
-          <p>Seren SSH works fine on its own. Install the others and the right actions appear.</p>
+          <h2 id="together-title">With other Seren apps</h2>
         </div>
         <div class="reveal">
           <ul class="flows" style="list-style:none;margin:0;padding:0">
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"></div>
-            <div><h3>Upload with Seren SSH</h3><p>Send one file or several to a server over SFTP. Pick the server, pick the folder, done.</p></div>
+            <div><h3>Upload with Seren SSH</h3><p>Send files from Seren Files to a server over SFTP.</p></div>
           </li>
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"></div>
-            <div><h3>Import into Seren SSH</h3><p>Private keys like id_ed25519, .pem and .ppk go straight to Import key, filled in.</p></div>
+            <div><h3>Import into Seren SSH</h3><p>Private keys (id_ed25519, .pem, .ppk) open in Seren SSH&#x27;s Import key screen.</p></div>
           </li>
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"></div>
-            <div><h3>Show in Seren Files</h3><p>After an SFTP download, jump to the folder it was saved in.</p></div>
+            <div><h3>Show in Seren Files</h3><p>After an SFTP download, open the folder it was saved to.</p></div>
           </li>
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h16M16 4l4 4-4 4M20 16H4M8 12l-4 4 4 4"/></svg><img src="/images/icons/auth.svg" alt="Seren Auth" width="44" height="44"></div>
-            <div><h3>One backup lock</h3><p>Seren SSH and Seren Auth protect backups with the same scrypt and AES-256-GCM encryption.</p></div>
+            <div><h3>Shared backup encryption</h3><p>Password protected backups from Seren SSH and Seren Auth use the same format: scrypt and AES-256-GCM.</p></div>
           </li>
           </ul>
-          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Each action appears only when the other app is installed. The apps hand each other files through ordinary Android intents, never secrets.</span></p>
+          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>These actions only show up when the other app is installed. The apps pass files to each other through Android intents, not passwords or keys.</span></p>
         </div>
       </div>
     </section>
@@ -206,8 +198,7 @@
     <section class="section" aria-labelledby="more-title">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="eyebrow">The suite</p>
-          <h2 id="more-title">More from Seren</h2>
+          <h2 id="more-title">Other Seren apps</h2>
         </div>
         <div class="other-apps reveal">
           <a class="other-app" href="/edit/"><img src="/images/icons/edit.svg" alt="" width="52" height="52"><div><b>Seren <span class="word">Edit</span></b><span>Text and code editor</span></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
@@ -245,8 +236,8 @@
         </nav>
       </div>
       <div class="footer-bottom">
-        <span>No cookies, no analytics, no tracking. This site included.</span>
-        <span>Made in Wales</span>
+        <span>This site doesn't use cookies or analytics.</span>
+        <span>Apache License 2.0</span>
       </div>
     </div>
   </footer>

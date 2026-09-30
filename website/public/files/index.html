@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Seren Files: file manager for Android</title>
-  <meta name="description" content="A modern, fast and easy to use file manager for Android. Browse, copy, compress and tidy up, with a trash that has your back and no network permission at all.">
+  <meta name="description" content="A modern, fast and easy to use file manager for Android. It has no network permission, and deleted files stay in a trash for 30 days.">
   <meta name="theme-color" content="#1E2A6B">
   <link rel="icon" href="/images/icons/files.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Seren">
   <meta property="og:title" content="Seren Files: file manager for Android">
-  <meta property="og:description" content="A modern, fast and easy to use file manager for Android. Browse, copy, compress and tidy up, with a trash that has your back and no network permission at all.">
+  <meta property="og:description" content="A modern, fast and easy to use file manager for Android. It has no network permission, and deleted files stay in a trash for 30 days.">
   <script>
     document.documentElement.classList.add("js");
     try {
@@ -58,10 +58,10 @@
         <div class="app-hero-text">
           <img class="app-icon" src="/images/icons/files.svg" alt="" width="104" height="104">
           <h1>Seren <span class="word">Files</span></h1>
-          <p class="hero-lede">A modern, fast and easy to use file manager for Android. Browse, copy, compress and tidy up, with a trash that has your back and no network permission at all.</p>
-          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>No network permission</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>30 day trash with Undo</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Save from the share sheet</li></ul>
+          <p class="hero-lede">A modern, fast and easy to use file manager for Android. It has no network permission, and deleted files stay in a trash for 30 days.</p>
+          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>New</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Android 8.0 and newer</li></ul>
           <div class="btn-row">
-            <a class="btn btn-light" href="#features">See what it does</a>
+            <a class="btn btn-light" href="#features">Features</a>
             <a class="btn btn-ghost" href="https://github.com/tuckerwales/seren/tree/main/files"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>Source code</a>
           </div>
         </div>
@@ -71,17 +71,16 @@
 
     <div class="wrap">
       <div class="glance" aria-label="At a glance" role="group">
-          <div class="reveal"><b>30 days</b><span>In the trash, with Undo, before anything is deleted for good</span></div>
+          <div class="reveal"><b>30 days</b><span>How long deleted items stay in the trash</span></div>
           <div class="reveal"><b>zip · 7z · tar</b><span>Compress to zip, extract 7z, tar, gz, xz and bz2</span></div>
-          <div class="reveal"><b>25 MB+</b><span>Large files, biggest first, for freeing up space</span></div>
-          <div class="reveal"><b>0</b><span>Network permissions. Nothing it sees leaves the device</span></div>
+          <div class="reveal"><b>25 MB+</b><span>Files listed under Large files, biggest first</span></div>
+          <div class="reveal"><b>0</b><span>Network permissions</span></div>
       </div>
     </div>
 
     <section class="section" data-gallery aria-labelledby="shots-title">
       <div class="wrap gallery-head">
         <div class="section-head reveal">
-          <p class="eyebrow">A look around</p>
           <h2 id="shots-title">Screenshots</h2>
         </div>
         <div class="gallery-nav">
@@ -105,47 +104,45 @@
     <section class="section section-alt" id="features" aria-labelledby="features-title">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="eyebrow">Features</p>
-          <h2 id="features-title">Everything it does</h2>
-          <p>Common actions are one tap away. Advanced options live in menus and settings, never removed.</p>
+          <h2 id="features-title">Features</h2>
         </div>
         <div class="feature-groups">
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.5h7A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg></span><h3>Browsing</h3></div>
             <ul class="feature-list">
-              <li><b>All your storage</b><span>Internal storage, SD cards and USB drives, each showing free space and how full it is.</span></li>
-              <li><b>Shortcuts that matter</b><span>Downloads, Documents, Camera, Pictures, Music and Movies one tap away, plus bookmarks for any folder.</span></li>
-              <li><b>Sorted the way people count</b><span>“photo 2” comes before “photo 10”. Sort by name, date, size or type, either way round.</span></li>
-              <li><b>List or grid</b><span>Switch in one tap, with thumbnails for photos and videos.</span></li>
-              <li><b>Categories and large files</b><span>Every image, video, audio file, document, archive and app in one list, and the biggest files first.</span></li>
-              <li><b>Recent and search</b><span>Files changed in the last 30 days, and search through a folder and everything inside it.</span></li>
+              <li><b>Storage</b><span>Internal storage, SD cards and USB drives, each with its free space.</span></li>
+              <li><b>Shortcuts and bookmarks</b><span>Downloads, Documents, Camera, Pictures, Music and Movies on the Browse tab, plus bookmarks for any folder.</span></li>
+              <li><b>Sorting</b><span>By name, date, size or type, ascending or descending. Numbers sort naturally, so photo 2 comes before photo 10.</span></li>
+              <li><b>List or grid</b><span>Photos and videos get thumbnails in both.</span></li>
+              <li><b>Categories</b><span>All images, videos, audio, documents, archives or apps on the device in one list, and Large files for anything over 25 MB.</span></li>
+              <li><b>Recent and search</b><span>Recent shows files changed in the last 30 days. Search looks through a folder and its subfolders.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg></span><h3>Working with files</h3></div>
             <ul class="feature-list">
-              <li><b>Clear choices when names clash</b><span>Replace (folders merge), Keep both, or Skip.</span></li>
-              <li><b>Safe copies</b><span>Progress, Cancel, and dates kept, with no half-written files. Moves on the same storage are instant.</span></li>
+              <li><b>Name clashes</b><span>When a name is taken, choose Replace (folders merge), Keep both or Skip.</span></li>
+              <li><b>Copy and move</b><span>Copies show progress, can be cancelled, keep dates, and don&#x27;t leave partial files behind. Moves on the same storage are renames.</span></li>
               <li><b>Archives</b><span>Compress to zip. Extract zip, 7z (password protected too), tar, tar.gz, tar.xz, tar.bz2, gz, xz and bz2.</span></li>
-              <li><b>Checks before it starts</b><span>A copy that won&#x27;t fit is refused up front, saying how much it needs and how much is free.</span></li>
-              <li><b>Keeps going in the background</b><span>Long jobs carry on after you leave, with a notification showing progress and Cancel.</span></li>
-              <li><b>Details</b><span>Type, size (whole folders too), date, location, and SHA-256 on request.</span></li>
+              <li><b>Free space</b><span>A copy that won&#x27;t fit is refused before it starts, with how much space it needs.</span></li>
+              <li><b>Background jobs</b><span>Long copies continue if you leave the app, with a progress notification.</span></li>
+              <li><b>Details</b><span>Type, size (including folder totals), date, location, and SHA-256 on request.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path d="M10 11v6M14 11v6"/></svg></span><h3>Trash</h3></div>
             <ul class="feature-list">
-              <li><b>Undo, instantly</b><span>Deleting moves items to a trash on the same storage, so it is instant and you can Undo.</span></li>
-              <li><b>Restore where it was</b><span>Folders are recreated if needed, and nothing is overwritten.</span></li>
-              <li><b>Cleared after 30 days</b><span>Or sooner with Empty trash. Prefer no trash? Turn it off, and deleting says it is permanent.</span></li>
+              <li><b>Undo</b><span>Deleted items move to a trash folder on the same storage, so deleting is instant and can be undone.</span></li>
+              <li><b>Restore</b><span>Items go back to where they were. Missing folders are recreated and nothing is overwritten.</span></li>
+              <li><b>Emptying</b><span>Items are deleted after 30 days, or sooner with Empty trash. The trash can also be turned off.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/></svg></span><h3>With other apps</h3></div>
             <ul class="feature-list">
-              <li><b>Save to Seren Files</b><span>In the share sheet: open a folder, then Save here. Shared text becomes a .txt file.</span></li>
-              <li><b>Choose files for other apps</b><span>When another app asks for a file, it gets a read only link to what you pick, never a path.</span></li>
-              <li><b>Add to home screen</b><span>Pin any folder as a shortcut that opens straight into it.</span></li>
+              <li><b>Save to Seren Files</b><span>Appears in the share sheet. Pick a folder and tap Save here. Shared text is saved as a .txt file.</span></li>
+              <li><b>File picker</b><span>Other apps can use Seren Files to pick attachments. They get read only access to the files you choose.</span></li>
+              <li><b>Home screen shortcuts</b><span>Pin a folder to the home screen.</span></li>
             </ul>
           </article>
         </div>
@@ -156,16 +153,14 @@
       <div class="wrap">
         <div class="night privacy reveal">
           <div>
-            <p class="eyebrow">Privacy</p>
-            <h2 id="privacy-title">One permission, clearly explained</h2>
-            <p>A file manager has to see your files, so Seren Files asks for all files access, and only when you tap Allow access. With no network permission, your files have nowhere to go.</p>
+            <h2 id="privacy-title">Permissions</h2>
+            <p>A file manager needs to see your files, so Seren Files asks for all files access. It doesn&#x27;t request network access.</p>
           </div>
           <div>
-            <h3 class="visually-hidden">Permissions</h3>
-            <ul class="perm-list">
-            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5-2.7M19 12.9a10 10 0 0 0-2.2-1.6M2 8.8a15 15 0 0 1 4.4-2.6M22 8.8A15 15 0 0 0 11 5.1M12 20h.01"/></svg><div><b>Network <span class="visually-hidden">(not used)</span></b><span>Not requested. Nothing Seren Files sees ever leaves the device.</span></div></li>
-            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5C4 5 7.6 4 12 4s8 1 8 2.5S16.4 9 12 9 4 8 4 6.5z"/><path d="M4 6.5v11C4 19 7.6 20 12 20s8-1 8-2.5v-11M4 12c0 1.5 3.6 2.5 8 2.5s8-1 8-2.5"/></svg><div><b>All files access</b><span>Needed to manage your files, with a plain explanation before you allow it.</span></div></li>
-            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5h4"/></svg><div><b>Notifications</b><span>Shows progress for long jobs, asked once when the first one starts.</span></div></li>
+                        <ul class="perm-list">
+            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5-2.7M19 12.9a10 10 0 0 0-2.2-1.6M2 8.8a15 15 0 0 1 4.4-2.6M22 8.8A15 15 0 0 0 11 5.1M12 20h.01"/></svg><div><b>Network <span class="visually-hidden">(not used)</span></b><span>Not requested.</span></div></li>
+            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5C4 5 7.6 4 12 4s8 1 8 2.5S16.4 9 12 9 4 8 4 6.5z"/><path d="M4 6.5v11C4 19 7.6 20 12 20s8-1 8-2.5v-11M4 12c0 1.5 3.6 2.5 8 2.5s8-1 8-2.5"/></svg><div><b>All files access</b><span>Asked for when you tap Allow access, after an explanation of why it&#x27;s needed.</span></div></li>
+            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5h4"/></svg><div><b>Notifications</b><span>On Android 13 and newer, asked for the first time a long copy starts, to show its progress.</span></div></li>
             <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.5c1-2 1.5-4 1.5-6.5a4 4 0 0 1 8 0c0 1.3-.1 2.6-.3 3.8M12 12c0 3.4-.8 6.3-2.3 8.6M16.5 19.5c.3-.7.6-1.5.8-2.3"/><path d="M4.2 15.5A12 12 0 0 0 4 12a8 8 0 0 1 13.6-5.7M19.7 9.2c.2.9.3 1.8.3 2.8 0 .5 0 1-.1 1.5"/></svg><div><b>Biometrics</b><span>Only used if you turn on app lock.</span></div></li>
             </ul>
           </div>
@@ -176,30 +171,28 @@
     <section class="section section-alt" aria-labelledby="together-title">
       <div class="wrap split">
         <div class="section-head reveal">
-          <p class="eyebrow">Better together</p>
-          <h2 id="together-title">Works with the other Seren apps</h2>
-          <p>Seren Files works fine on its own. Install the others and the right actions appear.</p>
+          <h2 id="together-title">With other Seren apps</h2>
         </div>
         <div class="reveal">
           <ul class="flows" style="list-style:none;margin:0;padding:0">
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/edit.svg" alt="Seren Edit" width="44" height="44"></div>
-            <div><h3>Open in Seren Edit</h3><p>Any text file in Seren Files, dotfiles and config files included, opens in Seren Edit and saves straight back.</p></div>
+            <div><h3>Open in Seren Edit</h3><p>Open text files, including dotfiles, from Seren Files in Seren Edit. Saving writes back to the original file.</p></div>
           </li>
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"></div>
-            <div><h3>Upload with Seren SSH</h3><p>Send one file or several to a server over SFTP. Pick the server, pick the folder, done.</p></div>
+            <div><h3>Upload with Seren SSH</h3><p>Send files from Seren Files to a server over SFTP.</p></div>
           </li>
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"></div>
-            <div><h3>Import into Seren SSH</h3><p>Private keys like id_ed25519, .pem and .ppk go straight to Import key, filled in.</p></div>
+            <div><h3>Import into Seren SSH</h3><p>Private keys (id_ed25519, .pem, .ppk) open in Seren SSH&#x27;s Import key screen.</p></div>
           </li>
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"></div>
-            <div><h3>Show in Seren Files</h3><p>After an SFTP download, jump to the folder it was saved in.</p></div>
+            <div><h3>Show in Seren Files</h3><p>After an SFTP download, open the folder it was saved to.</p></div>
           </li>
           </ul>
-          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Each action appears only when the other app is installed. The apps hand each other files through ordinary Android intents, never secrets.</span></p>
+          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>These actions only show up when the other app is installed. The apps pass files to each other through Android intents, not passwords or keys.</span></p>
         </div>
       </div>
     </section>
@@ -207,8 +200,7 @@
     <section class="section" aria-labelledby="more-title">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="eyebrow">The suite</p>
-          <h2 id="more-title">More from Seren</h2>
+          <h2 id="more-title">Other Seren apps</h2>
         </div>
         <div class="other-apps reveal">
           <a class="other-app" href="/ssh/"><img src="/images/icons/ssh.svg" alt="" width="52" height="52"><div><b>Seren <span class="word">SSH</span></b><span>Terminal, SFTP and port forwarding</span></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
@@ -246,8 +238,8 @@
         </nav>
       </div>
       <div class="footer-bottom">
-        <span>No cookies, no analytics, no tracking. This site included.</span>
-        <span>Made in Wales</span>
+        <span>This site doesn't use cookies or analytics.</span>
+        <span>Apache License 2.0</span>
       </div>
     </div>
   </footer>

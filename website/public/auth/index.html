@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Seren Auth: two-factor codes for Android</title>
-  <meta name="description" content="A modern, fast and easy to use authenticator for two-factor sign in codes. No network permission at all, setup keys locked with a hardware-backed key, and easy to leave whenever you like.">
+  <meta name="description" content="A modern, fast and easy to use authenticator for two-factor sign in codes. It has no network permission, and setup keys are encrypted with the Android Keystore.">
   <meta name="theme-color" content="#1E2A6B">
   <link rel="icon" href="/images/icons/auth.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Seren">
   <meta property="og:title" content="Seren Auth: two-factor codes for Android">
-  <meta property="og:description" content="A modern, fast and easy to use authenticator for two-factor sign in codes. No network permission at all, setup keys locked with a hardware-backed key, and easy to leave whenever you like.">
+  <meta property="og:description" content="A modern, fast and easy to use authenticator for two-factor sign in codes. It has no network permission, and setup keys are encrypted with the Android Keystore.">
   <script>
     document.documentElement.classList.add("js");
     try {
@@ -58,10 +58,10 @@
         <div class="app-hero-text">
           <img class="app-icon" src="/images/icons/auth.svg" alt="" width="104" height="104">
           <h1>Seren <span class="word">Auth</span></h1>
-          <p class="hero-lede">A modern, fast and easy to use authenticator for two-factor sign in codes. No network permission at all, setup keys locked with a hardware-backed key, and easy to leave whenever you like.</p>
-          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>No network permission</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Screenshots blocked</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Import and export</li></ul>
+          <p class="hero-lede">A modern, fast and easy to use authenticator for two-factor sign in codes. It has no network permission, and setup keys are encrypted with the Android Keystore.</p>
+          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>New</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Android 8.0 and newer</li></ul>
           <div class="btn-row">
-            <a class="btn btn-light" href="#features">See what it does</a>
+            <a class="btn btn-light" href="#features">Features</a>
             <a class="btn btn-ghost" href="https://github.com/tuckerwales/seren/tree/main/auth"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>Source code</a>
           </div>
         </div>
@@ -74,14 +74,13 @@
           <div class="reveal"><b>TOTP · HOTP</b><span>SHA-1, SHA-256 or SHA-512, 6 to 8 digits, and Steam Guard</span></div>
           <div class="reveal"><b>QR</b><span>Scan with the camera, or from a screenshot or photo</span></div>
           <div class="reveal"><b>scrypt</b><span>Backups encrypted with AES-256-GCM and a key from your password</span></div>
-          <div class="reveal"><b>0</b><span>Network permissions. Codes are made on the device</span></div>
+          <div class="reveal"><b>0</b><span>Network permissions</span></div>
       </div>
     </div>
 
     <section class="section" data-gallery aria-labelledby="shots-title">
       <div class="wrap gallery-head">
         <div class="section-head reveal">
-          <p class="eyebrow">A look around</p>
           <h2 id="shots-title">Screenshots</h2>
         </div>
         <div class="gallery-nav">
@@ -103,29 +102,27 @@
     <section class="section section-alt" id="features" aria-labelledby="features-title">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="eyebrow">Features</p>
-          <h2 id="features-title">Everything it does</h2>
-          <p>Common actions are one tap away. Advanced options live in menus and settings, never removed.</p>
+          <h2 id="features-title">Features</h2>
         </div>
         <div class="feature-groups">
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Codes</h3></div>
             <ul class="feature-list">
-              <li><b>Every common kind</b><span>Time based (TOTP) and counter based (HOTP) codes, SHA-1, SHA-256 or SHA-512, 6 to 8 digits, any period, and Steam Guard.</span></li>
-              <li><b>Easy to read out</b><span>Large JetBrains Mono digits in groups, with a countdown ring for each account.</span></li>
-              <li><b>Tap to copy</b><span>The clipboard hides the code from previews and clears it after a minute.</span></li>
-              <li><b>No last second rush</b><span>The next code appears under the current one in its final seconds.</span></li>
-              <li><b>Hidden until you tap</b><span>Optional, for when people are looking over your shoulder. Search by service or account.</span></li>
+              <li><b>Code types</b><span>Time based (TOTP) and counter based (HOTP), SHA-1, SHA-256 or SHA-512, 6 to 8 digits, any period. Steam Guard codes too.</span></li>
+              <li><b>Display</b><span>Codes are shown in large, grouped digits with a countdown ring for each account.</span></li>
+              <li><b>Copying</b><span>Tap an account to copy its code. It&#x27;s hidden from clipboard previews and cleared after a minute.</span></li>
+              <li><b>Next code</b><span>In the last few seconds, the next code is shown under the current one.</span></li>
+              <li><b>Hidden codes</b><span>Optionally hide codes until you tap them. You can also search by service or account name.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="6" height="6" rx="1"/><rect x="14.5" y="3.5" width="6" height="6" rx="1"/><rect x="3.5" y="14.5" width="6" height="6" rx="1"/><path d="M14.5 14.5h2v2M20.5 14.5v.01M14.5 20.5h6v-3"/></svg></span><h3>Adding accounts</h3></div>
             <ul class="feature-list">
-              <li><b>Scan a QR code</b><span>With the camera, or from a screenshot or photo already on your phone.</span></li>
-              <li><b>Paste a setup key or link</b><span>A whole otpauth link fills in every field, with a live code to check against the site.</span></li>
-              <li><b>Spotted on the clipboard</b><span>Copied a setup link in another app? Come back and a card offers to add it in one tap. You can turn this off.</span></li>
-              <li><b>Bring everything over</b><span>Scan Google Authenticator&#x27;s transfer codes, or import from Aegis, andOTP or a list of links.</span></li>
-              <li><b>No duplicates</b><span>Accounts are matched by their setup key and never added twice.</span></li>
+              <li><b>QR codes</b><span>Scan with the camera, or from a screenshot or photo.</span></li>
+              <li><b>Setup keys and links</b><span>Type or paste a setup key, or paste an otpauth link to fill in every field. A preview shows the code so you can check it.</span></li>
+              <li><b>From the clipboard</b><span>If you copy a setup link or key in another app, Seren Auth offers to add it when you switch back. This can be turned off.</span></li>
+              <li><b>Importing</b><span>Scan Google Authenticator&#x27;s transfer QR codes, or import from Aegis (plain or encrypted), andOTP or a list of links.</span></li>
+              <li><b>Duplicates</b><span>An account with the same setup key isn&#x27;t added twice.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
@@ -133,16 +130,16 @@
             <ul class="feature-list">
               <li><b>Encrypted backups</b><span>A documented JSON file, encrypted with AES-256-GCM using a key derived from your password with scrypt.</span></li>
               <li><b>Plain export</b><span>A list of otpauth links that most authenticator apps can import.</span></li>
-              <li><b>Show a QR code</b><span>Add any account to another device by scanning it from this one.</span></li>
+              <li><b>QR export</b><span>Show an account&#x27;s QR code to scan it on another device.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.6-3.3 8.3-8 9.5-4.7-1.2-8-4.9-8-9.5V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span><h3>Privacy and security</h3></div>
             <ul class="feature-list">
-              <li><b>Offline by design</b><span>No network permission at all. Codes come from the time and the setup key.</span></li>
-              <li><b>Hardware-backed</b><span>Setup keys are encrypted with an Android Keystore key and kept out of cloud backups.</span></li>
-              <li><b>Screenshots blocked</b><span>On by default, which also hides your codes in recent apps.</span></li>
-              <li><b>App lock</b><span>Biometrics or your screen lock, asked for again before a setup key is shown or anything is exported.</span></li>
+              <li><b>No network access</b><span>Codes are calculated on the phone from the time and the setup key.</span></li>
+              <li><b>Encryption</b><span>Setup keys are encrypted with a key in the Android Keystore and left out of cloud backup.</span></li>
+              <li><b>Screenshots</b><span>Blocked by default, which also hides codes in recent apps.</span></li>
+              <li><b>App lock</b><span>Uses biometrics or the screen lock. It&#x27;s also asked for before showing a setup key or exporting.</span></li>
             </ul>
           </article>
         </div>
@@ -153,15 +150,13 @@
       <div class="wrap">
         <div class="night privacy reveal">
           <div>
-            <p class="eyebrow">Privacy</p>
-            <h2 id="privacy-title">Codes that never touch the internet</h2>
-            <p>An authenticator only needs the time and a setup key. Seren Auth has no network permission, so your accounts stay on your phone and in the backups you make.</p>
+            <h2 id="privacy-title">Permissions</h2>
+            <p>Codes only need the current time and a setup key, so Seren Auth doesn&#x27;t request network access.</p>
           </div>
           <div>
-            <h3 class="visually-hidden">Permissions</h3>
-            <ul class="perm-list">
-            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5-2.7M19 12.9a10 10 0 0 0-2.2-1.6M2 8.8a15 15 0 0 1 4.4-2.6M22 8.8A15 15 0 0 0 11 5.1M12 20h.01"/></svg><div><b>Network <span class="visually-hidden">(not used)</span></b><span>Not requested. Seren Auth can&#x27;t send anything anywhere.</span></div></li>
-            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.8L10 3.5h4L15.7 6h1.8A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.5"/></svg><div><b>Camera</b><span>Only to read QR codes. Nothing is recorded or saved.</span></div></li>
+                        <ul class="perm-list">
+            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5-2.7M19 12.9a10 10 0 0 0-2.2-1.6M2 8.8a15 15 0 0 1 4.4-2.6M22 8.8A15 15 0 0 0 11 5.1M12 20h.01"/></svg><div><b>Network <span class="visually-hidden">(not used)</span></b><span>Not requested.</span></div></li>
+            <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.8L10 3.5h4L15.7 6h1.8A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.5"/></svg><div><b>Camera</b><span>Used to scan QR codes. Nothing is saved.</span></div></li>
             <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.5c1-2 1.5-4 1.5-6.5a4 4 0 0 1 8 0c0 1.3-.1 2.6-.3 3.8M12 12c0 3.4-.8 6.3-2.3 8.6M16.5 19.5c.3-.7.6-1.5.8-2.3"/><path d="M4.2 15.5A12 12 0 0 0 4 12a8 8 0 0 1 13.6-5.7M19.7 9.2c.2.9.3 1.8.3 2.8 0 .5 0 1-.1 1.5"/></svg><div><b>Biometrics</b><span>Only used if you turn on app lock.</span></div></li>
             </ul>
           </div>
@@ -172,18 +167,16 @@
     <section class="section section-alt" aria-labelledby="together-title">
       <div class="wrap split">
         <div class="section-head reveal">
-          <p class="eyebrow">Better together</p>
-          <h2 id="together-title">Works with the other Seren apps</h2>
-          <p>Seren Auth works fine on its own. Install the others and the right actions appear.</p>
+          <h2 id="together-title">With other Seren apps</h2>
         </div>
         <div class="reveal">
           <ul class="flows" style="list-style:none;margin:0;padding:0">
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/ssh.svg" alt="Seren SSH" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h16M16 4l4 4-4 4M20 16H4M8 12l-4 4 4 4"/></svg><img src="/images/icons/auth.svg" alt="Seren Auth" width="44" height="44"></div>
-            <div><h3>One backup lock</h3><p>Seren SSH and Seren Auth protect backups with the same scrypt and AES-256-GCM encryption.</p></div>
+            <div><h3>Shared backup encryption</h3><p>Password protected backups from Seren SSH and Seren Auth use the same format: scrypt and AES-256-GCM.</p></div>
           </li>
           </ul>
-          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Each action appears only when the other app is installed. The apps hand each other files through ordinary Android intents, never secrets.</span></p>
+          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>These actions only show up when the other app is installed. The apps pass files to each other through Android intents, not passwords or keys.</span></p>
         </div>
       </div>
     </section>
@@ -191,8 +184,7 @@
     <section class="section" aria-labelledby="more-title">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="eyebrow">The suite</p>
-          <h2 id="more-title">More from Seren</h2>
+          <h2 id="more-title">Other Seren apps</h2>
         </div>
         <div class="other-apps reveal">
           <a class="other-app" href="/ssh/"><img src="/images/icons/ssh.svg" alt="" width="52" height="52"><div><b>Seren <span class="word">SSH</span></b><span>Terminal, SFTP and port forwarding</span></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
@@ -230,8 +222,8 @@
         </nav>
       </div>
       <div class="footer-bottom">
-        <span>No cookies, no analytics, no tracking. This site included.</span>
-        <span>Made in Wales</span>
+        <span>This site doesn't use cookies or analytics.</span>
+        <span>Apache License 2.0</span>
       </div>
     </div>
   </footer>

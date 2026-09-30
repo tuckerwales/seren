@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Seren Edit: text and code editor for Android</title>
-  <meta name="description" content="A modern, fast and easy to use text and code editor for Android. It opens the files you choose, keeps them exactly as they were, and needs no permissions to do it.">
+  <meta name="description" content="A modern, fast and easy to use text and code editor for Android. It has no storage or network permission, so it can only open files you pick.">
   <meta name="theme-color" content="#1E2A6B">
   <link rel="icon" href="/images/icons/edit.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Seren">
   <meta property="og:title" content="Seren Edit: text and code editor for Android">
-  <meta property="og:description" content="A modern, fast and easy to use text and code editor for Android. It opens the files you choose, keeps them exactly as they were, and needs no permissions to do it.">
+  <meta property="og:description" content="A modern, fast and easy to use text and code editor for Android. It has no storage or network permission, so it can only open files you pick.">
   <script>
     document.documentElement.classList.add("js");
     try {
@@ -58,10 +58,10 @@
         <div class="app-hero-text">
           <img class="app-icon" src="/images/icons/edit.svg" alt="" width="104" height="104">
           <h1>Seren <span class="word">Edit</span></h1>
-          <p class="hero-lede">A modern, fast and easy to use text and code editor for Android. It opens the files you choose, keeps them exactly as they were, and needs no permissions to do it.</p>
-          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>No storage permission</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>No network permission</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Early days</li></ul>
+          <p class="hero-lede">A modern, fast and easy to use text and code editor for Android. It has no storage or network permission, so it can only open files you pick.</p>
+          <ul class="hero-chips"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Early days</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>Android 8.0 and newer</li></ul>
           <div class="btn-row">
-            <a class="btn btn-light" href="#features">See what it does</a>
+            <a class="btn btn-light" href="#features">Features</a>
             <a class="btn btn-ghost" href="https://github.com/tuckerwales/seren/tree/main/edit"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.3 9.3 0 0 1 12 6.8c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.42.2 2.47.1 2.73.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .26.18.58.69.48A10.03 10.03 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/></svg>Source code</a>
           </div>
         </div>
@@ -72,16 +72,15 @@
     <div class="wrap">
       <div class="glance" aria-label="At a glance" role="group">
           <div class="reveal"><b>7 syntaxes</b><span>Kotlin and Java, JSON, XML and HTML, shell, Markdown, YAML and TOML</span></div>
-          <div class="reveal"><b>LF · CRLF</b><span>Line endings and encodings kept, so saving never rewrites a file</span></div>
+          <div class="reveal"><b>LF · CRLF</b><span>Keeps a file&#x27;s line endings and encoding when it saves</span></div>
           <div class="reveal"><b>Ctrl+F</b><span>Find and replace with match case, and shortcuts for save and undo</span></div>
-          <div class="reveal"><b>0</b><span>Storage or network permissions. It reaches only what you pick</span></div>
+          <div class="reveal"><b>0</b><span>Storage or network permissions</span></div>
       </div>
     </div>
 
     <section class="section" data-gallery aria-labelledby="shots-title">
       <div class="wrap gallery-head">
         <div class="section-head reveal">
-          <p class="eyebrow">A look around</p>
           <h2 id="shots-title">Screenshots</h2>
         </div>
         <div class="gallery-nav">
@@ -101,31 +100,29 @@
     <section class="section section-alt" id="features" aria-labelledby="features-title">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="eyebrow">Features</p>
-          <h2 id="features-title">Everything it does</h2>
-          <p>Common actions are one tap away. Advanced options live in menus and settings, never removed.</p>
+          <h2 id="features-title">Features</h2>
         </div>
         <div class="feature-groups">
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></span><h3>Editing</h3></div>
             <ul class="feature-list">
-              <li><b>Made for code</b><span>JetBrains Mono in the same 11 color schemes as Seren SSH, with Midnight by default.</span></li>
-              <li><b>Syntax highlighting</b><span>Kotlin, Java, JSON, XML, HTML, shell, Markdown, YAML and TOML. Anything else stays plain.</span></li>
-              <li><b>Comfortable on a phone</b><span>Line numbers, word wrap, pinch to zoom, and a text size setting with a live preview.</span></li>
-              <li><b>Extra keys</b><span>Tab, arrows, Home, End, undo, redo, brackets and symbols, right above the keyboard.</span></li>
-              <li><b>Indentation that behaves</b><span>New lines keep the indent of the line above, and Tab follows the file&#x27;s own style.</span></li>
-              <li><b>Find and replace</b><span>Ctrl+F and Ctrl+H, with match case. Hardware shortcuts cover save, undo and redo too.</span></li>
+              <li><b>Font and colors</b><span>JetBrains Mono, with the same 11 color schemes as Seren SSH. Midnight is the default.</span></li>
+              <li><b>Syntax highlighting</b><span>Kotlin, Java, JSON, XML, HTML, shell, Markdown, YAML and TOML. Other files are shown in one color.</span></li>
+              <li><b>View</b><span>Line numbers, word wrap, pinch to zoom, and a text size setting with a preview.</span></li>
+              <li><b>Extra keys</b><span>A row above the keyboard with Tab, arrows, Home, End, undo, redo, brackets and symbols.</span></li>
+              <li><b>Indentation</b><span>New lines keep the indent of the line above. Tab inserts tabs or spaces to match the file.</span></li>
+              <li><b>Find and replace</b><span>Ctrl+F and Ctrl+H, with a match case option. Keyboard shortcuts also work for save, undo and redo.</span></li>
             </ul>
           </article>
           <article class="feature-group reveal">
             <div class="feature-group-head"><span class="tile-icon mint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.5h7A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg></span><h3>Files</h3></div>
             <ul class="feature-list">
-              <li><b>Open what you choose</b><span>Create a file anywhere, open any file, or add whole folders to browse from the Files tab.</span></li>
-              <li><b>Open with Seren Edit</b><span>From other apps for text, JSON, XML, YAML, TOML and shell files.</span></li>
-              <li><b>Recent files</b><span>Each with its own color, so the ones you use most are easy to spot.</span></li>
-              <li><b>Leaves your files as they were</b><span>Keeps each file&#x27;s encoding (UTF-8, UTF-16, Latin-1, with or without a byte order mark) and its line endings.</span></li>
-              <li><b>Careful with big and binary files</b><span>Warns over 2 MB, refuses over 16 MB, and turns away binary files with a clear reason instead of corrupting them.</span></li>
-              <li><b>Never loses your work</b><span>Asks before discarding unsaved changes.</span></li>
+              <li><b>Opening files</b><span>Create or open a file anywhere, or add a folder to browse it from the Files tab.</span></li>
+              <li><b>Open with</b><span>Other apps can open text, JSON, XML, YAML, TOML and shell files in Seren Edit.</span></li>
+              <li><b>Recent files</b><span>A list of files you&#x27;ve opened, each with a color you can set.</span></li>
+              <li><b>Encodings and line endings</b><span>UTF-8, UTF-16 and Latin-1, with or without a byte order mark, and LF, CRLF or CR line endings are kept as they were.</span></li>
+              <li><b>Large and binary files</b><span>Files over 2 MB get a warning. Files over 16 MB and binary files aren&#x27;t opened, and the app says why.</span></li>
+              <li><b>Unsaved changes</b><span>The app asks before discarding them.</span></li>
             </ul>
           </article>
         </div>
@@ -136,15 +133,13 @@
       <div class="wrap">
         <div class="night privacy reveal">
           <div>
-            <p class="eyebrow">Privacy</p>
-            <h2 id="privacy-title">It only sees what you open</h2>
-            <p>Seren Edit uses the Android file picker instead of storage permissions, so it can reach only the files and folders you choose. With no network permission, it has no way to send them anywhere.</p>
+            <h2 id="privacy-title">Permissions</h2>
+            <p>Seren Edit uses the Android file picker instead of a storage permission, so it can only see files and folders you choose.</p>
           </div>
           <div>
-            <h3 class="visually-hidden">Permissions</h3>
-            <ul class="perm-list">
-            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5C4 5 7.6 4 12 4s8 1 8 2.5S16.4 9 12 9 4 8 4 6.5z"/><path d="M4 6.5v11C4 19 7.6 20 12 20s8-1 8-2.5v-11M4 12c0 1.5 3.6 2.5 8 2.5s8-1 8-2.5"/></svg><div><b>Storage <span class="visually-hidden">(not used)</span></b><span>Not needed. Android hands Seren Edit only the files and folders you pick.</span></div></li>
-            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5-2.7M19 12.9a10 10 0 0 0-2.2-1.6M2 8.8a15 15 0 0 1 4.4-2.6M22 8.8A15 15 0 0 0 11 5.1M12 20h.01"/></svg><div><b>Network <span class="visually-hidden">(not used)</span></b><span>Not requested, so nothing you write can leave the device.</span></div></li>
+                        <ul class="perm-list">
+            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5C4 5 7.6 4 12 4s8 1 8 2.5S16.4 9 12 9 4 8 4 6.5z"/><path d="M4 6.5v11C4 19 7.6 20 12 20s8-1 8-2.5v-11M4 12c0 1.5 3.6 2.5 8 2.5s8-1 8-2.5"/></svg><div><b>Storage <span class="visually-hidden">(not used)</span></b><span>Not requested. Files come through the system file picker.</span></div></li>
+            <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5-2.7M19 12.9a10 10 0 0 0-2.2-1.6M2 8.8a15 15 0 0 1 4.4-2.6M22 8.8A15 15 0 0 0 11 5.1M12 20h.01"/></svg><div><b>Network <span class="visually-hidden">(not used)</span></b><span>Not requested.</span></div></li>
             <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18.5c1-2 1.5-4 1.5-6.5a4 4 0 0 1 8 0c0 1.3-.1 2.6-.3 3.8M12 12c0 3.4-.8 6.3-2.3 8.6M16.5 19.5c.3-.7.6-1.5.8-2.3"/><path d="M4.2 15.5A12 12 0 0 0 4 12a8 8 0 0 1 13.6-5.7M19.7 9.2c.2.9.3 1.8.3 2.8 0 .5 0 1-.1 1.5"/></svg><div><b>Biometrics</b><span>Only used if you turn on app lock.</span></div></li>
             </ul>
           </div>
@@ -155,18 +150,16 @@
     <section class="section section-alt" aria-labelledby="together-title">
       <div class="wrap split">
         <div class="section-head reveal">
-          <p class="eyebrow">Better together</p>
-          <h2 id="together-title">Works with the other Seren apps</h2>
-          <p>Seren Edit works fine on its own. Install the others and the right actions appear.</p>
+          <h2 id="together-title">With other Seren apps</h2>
         </div>
         <div class="reveal">
           <ul class="flows" style="list-style:none;margin:0;padding:0">
           <li class="flow">
             <div class="flow-icons"><img src="/images/icons/files.svg" alt="Seren Files" width="44" height="44"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg><img src="/images/icons/edit.svg" alt="Seren Edit" width="44" height="44"></div>
-            <div><h3>Open in Seren Edit</h3><p>Any text file in Seren Files, dotfiles and config files included, opens in Seren Edit and saves straight back.</p></div>
+            <div><h3>Open in Seren Edit</h3><p>Open text files, including dotfiles, from Seren Files in Seren Edit. Saving writes back to the original file.</p></div>
           </li>
           </ul>
-          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Each action appears only when the other app is installed. The apps hand each other files through ordinary Android intents, never secrets.</span></p>
+          <p class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>These actions only show up when the other app is installed. The apps pass files to each other through Android intents, not passwords or keys.</span></p>
         </div>
       </div>
     </section>
@@ -174,8 +167,7 @@
     <section class="section" aria-labelledby="more-title">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="eyebrow">The suite</p>
-          <h2 id="more-title">More from Seren</h2>
+          <h2 id="more-title">Other Seren apps</h2>
         </div>
         <div class="other-apps reveal">
           <a class="other-app" href="/ssh/"><img src="/images/icons/ssh.svg" alt="" width="52" height="52"><div><b>Seren <span class="word">SSH</span></b><span>Terminal, SFTP and port forwarding</span></div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
@@ -213,8 +205,8 @@
         </nav>
       </div>
       <div class="footer-bottom">
-        <span>No cookies, no analytics, no tracking. This site included.</span>
-        <span>Made in Wales</span>
+        <span>This site doesn't use cookies or analytics.</span>
+        <span>Apache License 2.0</span>
       </div>
     </div>
   </footer>

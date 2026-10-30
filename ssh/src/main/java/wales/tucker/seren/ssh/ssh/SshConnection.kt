@@ -1,5 +1,6 @@
 package wales.tucker.seren.ssh.ssh
 
+import com.jcraft.jsch.ChannelExec
 import com.jcraft.jsch.ChannelSftp
 import com.jcraft.jsch.ChannelShell
 import com.jcraft.jsch.HostKey
@@ -97,6 +98,13 @@ class ShellChannel internal constructor(private val channel: ChannelShell) {
     fun close() {
         runCatching { channel.disconnect() }
     }
+}
+
+/** A non-PTY exec channel, separate from the interactive shell. */
+class ExecChannel internal constructor(private val channel: ChannelExec) : java.io.Closeable {
+    val input: InputStream = channel.inputStream
+    val output: OutputStream = channel.outputStream
+    override fun close() { channel.disconnect() }
 }
 
 /**
@@ -225,6 +233,24 @@ class SshConnection(
         val shell = ShellChannel(ch)
         ch.connect(15_000)
         return shell
+    }
+
+    /** Call on Dispatchers.IO. Uses this connection's existing trust and jump-host chain. */
+    fun openExec(command: String): ExecChannel {
+        val s = session ?: throw IllegalStateException("Not connected")
+        val ch = s.openChannel("exec") as ChannelExec
+        try {
+            ch.setPty(false)
+            ch.setCommand(command)
+            // Startup diagnostics must never contaminate JSON stdout or block stderr.
+            ch.setErrStream(object : OutputStream() { override fun write(value: Int) {} })
+            val result = ExecChannel(ch)
+            ch.connect(15_000)
+            return result
+        } catch (error: Exception) {
+            ch.disconnect()
+            throw error
+        }
     }
 
     fun openSftp(): ChannelSftp {

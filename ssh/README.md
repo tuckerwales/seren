@@ -114,3 +114,9 @@ Colors, type, components, copy and icon rules shared by all the apps in the suit
 
 JSch (BSD), Bouncy Castle (MIT), JetBrains Mono (SIL Open Font License 1.1, see
 `core/src/main/assets/licenses`), AndroidX and Jetpack Compose (Apache 2.0).
+
+## Local voice commands
+
+From a connected terminal, open **More → Voice commands** to record or type a natural-language request, review the generated shell command, approve it, and see its output. Speech recognition (faster-whisper) and command translation (Ollama) run locally on your macOS/Linux SSH host through a separate authenticated SSH channel. No cloud inference or paid API is used. The models do not run on the phone.
+
+See [host setup, app flow, protocol, and limitations](../tools/speakshell/README.md). Commands run in an explicitly selected directory in a fresh shell, independently of the interactive terminal.

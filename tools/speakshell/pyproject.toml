@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speakshell"
+version = "0.1.0"
+description = "Modular natural-language and voice shell for macOS, Linux, and SSH"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+speech = ["faster-whisper>=1.1,<2"]
+voice = ["sounddevice>=0.4.6", "numpy>=1.24", "faster-whisper>=1.1,<2"]
+
+[project.scripts]
+speakshell = "speakshell.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

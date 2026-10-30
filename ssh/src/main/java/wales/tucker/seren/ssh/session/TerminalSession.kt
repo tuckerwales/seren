@@ -329,6 +329,12 @@ class TerminalSession(
 
     // endregion
 
+    /** Opens the private assistant protocol on the current authenticated connection. */
+    fun openVoiceChannel(executable: String, cwd: String): wales.tucker.seren.ssh.ssh.ExecChannel {
+        val conn = connection?.takeIf { it.isConnected && isConnected } ?: throw IOException("Not connected")
+        return conn.openExec(wales.tucker.seren.ssh.voice.backendCommand(executable, cwd))
+    }
+
     // region SFTP
 
     /** Opens (or reuses) an SFTP channel on this session's connection. */

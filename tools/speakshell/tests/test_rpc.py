@@ -79,7 +79,13 @@ rpc(Session(models, Context.local()), models)
             process = subprocess.Popen([sys.executable, "-c", runner], cwd=directory,
                                        env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE, text=True)
-            self.addCleanup(lambda: process.poll() is None and process.kill())
+            def cleanup():
+                if process.poll() is None:
+                    process.kill()
+                process.wait(timeout=5)
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    stream.close()
+            self.addCleanup(cleanup)
             def send(request):
                 process.stdin.write(json.dumps(request) + "\n")
                 process.stdin.flush()
@@ -87,7 +93,7 @@ rpc(Session(models, Context.local()), models)
             transcript = send({"id": 1, "method": "transcribe", "params": {"audio": audio()}})
             plan = send({"id": 2, "method": "plan", "params": {"text": transcript["result"]["text"]}})["result"]
             self.assertFalse((Path(directory) / "approved").exists())
-            self.assertEqual(plan["context"]["cwd"], directory)
+            self.assertEqual(plan["context"]["cwd"], str(Path(directory).resolve()))
             execute = {"id": 3, "method": "execute", "params": {"proposal_id": plan["id"], "approved": True}}
             result = send(execute)["result"]
             self.assertEqual(result["output"], "hello")

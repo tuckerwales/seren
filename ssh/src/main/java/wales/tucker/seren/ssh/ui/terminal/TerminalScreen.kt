@@ -123,6 +123,7 @@ import wales.tucker.seren.core.ui.theme.MonoFamily
 import wales.tucker.seren.core.ui.theme.MonoSmall
 import wales.tucker.seren.core.ui.theme.StatusColors
 import wales.tucker.seren.core.ui.theme.SystemBarAppearance
+import wales.tucker.seren.ssh.voice.VoiceCommandDialog
 import wales.tucker.seren.ssh.data.Settings
 import wales.tucker.seren.ssh.data.SettingsRepository
 import wales.tucker.seren.ssh.data.Snippet
@@ -184,6 +185,7 @@ private fun TerminalContent(
     var menuOpen by remember { mutableStateOf(false) }
     var switcherOpen by remember { mutableStateOf(false) }
     var snippetsOpen by remember { mutableStateOf(false) }
+    var voiceOpen by remember(session.id) { mutableStateOf(false) }
     var confirmClose by remember { mutableStateOf(false) }
     var keyboardShownOnce by remember { mutableStateOf(false) }
     var scrolledBackInHistory by remember { mutableStateOf(false) }
@@ -296,6 +298,11 @@ private fun TerminalContent(
         }
     }
 
+    if (voiceOpen && state == SessionState.Connected) {
+        VoiceCommandDialog(session, onDismiss = { voiceOpen = false })
+    }
+    LaunchedEffect(state) { if (state != SessionState.Connected) voiceOpen = false }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -379,6 +386,12 @@ private fun TerminalContent(
                         Icon(Icons.Rounded.MoreVert, contentDescription = "More", tint = fg)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Voice commands") },
+                            leadingIcon = { Icon(Icons.Rounded.Terminal, null) },
+                            enabled = state == SessionState.Connected,
+                            onClick = { menuOpen = false; terminalView?.hideKeyboard(); voiceOpen = true },
+                        )
                         DropdownMenuItem(
                             text = { Text("Find in scrollback") },
                             leadingIcon = { Icon(Icons.Rounded.Search, null) },

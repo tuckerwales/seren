@@ -199,6 +199,22 @@ class SshIntegrationTest {
     }
 
     @Test
+    fun execChannelIsSeparateFromInteractiveShell() {
+        val c = SshConnection(dao, TestUi())
+        try {
+            c.connect(target())
+            val shell = c.openShell(80, 24, 800, 480)
+            c.openExec("printf 'private-channel'; printf 'diagnostic' >&2").use { channel ->
+                assertEquals("private-channel", channel.input.bufferedReader().readText())
+            }
+            assertTrue(shell.isOpen)
+            shell.close()
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    @Test
     fun interactiveShell() {
         val c = SshConnection(dao, TestUi())
         c.connect(target())
